@@ -8,13 +8,12 @@ Throughout this project, the student will gain familiarity with deep learning fr
 
 ## Environment Setup
 
-1. Install packages in ``requirements.txt``.
+1. Create and activate new conda environment
 
-        pip install -r requirements.txt
-        conda install --file requirements.txt
+        conda create -n <env_name> python=3.8
+        conda activate <env_name>
 
-2. Install ``pytorch`` following this [link](https://pytorch.org/).
+2. Run ``setup.sh``
 
-3. Install ``pytorch_geometric`` following this [link](https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html).
-
-
+        chmod u+x ./setup.sh
+        ./setup.sh
