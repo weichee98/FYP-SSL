@@ -13,6 +13,11 @@ def load_data_fmri(data_dir=MAIN_DIR):
     X: np.ndarray with 823 subject samples, each sample consists of a 264 x 264 correlation matrix
     Y: np.ndarray with 823 subject samples, each sample has a one-hot encoded label (0: Normal, 1: Diseased)
     splits: np.ndarray with dimension 100 x 5 x 2
+        - consists of indices for all subjects from all sites (targeted for supervised learning)
+        - test indices of seed n = splits[n][0]
+        - the train and val indices of seed n, fold k = splits[n][1][k][0] and splits[n][1][k][1]
+    ssl_splits: np.ndarray with dimension 100 x 5 x 2
+        - only consists of indices for the largest site (NYU)
         - test indices of seed n = splits[n][0]
         - the train and val indices of seed n, fold k = splits[n][1][k][0] and splits[n][1][k][1]
     """

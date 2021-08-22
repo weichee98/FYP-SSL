@@ -43,12 +43,16 @@ def get_experiment_param(
     param["model_path"] = None      # set when run
     param["acc"] = None             # set when run
     param["loss"] = None            # set when run
+    param["time"] = None            # set when run
+    param["device"] = None          # set when run
     return param
 
-def set_experiment_param(param, model_path, acc, loss):
+def set_experiment_param(param, model_path, acc, loss, time, device):
     param["model_path"] = model_path
     param["acc"] = acc
     param["loss"] = loss 
+    param["time"] = time
+    param["device"] = device
 
 def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc):
     return "Epoch: {:03d}, Train Acc: {:.4f}, Test Acc: {:.4f}, " \
@@ -58,6 +62,7 @@ def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc):
 
 @on_error({}, True)
 def experiment(device, verbose, param, model_dir):
+    start = time.time()
     X, Y, _, splits = load_data_fmri()
     X_flattened = corr_mx_flatten(X)
     ages, genders = get_ages_and_genders()
@@ -72,9 +77,12 @@ def experiment(device, verbose, param, model_dir):
         nontest_indices, test_indices = splits[seed][1][fold]
 
     if param["ssl"]:
+        # if SSL is used, all subjects from all sites are used to create graph
         A = get_pop_A(X_flattened, ages, genders)
         data = make_graph(X_flattened, A, Y.argmax(axis=1))
     else:
+        # if SSL is not used, only subjects from largest site is used to create graph
+        # adjust the indices accordingly to match the subject used in the graph
         all_indices = np.concatenate([nontest_indices, test_indices], axis=0)
         A = get_pop_A(
             X_flattened[all_indices], ages[all_indices], genders[all_indices]
@@ -140,13 +148,15 @@ def experiment(device, verbose, param, model_dir):
             ))
 
     if param["save_model"] and best_model is not None:
+        mkdir(model_dir)
         model_name = "{}.pt".format(model_time)
         model_path = os.path.join(model_dir, model_name)
         torch.save(best_model, model_path)
     else:
         model_path = None
 
-    set_experiment_param(param, model_path, best_acc, best_loss)
+    end = time.time()
+    set_experiment_param(param, model_path, best_acc, best_loss, end - start, args.gpu)
     if verbose:
         print(param)
     return param
@@ -164,19 +174,19 @@ def main(args):
     experiment_name = "{}_{}".format(script_name, int(time.time()))
 
     exp_dir = os.path.join(args.exp_dir, experiment_name)
-    model_dir = os.path.join(exp_dir, "models")
-    mkdir(exp_dir)
-    mkdir(model_dir)
+    model_dir = os.path.join(exp_dir, "models")    
     print("Experiment result: {}".format(exp_dir))
 
     res = []
-    for seed in range(10):
+    for seed in range(100):
         param = get_experiment_param(
-            model="GCN", emb_size=150, K=3, seed=seed, ssl=False
+            model="GCN", emb_size=150, K=3, seed=seed, 
+            ssl=False, save_model=False
         )
         exp_res = experiment(device, args.verbose, param, model_dir)
         res.append(exp_res)
     
+    mkdir(exp_dir)
     df = pd.DataFrame(res).dropna(how="all")
     res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
     df.to_csv(res_path, index=False)
