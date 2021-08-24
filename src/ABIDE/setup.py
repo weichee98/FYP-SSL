@@ -172,10 +172,12 @@ def combat_harmonization(X, meta_df):
     X = corr_mx_flatten(X)
     covars = meta_df[["SITE_ID", "AGE_AT_SCAN", "SEX"]]
     categorical_cols = ["SEX"]
+    continuous_cols = ["AGE_AT_SCAN"]
     batch_col = "SITE_ID"
     combat = neuroCombat(
         dat=X.T, covars=covars, batch_col=batch_col,
-        categorical_cols=categorical_cols
+        categorical_cols=categorical_cols,
+        continuous_cols=continuous_cols,
     )
     harmonized_X = combat["data"].T
     harmonized_X = np.array([squareform(x) for x in harmonized_X])
