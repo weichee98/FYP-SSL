@@ -1,3 +1,4 @@
 import os
 
-EXPERIMENT_DIR = os.path.abspath("../experiments")
+__dir__ =  os.path.dirname(os.path.dirname(__file__))
+EXPERIMENT_DIR = os.path.join(__dir__, "experiments")

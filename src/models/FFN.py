@@ -1,5 +1,13 @@
+import os
+import sys
 import torch
 import torch.nn.functional as F
+from torch_geometric.utils import subgraph
+
+__dir__ = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(__dir__)
+
+from loss import LaplacianRegularization
 
 
 class FFN(torch.nn.Module):
@@ -24,7 +32,26 @@ class FFN(torch.nn.Module):
         return x
 
 
-def train_FFN(device, model, data, optimizer, train_idx):
+def get_laplacian_regularization(device, data, laplacian_idx, y):
+    laplacian_idx = torch.tensor(laplacian_idx).long()
+    edge_index, edge_weights = subgraph(
+        subset=laplacian_idx,
+        edge_index = data.edge_index,
+        edge_attr = data.edge_attr,
+        relabel_nodes=True
+    )
+    criterion = LaplacianRegularization(normalization="sym", p=2)
+    loss = criterion(edge_index.to(device), edge_weights.to(device), y[laplacian_idx])
+    return loss
+
+
+def train_FFN(device, model, data, optimizer, train_idx, 
+              laplacian_idx=None, gamma_lap=0):
+    """
+    unlabeled_idx: the indices of labeled and unlabeled data
+                   (exclude test indices)
+    gamma_lap: float, the weightage of laplacian regularization
+    """
     model.to(device)
     model.train()
     optimizer.zero_grad()  # Clear gradients
@@ -33,6 +60,12 @@ def train_FFN(device, model, data, optimizer, train_idx):
     real_y = data.y[train_idx].to(device)
     criterion = torch.nn.CrossEntropyLoss()
     loss = criterion(pred_y[train_idx], real_y)
+    
+    if laplacian_idx is not None and gamma_lap > 0:
+        loss += gamma_lap * get_laplacian_regularization(
+            device, data, laplacian_idx, pred_y
+        )
+    
     loss_val = loss.item()
     loss.backward()     # Derive gradients.
     optimizer.step()    # Update parameters based on gradients.
