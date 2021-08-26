@@ -5,19 +5,18 @@ from torch_geometric.nn import ChebConv
 
 class ChebGCN(torch.nn.Module):
     
-    def __init__(self, input_size, graph_embedding_size, K):
+    def __init__(self, input_size, hidden, emb1, emb2, K):
         super().__init__()
-        self.linear1 = torch.nn.Linear(input_size, graph_embedding_size)
-        self.conv1 = ChebConv(graph_embedding_size, graph_embedding_size, K=K)
-        self.conv2 = ChebConv(graph_embedding_size, graph_embedding_size, K=K)
-        self.linear2 = torch.nn.Linear(graph_embedding_size, 50)
-        self.linear3 = torch.nn.Linear(50, 2) # this is the head for disease class
+        self.linear1 = torch.nn.Linear(input_size, hidden)
+        self.conv1 = ChebConv(hidden, emb1, K=K)
+        self.conv2 = ChebConv(emb1, emb2, K=K)
+        self.linear2 = torch.nn.Linear(emb2, 2) # this is the head for disease class
             
     def forward(self, x, edge_index, edge_weight):
         x = self.linear1(x)
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
-        
+
         x = self.conv1(x, edge_index, edge_weight)
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
@@ -25,12 +24,8 @@ class ChebGCN(torch.nn.Module):
         x = self.conv2(x, edge_index, edge_weight)
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
-        
-        x = self.linear2(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=0.5, training=self.training)
 
-        x = self.linear3(x)
+        x = self.linear2(x)
         x = F.softmax(x, dim=1)
         return x
 

@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch_geometric.utils import get_laplacian
 
 
 class LaplacianRegularization(nn.Module):
@@ -11,6 +12,8 @@ class LaplacianRegularization(nn.Module):
             ``L = D - W``
         - "sym": Symmetric normalization
             ``L = I - D^(-1/2) * W * D^(-1/2)``
+        - "rw": Random-walk normalization
+            ``L = I - D^(-1) * A``
         """
         self.normalization = normalization
         self.p = p
@@ -24,10 +27,7 @@ class LaplacianRegularization(nn.Module):
         if norm in [None, "sym"]:
             self._norm = norm
         else:
-            raise ValueError(
-                "invalid normalization {}" \
-                    .format(norm)
-            )
+            raise ValueError("invalid normalization {}".format(norm))
 
     @property
     def p(self):
@@ -48,35 +48,19 @@ class LaplacianRegularization(nn.Module):
         edge_index == (2, num_edges)
         edge_weights == (num_edges,)
         y: predicted labels == (num_nodes, num_classes)
-        """
-        if y.dim() > 2:
-            raise ValueError("y has more than 2 dimensions")
-        elif y.dim() == 0:
-            raise ValueError("y cannot be a scalar with no dimensions")
-        
-        row, col = edge_index
-        y_r, y_c = y[row].float(), y[col].float()
-
-        if self.normalization == "sym":
-            degree = self._degree(edge_index, edge_weights, y)
-            degree = torch.sqrt(degree)
-        else:
-            degree = torch.ones(y.size(0)).float()
-        d_r, d_c = degree[row], degree[col]
-        if y.dim() == 2:
-            d_r = d_r.unsqueeze(dim=1)
-            d_c = d_c.unsqueeze(dim=1)
-
-        diff = y_r / d_r - y_c / d_c
-        l2_norm = torch.norm(diff, dim=1, p=self.p)
-        reg = (l2_norm * edge_weights).mean()
+        """        
+        lap = self._laplacian(edge_index, edge_weights, y)
+        reg = torch.matmul(torch.matmul(y.T, lap), y)
+        reg = torch.diagonal(reg).mean()
         return reg
 
-    @staticmethod
-    def _degree(edge_index, edge_weights, y):
-        num_nodes = y.size(0)
-        adj = torch.zeros((num_nodes, num_nodes)).float().to(y.device)
-        row, col = edge_index
-        adj[row, col] = edge_weights.float()
-        degree = adj.sum(dim=1)
-        return degree
+    def _laplacian(self, edge_index, edge_weight, y):
+        with torch.no_grad():
+            edge_index, edge_weight = get_laplacian(
+                edge_index, edge_weight, self.normalization
+            )
+            num_nodes = y.size(0)
+            row, col = edge_index
+            lap = torch.zeros((num_nodes, num_nodes)).float().to(y.device)
+            lap[row, col] = edge_weight.float()
+            return lap

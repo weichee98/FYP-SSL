@@ -12,11 +12,12 @@ from loss import LaplacianRegularization
 
 class FFN(torch.nn.Module):
     
-    def __init__(self, input_size, l1, l2):
+    def __init__(self, input_size, l1, l2, l3):
         super().__init__()
         self.linear1 = torch.nn.Linear(input_size, l1)
         self.linear2 = torch.nn.Linear(l1, l2)
-        self.linear3 = torch.nn.Linear(l2, 2) # this is the head for disease class
+        self.linear3 = torch.nn.Linear(l2, l3)
+        self.linear4 = torch.nn.Linear(l3, 2) # this is the head for disease class
             
     def forward(self, x): # full batch
         x = self.linear1(x)
@@ -26,8 +27,12 @@ class FFN(torch.nn.Module):
         x = self.linear2(x)
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
-        
+
         x = self.linear3(x)
+        x = F.relu(x)
+        x = F.dropout(x, p=0.5, training=self.training)
+        
+        x = self.linear4(x)
         x = F.softmax(x, dim=1) # output for disease classification        
         return x
 

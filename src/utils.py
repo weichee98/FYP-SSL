@@ -52,11 +52,6 @@ def get_pop_A(X, ages, genders):
     assert ages.shape[0] == num_samples
     assert genders.shape[0] == num_samples
 
-    dist = 1 - distance.pdist(X, "correlation")
-    dist = (dist - dist.min()) / (dist.max() - dist.min()) + 1
-    dist = distance.squareform(dist)
-    np.fill_diagonal(dist, 0)
-
     age_sim = distance.pdist(np.expand_dims(ages, 1))
     age_sim = np.where(age_sim < 2, 1, 0)
     age_sim = distance.squareform(age_sim)
@@ -67,19 +62,33 @@ def get_pop_A(X, ages, genders):
     gender_sim = np.where(gender_sim == 0, 1, 0)
     gender_sim = distance.squareform(gender_sim)
 
+    dist = distance.pdist(X, metric='correlation') 
+    dist = distance.squareform(dist)  
+    sigma = np.mean(dist)
+    dist = np.exp(- dist ** 2 / (2 * sigma ** 2))
     A = dist * (gender_sim + age_sim)
+    np.fill_diagonal(A, 0)
     return A
 
 
-def make_graph(X, A, y, **kwargs):
+def distance_to_similarity(adj, edge_thres=None):
+    adj = (adj - np.mean(adj)) / np.std(adj)
+    adj = adj - adj.min()
+    adj = np.exp(-(adj ** 2))
+    if edge_thres is not None:
+        adj [adj < edge_thres] = 0
+    return adj
+
+
+def make_graph(X, A, y, min_weight=0, **kwargs):
     """
     X.shape == (num_samples, num_features)
     A.shape == (num_samples, num_samples); the weighted adj matrix
     y.shape == (num_samples,)
     """
     node_features = torch.tensor(X).float() # (num_nodes, num_features)
-    edge_index = torch.tensor(np.argwhere((A > 0)).T) # (2, num_edges)
-    weights = torch.tensor(A[np.where(A > 0)]).float()
+    edge_index = torch.tensor(np.argwhere((A > min_weight)).T) # (2, num_edges)
+    weights = torch.tensor(A[np.where(A > min_weight)]).float()
     d = torch_geometric.data.Data(
         x=node_features, edge_index=edge_index, 
         edge_attr=weights, y=torch.tensor(y)

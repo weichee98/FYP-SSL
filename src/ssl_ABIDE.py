@@ -6,14 +6,28 @@ import argparse
 import torch
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+from itertools import product
 
 from ABIDE import load_data_fmri, get_ages_and_genders
 from config import EXPERIMENT_DIR
 from metrics import EMA
-from utils import mkdir, on_error, corr_mx_flatten, get_pop_A, make_graph
+from utils import (
+    mkdir, on_error, corr_mx_flatten, get_pop_A, 
+    make_graph,
+)
 from models import ChebGCN, train_GCN, test_GCN
 from models import FFN, train_FFN, test_FFN
 
+
+def get_device(id):
+    if id >= 0 and torch.cuda.is_available():
+        print("Using device: cuda:{}".format(id))
+        device = torch.device("cuda:{}".format(id))
+    else:
+        print("Using device: cpu")
+        device = torch.device("cpu")
+    return device
 
 def seed_torch(seed=42):
     random.seed(seed)
@@ -26,21 +40,22 @@ def seed_torch(seed=42):
     torch.backends.cudnn.deterministic = True
 
 def get_experiment_param(
-        model="GCN", emb_size=150, K=3, L1=50, L2=30, 
+        model="GCN", seed=0, fold=0, 
         ssl=True, test=True, save_model=True, 
-        seed=0, fold=0, site="NYU", harmonized=False,
-        ema=None, gamma_lap=0, lr=0.0001
+        site="NYU", harmonized=False,
+        ema=None, lr=0.0001,
+        **kwargs
     ):
+    """
+    kwargs:
+    1. GCN model (hidden, emb1, emb2, K)
+    2. FFN model (L1, L2, L3, gamma_lap)
+    """
     param = dict()
     param["site"] = site
     param["seed"] = seed
     param["fold"] = fold
     param["model"] = model
-    param["emb_size"] = emb_size    # GCN parameter
-    param["K"] = K                  # GCN parameter
-    param["L1"] = L1                # FFN parameter
-    param["L2"] = L2                # FFN parameter
-    param["gamma_lap"] = gamma_lap  # FFN parameter
     param["lr"] = lr
     param["ema"] = ema
     param["ssl"] = ssl
@@ -52,6 +67,8 @@ def get_experiment_param(
     param["loss"] = None            # set when run
     param["time"] = None            # set when run
     param["device"] = None          # set when run
+    for k, v in kwargs.items():
+        param[k] = v
     return param
 
 def set_experiment_param(param, model_path, acc, loss, time, device):
@@ -66,6 +83,18 @@ def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc):
         "Train Loss: {:.4f}, Test Loss: {:.4f}".format(
             epoch, train_acc, test_acc, train_loss, test_loss
         )
+
+def epoch_gen(max_epoch=1000):
+    i = 1
+    while i <= max_epoch:
+        yield i
+        i += 1
+
+def get_pbar(max_epoch, verbose):
+    if verbose:
+        return tqdm(epoch_gen(max_epoch))
+    else:
+        return epoch_gen(max_epoch)
 
 @on_error({}, True)
 def experiment(device, verbose, param, model_dir):
@@ -108,12 +137,15 @@ def experiment(device, verbose, param, model_dir):
         model = FFN(
             input_size=X_flattened.shape[1], 
             l1=param["L1"], 
-            l2=param["L2"]
+            l2=param["L2"],
+            l3=param["L3"]
         )
     elif param["model"] == "GCN":
         model = ChebGCN(
             input_size=X_flattened.shape[1], 
-            graph_embedding_size=param["emb_size"], 
+            hidden=param["hidden"],
+            emb1=param["emb1"], 
+            emb2=param["emb2"], 
             K=param["K"]
         )
     else:
@@ -128,7 +160,11 @@ def experiment(device, verbose, param, model_dir):
     best_loss = np.inf
     best_model = None
     ema = EMA(k=param["ema"])
-    for epoch in range(1, 251):
+    patience = 100
+    cur_patience = 0
+    pbar = get_pbar(1000, args.verbose)
+
+    for epoch in pbar:
         if param["model"] == "GCN":
             train_loss, train_acc = train_GCN(
                 device, model, data, optimizer, nontest_indices
@@ -149,18 +185,27 @@ def experiment(device, verbose, param, model_dir):
             train_loss, train_acc, test_loss, test_acc
         )
 
+        # early stopping
+        if test_loss >= best_loss:
+            cur_patience += 1
+        else:
+            cur_patience = 0
+
         if test_loss < best_loss:
             best_loss = test_loss
-
         if test_acc > best_acc:
             best_acc = test_acc
             best_model = copy.deepcopy(model.state_dict())
             model_time = int(time.time())
 
-        if verbose and epoch % 10 == 0:
-            print(verbose_info(
+        if verbose:
+            pbar.set_postfix_str(verbose_info(
                 epoch, train_loss, test_loss, train_acc, test_acc
             ))
+
+        # early stopping
+        if cur_patience == patience:
+            break
 
     if param["save_model"] and best_model is not None:
         mkdir(model_dir)
@@ -177,40 +222,35 @@ def experiment(device, verbose, param, model_dir):
     return param
 
 def main(args):
-    if args.gpu >= 0 and torch.cuda.is_available():
-        print("Using device: cuda:{}".format(args.gpu))
-        device = torch.device("cuda:{}".format(args.gpu))
-    else:
-        print("Using device: cpu")
-        device = torch.device("cpu")
-
+    device = get_device(args.gpu)
     seed_torch()
     script_name = os.path.splitext(os.path.basename(__file__))[0]
-    experiment_name = "{}_{}".format(script_name, int(time.time()))
 
-    exp_dir = os.path.join(args.exp_dir, experiment_name)
-    model_dir = os.path.join(exp_dir, "models")    
-    print("Experiment result: {}".format(exp_dir))
+    for ssl in (True, False):
+        experiment_name = "{}_{}".format(script_name, int(time.time()))
+        exp_dir = os.path.join(args.exp_dir, experiment_name)
+        model_dir = os.path.join(exp_dir, "models")    
+        print("Experiment result: {}".format(exp_dir))
 
-    res = []
-    for seed in range(100):
-        # param = get_experiment_param(
-        #     model="GCN", emb_size=150, K=3, seed=seed, 
-        #     ssl=True, save_model=False, harmonized=False,
-        #     site="NYU", ema=0.2, lr=0.0001
-        # )
-        param = get_experiment_param(
-            model="FFN", L1=50, L2=30, gamma_lap=0.1, seed=seed, 
-            ssl=True, save_model=False, harmonized=False,
-            site="NYU", ema=0.2, lr=0.0001
-        )
-        exp_res = experiment(device, args.verbose, param, model_dir)
-        res.append(exp_res)
-    
-    mkdir(exp_dir)
-    df = pd.DataFrame(res).dropna(how="all")
-    res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
-    df.to_csv(res_path, index=False)
+        res = []
+        for seed in range(100):
+            # param = get_experiment_param(
+            #     model="GCN", hidden=150, emb1=50, emb2=30, K=3, 
+            #     seed=seed, ssl=ssl, save_model=False, harmonized=False,
+            #     site="NYU", ema=0.2, lr=0.00005
+            # )
+            param = get_experiment_param(
+                model="FFN", L1=150, L2=50, L3=30, gamma_lap=0.2, 
+                seed=seed, ssl=ssl, save_model=False, harmonized=False,
+                site="NYU", ema=0.2, lr=0.00005
+            )
+            exp_res = experiment(device, args.verbose, param, model_dir)
+            res.append(exp_res)
+        
+        mkdir(exp_dir)
+        df = pd.DataFrame(res).dropna(how="all")
+        res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
+        df.to_csv(res_path, index=False)
 
 
 if __name__ == "__main__":
