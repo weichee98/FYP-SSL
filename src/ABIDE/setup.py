@@ -180,6 +180,7 @@ def combat_harmonization(X, meta_df):
         continuous_cols=continuous_cols,
     )
     harmonized_X = combat["data"].T
+    harmonized_X = np.clip(harmonized_X, -1, 1)
     harmonized_X = np.array([squareform(x) for x in harmonized_X])
     np.save(HARMONIZED_X_PATH, harmonized_X)
 

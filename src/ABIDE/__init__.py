@@ -52,5 +52,11 @@ def get_ages_and_genders():
     return ages, genders
 
 
+def get_sites():
+    meta_df = pd.read_csv(META_CSV_PATH)
+    sites = meta_df["SITE_ID"]
+    return sites
+
+
 def load_meta_df():
     return pd.read_csv(META_CSV_PATH)
