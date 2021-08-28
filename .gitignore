@@ -132,9 +132,11 @@ dmypy.json
 .vscode
 
 # additional
+.archive
 ref
 data
 experiments
 models
 !src/models
 compare
+nohup*
