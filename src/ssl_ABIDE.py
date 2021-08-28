@@ -9,7 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 from itertools import product
 
-from ABIDE import load_data_fmri, get_ages_and_genders
+from ABIDE import *
 from config import EXPERIMENT_DIR
 from metrics import EMA
 from utils import (
@@ -97,9 +97,13 @@ def get_pbar(max_epoch, verbose):
         return epoch_gen(max_epoch)
 
 @on_error({}, True)
-def experiment(device, verbose, param, model_dir):
+def experiment(args, param, model_dir):
+    device = get_device(args.gpu)
+    verbose = args.verbose
+
     start = time.time()
-    X, Y, splits = load_data_fmri(site_id=param["site"], harmonized=param["harmonized"])
+    X, Y = load_data_fmri(harmonized=param["harmonized"])
+    splits = get_splits(site_id=param["site"], test=param["test"])
     X_flattened = corr_mx_flatten(X)
     ages, genders = get_ages_and_genders()
 
@@ -111,6 +115,9 @@ def experiment(device, verbose, param, model_dir):
         nontest_indices = np.concatenate([train_indices, val_indices], axis=0)
     else:
         nontest_indices, test_indices = splits[seed][1][fold]
+
+    print("NUM_TRAIN: {}".format(nontest_indices.shape[0]))
+    print("NUM_TEST: {}".format(test_indices.shape[0]))
 
     if param["ssl"]:
         # if SSL is used, all subjects from all sites are used to create graph
@@ -162,7 +169,7 @@ def experiment(device, verbose, param, model_dir):
     ema = EMA(k=param["ema"])
     patience = 100
     cur_patience = 0
-    pbar = get_pbar(1000, args.verbose)
+    pbar = get_pbar(1000, verbose)
 
     for epoch in pbar:
         if param["model"] == "GCN":
@@ -222,35 +229,56 @@ def experiment(device, verbose, param, model_dir):
     return param
 
 def main(args):
-    device = get_device(args.gpu)
     seed_torch()
     script_name = os.path.splitext(os.path.basename(__file__))[0]
 
-    for ssl in (True, False):
+    sites = np.array([
+        "CALTECH", "LEUVEN_1", "LEUVEN_2", "MAX_MUN", "NYU", "OHSU", 
+        "OLIN", "PITT", "STANFORD", "TRINITY", "UCLA_1", "UCLA_2", 
+        "UM_1", "UM_2", "USM", "YALE"
+    ])
+    print(sites)
+
+    for ssl, harmonized in product([False, True], [False, True]):
+        if not ssl and harmonized:
+            continue
+        
+        print("===================")
+        print("EXPERIMENT SETTINGS")
+        print("===================")
+        print("SSL: {}".format(ssl))
+        print("HARMONIZED: {}".format(harmonized))
+
         experiment_name = "{}_{}".format(script_name, int(time.time()))
         exp_dir = os.path.join(args.exp_dir, experiment_name)
         model_dir = os.path.join(exp_dir, "models")    
         print("Experiment result: {}".format(exp_dir))
 
         res = []
-        for seed in range(100):
-            # param = get_experiment_param(
-            #     model="GCN", hidden=150, emb1=50, emb2=30, K=3, 
-            #     seed=seed, ssl=ssl, save_model=False, harmonized=False,
-            #     site="NYU", ema=0.2, lr=0.00005
-            # )
-            param = get_experiment_param(
-                model="FFN", L1=150, L2=50, L3=30, gamma_lap=0.2, 
-                seed=seed, ssl=ssl, save_model=False, harmonized=False,
-                site="NYU", ema=0.2, lr=0.00005
-            )
-            exp_res = experiment(device, args.verbose, param, model_dir)
-            res.append(exp_res)
+        seed = 0
+        for site in sites:
+            print("SITE: {}".format(site))
+            for fold in range(5):
+                param = get_experiment_param(
+                    model="GCN", hidden=150, emb1=50, emb2=30, K=3, 
+                    seed=seed, fold=fold, ssl=ssl, save_model=False, 
+                    site=site, ema=0.2, lr=0.00005, harmonized=harmonized,
+                    test=False,
+                )
+                # param = get_experiment_param(
+                #     model="FFN", L1=150, L2=50, L3=30, gamma_lap=0.005, 
+                #     seed=seed, fold=fold, ssl=False, save_model=False, 
+                #     site="NYU", ema=0.2, lr=0.00005, harmonized=harmonized,
+                #     test=False
+                # )
+                exp_res = experiment(args, param, model_dir)
+                res.append(exp_res)
         
         mkdir(exp_dir)
         df = pd.DataFrame(res).dropna(how="all")
-        res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
-        df.to_csv(res_path, index=False)
+        if not df.empty:
+            res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
+            df.to_csv(res_path, index=False)
 
 
 if __name__ == "__main__":
@@ -261,6 +289,5 @@ if __name__ == "__main__":
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--exp_dir', type=str, default=EXPERIMENT_DIR,
                         help="directory to save experiment results")
-    args = parser.parse_args()    
+    args = parser.parse_args()
     main(args)
-    
