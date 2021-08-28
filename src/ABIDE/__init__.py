@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(__file__))
 from abide_config import *
 
 
-def load_data_fmri(site_id=None, harmonized=False):
+def load_data_fmri(harmonized=False):
     """
     Inputs
     site_id: str or None
@@ -19,24 +19,23 @@ def load_data_fmri(site_id=None, harmonized=False):
     Returns
     X: np.ndarray with 823 subject samples, each sample consists of a 264 x 264 correlation matrix
     Y: np.ndarray with 823 subject samples, each sample has a one-hot encoded label (0: Normal, 1: Diseased)
-    splits: np.ndarray with dimension 100 x 5 x 2
-        - consists of indices for all subjects from all sites (targeted for supervised learning)
-        - test indices of seed n = splits[n][0]
-        - the train and val indices of seed n, fold k = splits[n][1][k][0] and splits[n][1][k][1]
     """
     if harmonized:
         X = np.load(HARMONIZED_X_PATH)
     else:
         X = np.load(X_PATH)
     Y = np.load(Y_PATH)
+    return X, Y
+
+
+def get_splits(site_id=None, test=False):
     if site_id is None:
-        splits = np.load(SPLITS_PATH, allow_pickle=True)
+        path = SPLIT_TEST_PATH if test else SPLIT_CV_PATH
     else:
-        splits = np.load(
-            os.path.join(SSL_SPLITS_DIR, "{}.npy".format(site_id)), 
-            allow_pickle=True
-        )
-    return X, Y, splits
+        path = "{}_test.npy".format(site_id) if test else "{}_cv.npy".format(site_id)
+        path = os.path.join(SSL_SPLITS_DIR, path)
+    splits = np.load(path, allow_pickle=True)
+    return splits
 
 
 def get_ages_and_genders():
@@ -54,7 +53,7 @@ def get_ages_and_genders():
 
 def get_sites():
     meta_df = pd.read_csv(META_CSV_PATH)
-    sites = meta_df["SITE_ID"]
+    sites = np.array(meta_df["SITE_ID"])
     return sites
 
 

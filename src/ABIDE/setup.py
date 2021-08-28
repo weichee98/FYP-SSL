@@ -36,7 +36,7 @@ def get_file_path(corr_mat_dir, dx_group, file_id):
         return os.path.join(corr_mat_dir, "normal", filename)
 
 
-def extract_data(main_dir, corr_mat_dir, meta_csv_path):    
+def extract_data(corr_mat_dir, meta_csv_path):    
     meta_df = pd.read_csv(meta_csv_path, index_col=0)
     meta_df = meta_df.drop(["Unnamed: 0.1", "subject"], axis=1)
     file_ids = get_processed_corr_mat_file_ids(corr_mat_dir)
@@ -55,11 +55,12 @@ def extract_data(main_dir, corr_mat_dir, meta_csv_path):
     Y_onehot = np.eye(2)[Y.astype(int)]
     np.save(X_PATH, X)           # (823, 264, 264)
     np.save(Y_PATH, Y_onehot)    # (823, 2)
-    return processed_df, X, Y, Y_onehot
+    return processed_df, X, Y
 
 
 def split_traintest_sbj(Y, test_split_frac, seed):
     X = np.zeros(Y.shape[0])
+    np.random.seed(seed)
     sss = StratifiedShuffleSplit(
         n_splits=1, test_size=test_split_frac, random_state=seed
     )
@@ -69,6 +70,7 @@ def split_traintest_sbj(Y, test_split_frac, seed):
 
 def split_kfoldcv_sbj(Y, n, seed):
     X = np.zeros(Y.shape[0])
+    np.random.seed(seed)
     skf_group = StratifiedKFold(
         n_splits=n, shuffle=True, random_state=seed
     )
@@ -78,7 +80,7 @@ def split_kfoldcv_sbj(Y, n, seed):
     return result
 
 
-def generate_splits(Y, test_split_frac=0.2, kfold_n_splits=5):
+def generate_splits(Y, test_split_frac=0.2, kfold_n_splits=5, test=True):
     """
     splits: np.ndarray with dimension 100 x 5 x 2
         - test indices of seed n = splits[n][0]
@@ -86,8 +88,10 @@ def generate_splits(Y, test_split_frac=0.2, kfold_n_splits=5):
     """
     splits = []
     for seed in range(100):
-        np.random.seed(seed)
-        tuning_idx, test_idx = split_traintest_sbj(Y, test_split_frac, seed)
+        if test:
+            tuning_idx, test_idx = split_traintest_sbj(Y, test_split_frac, seed)
+        else:
+            tuning_idx, test_idx = np.arange(Y.shape[0]), np.array([])
         Y_tuning = Y[tuning_idx]
         folds = split_kfoldcv_sbj(Y_tuning, kfold_n_splits, seed)
         train_val_idx = []
@@ -107,7 +111,7 @@ def generate_splits(Y, test_split_frac=0.2, kfold_n_splits=5):
     return splits
 
 
-def generate_ssl_splits(Y, real_idx, test_split_frac=0.2, kfold_n_splits=5):
+def generate_ssl_splits(Y, real_idx, test_split_frac=0.2, kfold_n_splits=5, test=True):
     """
     splits: np.ndarray with dimension 100 x 5 x 2
         - test indices of seed n = splits[n][0]
@@ -116,10 +120,13 @@ def generate_ssl_splits(Y, real_idx, test_split_frac=0.2, kfold_n_splits=5):
     warnings.filterwarnings("ignore")
     splits = []
     for seed in range(100):
-        np.random.seed(seed)
-        tuning_idx, test_idx = split_traintest_sbj(Y[real_idx], test_split_frac, seed)
-        tuning_idx = real_idx[tuning_idx]
-        test_idx = real_idx[test_idx]
+        if test:
+            tuning_idx, test_idx = split_traintest_sbj(Y[real_idx], test_split_frac, seed)
+            tuning_idx = real_idx[tuning_idx]
+            test_idx = real_idx[test_idx]
+        else:
+            tuning_idx = real_idx
+            test_idx = np.array([])
         Y_tuning = Y[tuning_idx]
         folds = split_kfoldcv_sbj(Y_tuning, kfold_n_splits, seed)
         train_val_idx = []
@@ -140,8 +147,10 @@ def generate_ssl_splits(Y, real_idx, test_split_frac=0.2, kfold_n_splits=5):
 
 
 def split(Y):
-    splits = generate_splits(Y)
-    np.save(SPLITS_PATH, splits) # (100, 5, 2)
+    splits = generate_splits(Y, test=True)
+    np.save(SPLIT_TEST_PATH, splits) # (100, 5, 2)
+    splits = generate_splits(Y, test=False)
+    np.save(SPLIT_CV_PATH, splits) # (100, 5, 2)
 
 
 def ssl_split(meta_df, Y):
@@ -149,8 +158,10 @@ def ssl_split(meta_df, Y):
         with log_time("generate ssl split seed for site {}".format(site_id)) as lt:
             try:
                 site_idx = np.argwhere(meta_df['SITE_ID'].values == site_id).flatten()
-                splits = generate_ssl_splits(Y, site_idx)
-                np.save(os.path.join(SSL_SPLITS_DIR, "{}.npy".format(site_id)), splits) # (100, 5, 2)
+                splits = generate_ssl_splits(Y, site_idx, test=True)
+                np.save(os.path.join(SSL_SPLITS_DIR, "{}_test.npy".format(site_id)), splits) # (100, 5, 2)
+                splits = generate_ssl_splits(Y, site_idx, test=False)
+                np.save(os.path.join(SSL_SPLITS_DIR, "{}_cv.npy".format(site_id)), splits) # (100, 5, 2)
             except Exception as e:
                 if site_id != "CMU":
                     raise e
@@ -195,7 +206,7 @@ if __name__ == "__main__":
         os.makedirs(SSL_SPLITS_DIR)
 
     with log_time("extract metadata and correlation matrices") as lt:
-        meta_df, X, Y, Y_onehot = extract_data(main_dir, corr_mat_dir, meta_csv_path)
+        meta_df, X, Y = extract_data(corr_mat_dir, meta_csv_path)
 
     with log_time("generate split seed for whole dataset") as lt:
         split(Y)
