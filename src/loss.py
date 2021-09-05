@@ -3,6 +3,17 @@ from torch import nn
 from torch_geometric.utils import get_laplacian
 
 
+def reduce(x, reduction="none"):
+    if reduction == "none":
+        return x
+    elif reduction == "mean":
+        return x.mean()
+    elif reduction == "sum":
+        return x.sum()
+    else:
+        raise TypeError("invalid reduction: {}".format(reduction))
+
+
 class LaplacianRegularization(nn.Module):
 
     def __init__(self, normalization=None, p=2):
@@ -15,6 +26,7 @@ class LaplacianRegularization(nn.Module):
         - "rw": Random-walk normalization
             ``L = I - D^(-1) * A``
         """
+        super().__init__()
         self.normalization = normalization
         self.p = p
 
@@ -43,7 +55,7 @@ class LaplacianRegularization(nn.Module):
         else:
             raise TypeError("p must be an integer")
 
-    def __call__(self, edge_index, edge_weights, y):
+    def forward(self, edge_index, edge_weights, y):
         """
         edge_index == (2, num_edges)
         edge_weights == (num_edges,)
@@ -64,3 +76,39 @@ class LaplacianRegularization(nn.Module):
             lap = torch.zeros((num_nodes, num_nodes)).float().to(y.device)
             lap[row, col] = edge_weight.float()
             return lap
+
+
+class GaussianNLL(nn.Module):
+
+    def __init__(self, reduction="mean"):
+        super().__init__()
+        self.reduction = reduction
+
+    def forward(self, x, mu, std):
+        dist = torch.distributions.Normal(mu, std)
+        ll = dist.log_prob(x)
+        nll = -ll.sum(dim=1)
+        return reduce(nll, self.reduction)
+
+
+class KLDivergence(nn.Module):
+
+    def __init__(self, reduction="mean"):
+        super().__init__()
+        self.reduction = reduction
+
+    def forward(self, z, q_mu, q_std, p_mu, p_std):
+        """
+        z: input tensor
+        p_mu, p_std: target distribution mean and standard deviation
+        q_mu, q_std: predicted distribution mean and standard deviation
+
+        kl_div = KL(q(z)|p(z))
+        """
+        p = torch.distributions.Normal(p_mu, p_std)
+        q = torch.distributions.Normal(q_mu, q_std)
+        log_qz = q.log_prob(z)
+        log_pz = p.log_prob(z)
+        kl = log_qz - log_pz
+        kl = kl.sum(dim=1)
+        return reduce(kl, self.reduction)

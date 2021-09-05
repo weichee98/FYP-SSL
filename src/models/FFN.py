@@ -50,10 +50,10 @@ def get_laplacian_regularization(device, data, laplacian_idx, y):
     return loss
 
 
-def train_FFN(device, model, data, optimizer, train_idx, 
-              laplacian_idx=None, gamma_lap=0):
+def train_FFN(device, model, data, optimizer, labeled_idx, 
+              all_idx=None, gamma_lap=0):
     """
-    unlabeled_idx: the indices of labeled and unlabeled data
+    all_idx: the indices of labeled and unlabeled data
                    (exclude test indices)
     gamma_lap: float, the weightage of laplacian regularization
     """
@@ -62,13 +62,13 @@ def train_FFN(device, model, data, optimizer, train_idx,
     optimizer.zero_grad()  # Clear gradients
 
     pred_y = model(data.x.to(device))
-    real_y = data.y[train_idx].to(device)
+    real_y = data.y[labeled_idx].to(device)
     criterion = torch.nn.CrossEntropyLoss()
-    loss = criterion(pred_y[train_idx], real_y)
+    loss = criterion(pred_y[labeled_idx], real_y)
     
-    if laplacian_idx is not None and gamma_lap > 0:
+    if all_idx is not None and gamma_lap > 0:
         loss += gamma_lap * get_laplacian_regularization(
-            device, data, laplacian_idx, pred_y
+            device, data, all_idx, pred_y
         )
     
     loss_val = loss.item()
@@ -76,7 +76,7 @@ def train_FFN(device, model, data, optimizer, train_idx,
     optimizer.step()    # Update parameters based on gradients.
     
     pred = pred_y.argmax(dim=1)
-    correct = pred[train_idx] == real_y
+    correct = pred[labeled_idx] == real_y
     accuracy = correct.float().mean()
     return loss_val, accuracy.item()
 
