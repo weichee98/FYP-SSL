@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-from loss import GaussianNLL, KLDivergence
 
 
 class VAE(torch.nn.Module):
@@ -44,7 +43,7 @@ class VAE(torch.nn.Module):
         y = F.dropout(y, p=0.5, training=self.training)
 
         y = self.cls3(y)
-        y = F.softmax(x, dim=1) # output for disease classification
+        y = F.softmax(y, dim=1) # output for disease classification
         return y, x_mu, x_std, z, z_mu, z_std
 
     def _encode(self, x):
@@ -58,6 +57,7 @@ class VAE(torch.nn.Module):
 
         mu = self.encoder_mu(x)
         log_std = self.encoder_std(x)
+        log_std = torch.tanh(log_std)
         return mu, log_std
 
     def _decode(self, x):
@@ -70,9 +70,9 @@ class VAE(torch.nn.Module):
         x = F.dropout(x, p=0.5, training=self.training)
 
         mu = self.decoder_mu(x)
-        mu_max = mu.abs().max(dim=1)
-        mu = mu / mu_max
+        mu = torch.tanh(mu)
         log_std = self.decoder_std(x)
+        log_std = torch.tanh(log_std)
         return mu, log_std
 
 
@@ -90,28 +90,19 @@ def train_VAE(
     optimizer.zero_grad()
 
     cls_criterion = torch.nn.CrossEntropyLoss()
-    gauss_criterion = GaussianNLL()
-    kl_criterion = KLDivergence()
+    gauss_criterion = torch.nn.GaussianNLLLoss(full=True)
 
     x = data.x.to(device)
     pred_y, x_mu, x_std, z, z_mu, z_std = model(x)
     real_y = data.y[labeled_idx].to(device)
 
-    cls_loss = cls_criterion(pred_y[labeled_idx], real_y)
-    loss = cls_loss
+    loss = cls_criterion(pred_y[labeled_idx], real_y)
 
     if all_idx is None:
         all_idx = labeled_idx
-    if gamma1 > 0:
-        rc_loss = gauss_criterion(x[all_idx], x_mu[all_idx], x_std[all_idx])
-        loss += gamma1 * rc_loss
-    if gamma2 > 0:
-        kl = kl_criterion(
-            z[all_idx], q_mu=z_mu[all_idx], q_std=z_std[all_idx], 
-            p_mu=torch.zeros_like(z_mu[all_idx]), 
-            p_std=torch.ones_like(z_std[all_idx])
-        )
-        loss += gamma2 * kl
+    rc_loss = gauss_criterion(x[all_idx], x_mu[all_idx], x_std[all_idx] ** 2)
+    kl = torch.sum(z_std ** 2 + z_mu ** 2 - z_std.log() - 1, dim=1).mean()
+    loss += gamma1 * rc_loss + gamma2 * kl
 
     loss_val = loss.item()
     loss.backward()

@@ -34,7 +34,7 @@ class AE(torch.nn.Module):
         y = F.dropout(y, p=0.5, training=self.training)
 
         y = self.cls3(y)
-        y = F.softmax(x, dim=1) # output for disease classification
+        y = F.softmax(y, dim=1) # output for disease classification
         return y, x_
 
     def _encode(self, x):
@@ -59,8 +59,7 @@ class AE(torch.nn.Module):
         x = F.dropout(x, p=0.5, training=self.training)
 
         x = self.decoder3(x)
-        x_max = x.abs().max(dim=1)
-        x = x / x_max
+        x = torch.tanh(x)
         return x
 
 
@@ -82,14 +81,12 @@ def train_AE(
     x = data.x.to(device)
     pred_y, pred_x = model(x)
     real_y = data.y[labeled_idx].to(device)
-    cls_loss = cls_criterion(pred_y[labeled_idx], real_y)
-    loss = cls_loss
+    loss = cls_criterion(pred_y[labeled_idx], real_y)
 
     if all_idx is None:
         all_idx = labeled_idx
-    if gamma > 0:
-        rc_loss = rc_criterion(pred_x[all_idx], x[all_idx])
-        loss += gamma * rc_loss
+    rc_loss = rc_criterion(pred_x[all_idx], x[all_idx])
+    loss += gamma * rc_loss
     
     loss_val = loss.item()
     loss.backward()     # Derive gradients.

@@ -76,39 +76,3 @@ class LaplacianRegularization(nn.Module):
             lap = torch.zeros((num_nodes, num_nodes)).float().to(y.device)
             lap[row, col] = edge_weight.float()
             return lap
-
-
-class GaussianNLL(nn.Module):
-
-    def __init__(self, reduction="mean"):
-        super().__init__()
-        self.reduction = reduction
-
-    def forward(self, x, mu, std):
-        dist = torch.distributions.Normal(mu, std)
-        ll = dist.log_prob(x)
-        nll = -ll.sum(dim=1)
-        return reduce(nll, self.reduction)
-
-
-class KLDivergence(nn.Module):
-
-    def __init__(self, reduction="mean"):
-        super().__init__()
-        self.reduction = reduction
-
-    def forward(self, z, q_mu, q_std, p_mu, p_std):
-        """
-        z: input tensor
-        p_mu, p_std: target distribution mean and standard deviation
-        q_mu, q_std: predicted distribution mean and standard deviation
-
-        kl_div = KL(q(z)|p(z))
-        """
-        p = torch.distributions.Normal(p_mu, p_std)
-        q = torch.distributions.Normal(q_mu, q_std)
-        log_qz = q.log_prob(z)
-        log_pz = p.log_prob(z)
-        kl = log_qz - log_pz
-        kl = kl.sum(dim=1)
-        return reduce(kl, self.reduction)
