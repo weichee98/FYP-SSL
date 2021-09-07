@@ -1,29 +1,34 @@
+import os
+import sys
 import torch
 import torch.nn.functional as F
+
+__dir__ = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(__dir__)
+
+from loss import GaussianKLDivLoss
 
 
 class VAE(torch.nn.Module):
     
-    def __init__(self, input_size, l1, l2, emb_size, l3, l4):
+    def __init__(self, input_size, l1, l2, emb_size, l3):
         """
-        l1, l2: number of nodes in the hidden layer of encoder and decoder
+        l1: number of nodes in the hidden layer of encoder and decoder
         emb_size: size of encoder output and decoder input
-        l3, l4: number of nodes in the hidden layer of classifier
+        l2, l3: number of nodes in the hidden layer of classifier
         """
         super().__init__()
         self.encoder1 = torch.nn.Linear(input_size, l1)
-        self.encoder2 = torch.nn.Linear(l1, l2)
-        self.encoder_mu = torch.nn.Linear(l2, emb_size)
-        self.encoder_std = torch.nn.Linear(l2, emb_size)
+        self.encoder_mu = torch.nn.Linear(l1, emb_size)
+        self.encoder_std = torch.nn.Linear(l1, emb_size)
 
-        self.decoder1 = torch.nn.Linear(emb_size, l2)
-        self.decoder2 = torch.nn.Linear(l2, l1)
-        self.decoder_mu = torch.nn.Linear(l1, input_size)
-        self.decoder_std = torch.nn.Linear(l1, input_size)
+        self.decoder1 = torch.nn.Linear(emb_size, l1)
+        self.decoder2 = torch.nn.Linear(l1, input_size)
 
-        self.cls1 = torch.nn.Linear(emb_size, l3)
-        self.cls2 = torch.nn.Linear(l3, l4)
-        self.cls3 = torch.nn.Linear(l4, 2) # this is the head for disease class
+        self.cls1 = torch.nn.Linear(emb_size, l2)
+        self.cls2 = torch.nn.Linear(l2, l3)
+        self.cls3 = torch.nn.Linear(l3, 2) # this is the head for disease class
+        self.log_std = torch.nn.Parameter(torch.tensor([[0.0]]))
 
     def forward(self, x):
         z_mu, z_log_std = self._encode(x)
@@ -31,8 +36,8 @@ class VAE(torch.nn.Module):
         q = torch.distributions.Normal(z_mu, z_std)
         z = q.rsample()
 
-        x_mu, x_log_std = self._decode(z)
-        x_std = torch.exp(x_log_std)
+        x_mu = self._decode(z)
+        x_std = torch.exp(self.log_std)
 
         y = self.cls1(z_mu)
         y = F.relu(y)
@@ -51,11 +56,8 @@ class VAE(torch.nn.Module):
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
 
-        x = self.encoder2(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=0.5, training=self.training)
-
         mu = self.encoder_mu(x)
+        mu = torch.tanh(mu)
         log_std = self.encoder_std(x)
         log_std = torch.tanh(log_std)
         return mu, log_std
@@ -66,14 +68,8 @@ class VAE(torch.nn.Module):
         x = F.dropout(x, p=0.5, training=self.training)
 
         x = self.decoder2(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=0.5, training=self.training)
-
-        mu = self.decoder_mu(x)
-        mu = torch.tanh(mu)
-        log_std = self.decoder_std(x)
-        log_std = torch.tanh(log_std)
-        return mu, log_std
+        x = torch.tanh(x)
+        return x
 
 
 def train_VAE(
@@ -91,6 +87,7 @@ def train_VAE(
 
     cls_criterion = torch.nn.CrossEntropyLoss()
     gauss_criterion = torch.nn.GaussianNLLLoss(full=True)
+    kl_criterion = GaussianKLDivLoss()
 
     x = data.x.to(device)
     pred_y, x_mu, x_std, z, z_mu, z_std = model(x)
@@ -100,8 +97,11 @@ def train_VAE(
 
     if all_idx is None:
         all_idx = labeled_idx
-    rc_loss = gauss_criterion(x[all_idx], x_mu[all_idx], x_std[all_idx] ** 2)
-    kl = torch.sum(z_std ** 2 + z_mu ** 2 - z_std.log() - 1, dim=1).mean()
+    x_std = x_std.expand(x_mu[all_idx].size())
+    rc_loss = gauss_criterion(x[all_idx], x_mu[all_idx], x_std ** 2)
+    kl = kl_criterion(z_mu, z_std ** 2, torch.zeros_like(z_mu), torch.ones_like(z_std))
+    # if torch.all(torch.rand(1) < 0.1):
+    #     print(loss.item(), rc_loss.item(), kl.item())
     loss += gamma1 * rc_loss + gamma2 * kl
 
     loss_val = loss.item()

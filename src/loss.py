@@ -76,3 +76,26 @@ class LaplacianRegularization(nn.Module):
             lap = torch.zeros((num_nodes, num_nodes)).float().to(y.device)
             lap[row, col] = edge_weight.float()
             return lap
+
+
+class GaussianKLDivLoss(nn.Module):
+    """
+    closed form solution for kl divergence if 2 distributions are Gaussians
+    """
+
+    def __init__(self, reduction="mean"):
+        super().__init__()
+        self.reduction = reduction
+
+    def forward(self, mu1, var1, mu2, var2):
+        """
+        KL(p1 | p2)
+        p1 ~ N(mu1, var1)
+        p2 ~ N(mu2, var2)
+        """
+        kl = 0.5 * (
+            var2.log() - var1.log() + \
+            (var1 + (mu1 - mu2) ** 2) / var2 - 1
+        )
+        kl = kl.sum(dim=1)
+        return reduce(kl, self.reduction)

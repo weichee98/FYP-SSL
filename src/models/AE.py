@@ -4,22 +4,20 @@ import torch.nn.functional as F
 
 class AE(torch.nn.Module):
     
-    def __init__(self, input_size, l1, l2, emb_size, l3, l4):
+    def __init__(self, input_size, l1, l2, l3, emb_size):
         """
-        l1, l2: number of nodes in the hidden layer of encoder and decoder
+        l1: number of nodes in the hidden layer of encoder and decoder
         emb_size: size of encoder output and decoder input
-        l3, l4: number of nodes in the hidden layer of classifier
+        l2, l3: number of nodes in the hidden layer of classifier
         """
         super().__init__()
         self.encoder1 = torch.nn.Linear(input_size, l1)
-        self.encoder2 = torch.nn.Linear(l1, l2)
-        self.encoder3 = torch.nn.Linear(l2, emb_size)
-        self.decoder1 = torch.nn.Linear(emb_size, l2)
-        self.decoder2 = torch.nn.Linear(l2, l1)
-        self.decoder3 = torch.nn.Linear(l1, input_size)
-        self.cls1 = torch.nn.Linear(emb_size, l3)
-        self.cls2 = torch.nn.Linear(l3, l4)
-        self.cls3 = torch.nn.Linear(l4, 2) # this is the head for disease class
+        self.encoder2 = torch.nn.Linear(l1, emb_size)
+        self.decoder1 = torch.nn.Linear(emb_size, l1)
+        self.decoder2 = torch.nn.Linear(l1, input_size)
+        self.cls1 = torch.nn.Linear(emb_size, l2)
+        self.cls2 = torch.nn.Linear(l2, l3)
+        self.cls3 = torch.nn.Linear(l3, 2) # this is the head for disease class
 
     def forward(self, x): # full batch
         emb = self._encode(x)
@@ -44,9 +42,6 @@ class AE(torch.nn.Module):
 
         x = self.encoder2(x)
         x = F.relu(x)
-        x = F.dropout(x, p=0.5, training=self.training)
-
-        x = self.encoder3(x)
         return x
 
     def _decode(self, x):
@@ -55,10 +50,6 @@ class AE(torch.nn.Module):
         x = F.dropout(x, p=0.5, training=self.training)
 
         x = self.decoder2(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=0.5, training=self.training)
-
-        x = self.decoder3(x)
         x = torch.tanh(x)
         return x
 
