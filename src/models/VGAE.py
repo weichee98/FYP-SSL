@@ -67,11 +67,6 @@ def train_VGAE(
         device, model, labeled_dl, unlabeled_dl, optimizer, 
         gamma1=0, gamma2=0
     ):
-    """
-    all_idx: the indices of labeled and unlabeled data (exclude test indices)
-    gamma1: float, the weightage of reconstruction loss
-    gamma2: float, the weightage of regularizer (kl divergence)
-    """
     model.to(device)
     model.train()
     optimizer.zero_grad()
