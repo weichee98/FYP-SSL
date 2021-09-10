@@ -67,7 +67,6 @@ def train_AE(
     optimizer.zero_grad()  # Clear gradients
 
     cls_criterion = torch.nn.CrossEntropyLoss()
-    rc_criterion = torch.nn.MSELoss()
 
     x = data.x.to(device)
     pred_y, pred_x = model(x)
@@ -76,7 +75,9 @@ def train_AE(
 
     if all_idx is None:
         all_idx = labeled_idx
-    rc_loss = rc_criterion(pred_x[all_idx], x[all_idx])
+
+    rc_loss = (pred_x[all_idx] - x[all_idx]) ** 2
+    rc_loss = rc_loss.sum(dim=1).mean()
     loss += gamma * rc_loss
     
     loss_val = loss.item()
