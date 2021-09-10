@@ -3,8 +3,10 @@ import traceback
 import torch
 import torch_geometric
 import numpy as np
+from tqdm import tqdm
 from scipy.spatial import distance
 from sklearn.preprocessing import LabelEncoder
+from joblib import Parallel, delayed
 
 
 def mkdir(path):
@@ -80,10 +82,9 @@ def distance_to_similarity(adj, edge_thres=None):
     return adj
 
 
-def make_graph(X, A, y, min_weight=0, **kwargs):
+def make_population_graph(X, A, y, min_weight=0, **kwargs):
     """
     X.shape == (num_samples, num_features)
-    A.shape == (num_samples, num_samples); the weighted adj matrix
     y.shape == (num_samples,)
     """
     node_features = torch.tensor(X).float() # (num_nodes, num_features)
@@ -96,3 +97,69 @@ def make_graph(X, A, y, min_weight=0, **kwargs):
     for k, v in kwargs.items():
         setattr(d, k, v)
     return d
+
+
+def make_dataset(X, y, **kwargs):
+    """
+    X.shape == (num_samples, num_features)
+    y.shape == (num_samples,)
+    """
+    node_features = torch.tensor(X).float() # (num_nodes, num_features)
+    d = torch_geometric.data.Data(
+        x=node_features, y=torch.tensor(y)
+    )
+    for k, v in kwargs.items():
+        setattr(d, k, v)
+    return d
+
+
+def make_graph_dataset(X, y, num_process=1, verbose=False):
+    """
+    X.shape == (num_samples, num_nodes, num_nodes)
+    y.shape == (num_samples,)
+    """
+    def task(x, y):
+        embeddings = np.eye(x.shape[0])
+        node_features = torch.tensor(embeddings).float() # (num_nodes, num_features)
+        edge_index = torch.tensor(np.argwhere(embeddings == 0).T) # (2, num_edges)
+        weights = torch.tensor(x)[edge_index[0], edge_index[1]].float()
+        d = torch_geometric.data.Data(
+            x=node_features, edge_index=edge_index, 
+            edge_attr=weights, y=torch.tensor([y])
+        )
+        return d
+
+    if verbose:
+        pbar = tqdm(range(y.shape[0]), desc="Make Graph Dataset")
+    else:
+        pbar = range(y.shape[0])
+    dataset = Parallel(n_jobs=num_process)(
+        delayed(task)(X[i], y[i])
+        for i in pbar
+    )
+    return dataset
+
+
+def make_graph_dataloader(data, labeled_idx, all_idx, test_idx, batch_size=None):
+    labeled_dl = torch_geometric.data.DataLoader(
+        dataset=[data[i] for i in labeled_idx], 
+        batch_size=labeled_idx.shape[0] if batch_size is None else batch_size
+    )
+
+    if all_idx is None:
+        unlabeled_idx = np.array([])
+    else:
+        unlabeled_idx = np.setdiff1d(all_idx, labeled_idx)
+    if unlabeled_idx.shape[0] > 0:
+        unlabeled_dl = torch_geometric.data.DataLoader(
+            dataset=[data[i] for i in unlabeled_idx], 
+            batch_size=unlabeled_idx.shape[0] if batch_size is None else batch_size
+        )
+    else:
+        unlabeled_dl = None
+    
+    test_dl = torch_geometric.data.DataLoader(
+        dataset=[data[i] for i in test_idx], 
+        batch_size=test_idx.shape[0] if batch_size is None else batch_size
+    )
+    return labeled_dl, unlabeled_dl, test_dl
