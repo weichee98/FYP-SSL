@@ -12,29 +12,6 @@ from matplotlib.cm import ScalarMappable
 from scipy.spatial.distance import squareform
 
 
-def corr_mat_flatten(X):
-    upper_triangular_idx = np.triu_indices(X.shape[1], 1)
-    if len(X.shape) == 3:
-        X = X[:, upper_triangular_idx[0], upper_triangular_idx[1]]
-    else:
-        X = X[upper_triangular_idx[0], upper_triangular_idx[1]]
-    return X
-
-
-def get_group_distribution(X, groups, fisher=False):
-    X = corr_mat_flatten(X)
-    if fisher:
-        X = np.arctanh(X)
-    group_dic = {}
-    for group in np.unique(groups):
-        idx = np.argwhere(groups == group).flatten()
-        group_mean = np.mean(X[idx], axis=0)
-        if fisher:
-            group_mean = np.tanh(group_mean)
-        group_dic[group] = group_mean
-    return group_dic
-
-
 def plot_group_corr_mat(groups, num_process=1, verbose=False):
     num_groups = len(groups)
     num_cols = np.ceil(np.sqrt(num_groups))

@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from ABIDE import *
 from config import EXPERIMENT_DIR
-from metrics import EMA
+from utils.metrics import EMA
 from utils import mkdir, on_error
 from models import *
 from data import *
@@ -36,7 +36,7 @@ def seed_torch(seed=42):
     torch.backends.cudnn.deterministic = True
 
 def get_experiment_param(
-        model="GCN", seed=0, fold=0, 
+        model="GCN", seed=0, fold=0, epochs=1000,
         ssl=True, test=True, save_model=True, 
         site="NYU", harmonized=False,
         ema=None, lr=0.0001, l2_reg=0.001,
@@ -55,6 +55,7 @@ def get_experiment_param(
     param["site"] = site
     param["seed"] = seed
     param["fold"] = fold
+    param["epochs"] = epochs
     param["model"] = model
     param["lr"] = lr
     param["l2_reg"] = l2_reg
@@ -299,7 +300,7 @@ def experiment(args, param, model_dir):
     ema = EMA(k=param["ema"])
     patience = 1000
     cur_patience = 0
-    pbar = get_pbar(1000, verbose)
+    pbar = get_pbar(param["epochs"], verbose)
 
     for epoch in pbar:
         train_loss, train_acc, test_loss, test_acc = train_test_step(
@@ -382,39 +383,39 @@ def main(args):
                 #     model="GCN", hidden=150, emb1=50, emb2=30, K=3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
                 #     site=site, ema=0.2, lr=0.00005, l2_reg=0.001,
-                #     test=False, harmonized=harmonized,
+                #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 # param = get_experiment_param(
                 #     model="FFN", L1=150, L2=50, L3=30, gamma_lap=0, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
                 #     site=site, ema=0.2, lr=0.00005, l2_reg=0.001,
-                #     test=False, harmonized=harmonized,
+                #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 # param = get_experiment_param(
                 #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=2e-3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
                 #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized,
+                #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 # param = get_experiment_param(
                 #     model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=1e-5, gamma2=1e-3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False,
                 #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
-                #     test=False, harmonized=harmonized,
+                #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 # param = get_experiment_param(
                 #     model="VGAE", hidden=300, emb1=150, emb2=50, L1=30,
                 #     gamma1=3e-6, gamma2=1e-6, num_process=10, batch_size=10,
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False,
                 #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
-                #     test=False, harmonized=harmonized,
+                #     test=False, harmonized=harmonized, epochs=500
                 # )
                 param = get_experiment_param(
                     model="GNN", hidden=300, emb1=150, emb2=50, L1=30,
                     gamma=0, num_process=10, batch_size=10,
                     seed=seed, fold=fold, ssl=ssl, save_model=False,
                     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
-                    test=False, harmonized=harmonized,
+                    test=False, harmonized=harmonized, epochs=500
                 )
 
                 # SSL
@@ -422,13 +423,13 @@ def main(args):
                 #     model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=3e-5, gamma2=1e-3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False,
                 #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
-                #     test=False, harmonized=harmonized,
+                #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 # param = get_experiment_param(
                 #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
                 #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized,
+                #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 exp_res = experiment(args, param, model_dir)
                 res.append(exp_res)

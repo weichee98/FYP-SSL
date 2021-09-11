@@ -6,7 +6,7 @@ import torch.nn.functional as F
 __dir__ = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(__dir__)
 
-from loss import GaussianKLDivLoss
+from utils.loss import GaussianKLDivLoss
 
 
 class VAE(torch.nn.Module):

@@ -7,7 +7,7 @@ from torch_geometric.utils import subgraph
 __dir__ = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(__dir__)
 
-from loss import LaplacianRegularization
+from utils.loss import LaplacianRegularization
 
 
 class FFN(torch.nn.Module):

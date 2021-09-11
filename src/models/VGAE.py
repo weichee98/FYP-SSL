@@ -1,14 +1,13 @@
 import os
 import sys
 import torch
-import numpy as np
 import torch.nn.functional as F
 from torch_geometric.nn import GraphConv, global_mean_pool
 
 __dir__ = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(__dir__)
 
-from loss import GaussianKLDivLoss
+from utils.loss import GaussianKLDivLoss
 
 
 class VGAE(torch.nn.Module):
