@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.utils import subgraph
 
-__dir__ = os.path.dirname(os.path.dirname(__file__))
+__dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
 
 from utils.loss import LaplacianRegularization
