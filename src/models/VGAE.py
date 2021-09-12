@@ -95,8 +95,8 @@ def train_VGAE(
             cls_loss = None
             accuracy = None
         w_std = w_std.expand(w_mu.size())
-        rc_loss = -torch.sum((edge_weight / 2 + 0.5) * torch.log(w_mu / 2 + 0.5))
-        # rc_loss = gauss_criterion(edge_weight, w_mu, w_std ** 2)
+        # rc_loss = -torch.sum((edge_weight / 2 + 0.5) * torch.log(w_mu / 2 + 0.5))
+        rc_loss = gauss_criterion(edge_weight, w_mu, w_std ** 2)
         kl = kl_criterion(z_mu, z_std ** 2, torch.zeros_like(z_mu), torch.ones_like(z_std))
         return cls_loss, rc_loss, kl, accuracy
 
