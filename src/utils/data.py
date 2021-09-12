@@ -97,18 +97,22 @@ def make_population_graph(X, A, y, min_weight=0, **kwargs):
     return d
 
 
-def make_dataset(X, y, **kwargs):
+def make_dataset(X, y, d=None, **kwargs):
     """
     X.shape == (num_samples, num_features)
     y.shape == (num_samples,)
     """
     node_features = torch.tensor(X).float() # (num_nodes, num_features)
-    d = torch_geometric.data.Data(
+    graph = torch_geometric.data.Data(
         x=node_features, y=torch.tensor(y)
     )
+    if d is not None:
+        le = LabelEncoder()
+        d = le.fit_transform(d)
+        graph.d = torch.tensor(d)
     for k, v in kwargs.items():
-        setattr(d, k, v)
-    return d
+        setattr(graph, k, v)
+    return graph
 
 
 def make_graph_dataset(X, y, num_process=1, verbose=False):

@@ -50,6 +50,8 @@ def get_experiment_param(
     4. VAE model (L1, L2, L3, emb, gamma1, gamma2)
     5. VGAE model (hidden, emb1, emb2, L1, gamma1, gamma2, num_process, batch_size)
     6. GNN model (hidden, emb1, emb2, L1, gamma, num_process, batch_size)
+    7. DIVA model (emb, hidden1, hidden2, beta_klzd, beta_klzx, 
+                   beta_klzy, beta_d, beta_y, beta_recon)
     """
     param = dict()
     param["site"] = site
@@ -146,6 +148,12 @@ def load_data(param, verbose):
             test_indices, param.get("num_process", 1),
             param["batch_size"], verbose=False
         )
+    elif param["model"] == "DIVA":
+        (data, labeled_train_indices, 
+        all_train_indices, test_indices) = load_DIVA_data(
+            X, Y, get_sites(), param["ssl"], 
+            labeled_train_indices, test_indices
+        )
     else:
         raise NotImplementedError(
             "No dataloader function implemented for model {}"
@@ -215,6 +223,14 @@ def load_model(param, data):
             emb2=param["emb2"],
             l1=param["L1"], 
         )
+    elif param["model"] == "DIVA":
+        model = DIVA(
+            input_size=data.x.size(1), 
+            z_dim=param["emb"], 
+            d_dim=data.d.unique().size(0), 
+            hidden1=param["hidden1"], 
+            hidden2=param["hidden2"]
+        )
     else:
         raise TypeError(
             "Invalid model of type {}".format(param["model"])
@@ -273,6 +289,16 @@ def train_test_step(
         )
         test_loss, test_acc = test_VGAE(
             device, model, test_dl
+        )
+    elif param["model"] == "DIVA":
+        train_loss, train_acc = train_DIVA(
+            device, model, data, optimizer, labeled_train_indices,
+            all_train_indices, param["beta_klzd"], param["beta_klzx"],
+            param["beta_klzy"], param["beta_d"], param["beta_y"],
+            param["beta_recon"]
+        )
+        test_loss, test_acc = test_DIVA(
+            device, model, data, test_indices
         )
     else:
         raise TypeError(
@@ -361,7 +387,7 @@ def main(args):
     print(sites)
 
     for seed in range(10):
-        ssl = False
+        ssl = True
         harmonized = False
             
         print("===================")
@@ -410,9 +436,17 @@ def main(args):
                 #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
                 #     test=False, harmonized=harmonized, epochs=500
                 # )
+                # param = get_experiment_param(
+                #     model="GNN", hidden=300, emb1=150, emb2=50, L1=30,
+                #     gamma=0, num_process=10, batch_size=10,
+                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
+                #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
+                #     test=False, harmonized=harmonized, epochs=500
+                # )
                 param = get_experiment_param(
-                    model="GNN", hidden=300, emb1=150, emb2=50, L1=30,
-                    gamma=0, num_process=10, batch_size=10,
+                    model="DIVA", hidden1=150, emb=50, hidden2=30, 
+                    beta_klzd=1, beta_klzx=1, beta_klzy=1, 
+                    beta_d=1, beta_y=1, beta_recon=3e-6,
                     seed=seed, fold=fold, ssl=ssl, save_model=False,
                     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
                     test=False, harmonized=harmonized, epochs=500

@@ -47,6 +47,27 @@ def load_AE_data(
     return data, labeled_train_indices, all_train_indices, test_indices
 
 
+def load_DIVA_data(
+        X, Y, sites, ssl, labeled_train_indices, test_indices
+    ):
+    X_flattened = corr_mx_flatten(X)
+    if ssl:
+        data = make_dataset(X_flattened, Y.argmax(axis=1), sites)
+        all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
+    else:
+        all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
+        data = make_dataset(
+            X_flattened[all_indices], Y[all_indices].argmax(axis=1),
+            sites[all_indices]
+        )
+        n_train = len(labeled_train_indices)
+        n_test = len(test_indices)
+        labeled_train_indices = np.array(range(n_train))
+        test_indices = np.array(range(n_train, n_train + n_test))
+        all_train_indices = None
+    return data, labeled_train_indices, all_train_indices, test_indices
+
+
 def load_FFN_data(
         X, Y, ages, genders, ssl, labeled_train_indices, test_indices
     ):
