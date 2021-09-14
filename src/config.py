@@ -1,4 +1,4 @@
-import os
+import os.path as osp
 
-__dir__ =  os.path.dirname(os.path.dirname(__file__))
-EXPERIMENT_DIR = os.path.join(__dir__, "experiments")
+__dir__ =  osp.dirname(osp.dirname(osp.abspath(__file__)))
+EXPERIMENT_DIR = osp.join(__dir__, "experiments")

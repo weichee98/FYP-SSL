@@ -1,14 +1,14 @@
-import os
+import os.path as osp
 
 
-__dir__ = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+__dir__ = osp.dirname(osp.dirname(osp.dirname(osp.abspath(__file__))))
 
 
-MAIN_DIR = os.path.abspath(os.path.join(__dir__, "data", "ABIDE"))
-META_CSV_PATH = os.path.join(MAIN_DIR, "meta.csv")
-X_PATH = os.path.join(MAIN_DIR, "X.npy")
-Y_PATH = os.path.join(MAIN_DIR, "Y.npy")
-SPLIT_TEST_PATH = os.path.join(MAIN_DIR, "split_test.npy")
-SPLIT_CV_PATH = os.path.join(MAIN_DIR, "split_cv.npy")
-SSL_SPLITS_DIR = os.path.join(MAIN_DIR, "ssl_splits")
-HARMONIZED_X_PATH = os.path.join(MAIN_DIR, "harmonized_X.npy")
+MAIN_DIR = osp.abspath(osp.join(__dir__, "data", "ABIDE"))
+META_CSV_PATH = osp.join(MAIN_DIR, "meta.csv")
+X_PATH = osp.join(MAIN_DIR, "X.npy")
+Y_PATH = osp.join(MAIN_DIR, "Y.npy")
+SPLIT_TEST_PATH = osp.join(MAIN_DIR, "split_test.npy")
+SPLIT_CV_PATH = osp.join(MAIN_DIR, "split_cv.npy")
+SSL_SPLITS_DIR = osp.join(MAIN_DIR, "ssl_splits")
+HARMONIZED_X_PATH = osp.join(MAIN_DIR, "harmonized_X.npy")
