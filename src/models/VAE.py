@@ -126,4 +126,4 @@ def test_VAE(device, model, data, test_idx):
     pred = pred_y.argmax(dim=1)
     correct = pred[test_idx] == real_y
     accuracy = correct.float().mean()
-    return loss.item(), accuracy.item()
+    return loss.item(), accuracy.item(), {}

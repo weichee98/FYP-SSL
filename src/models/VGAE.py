@@ -8,6 +8,7 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
 
 from utils.loss import GaussianKLDivLoss
+from utils.metrics import CummulativeClassificationMetrics
 
 
 class VGAE(torch.nn.Module):
@@ -73,6 +74,7 @@ def train_VGAE(
     cls_criterion = torch.nn.CrossEntropyLoss(reduction="sum")
     gauss_criterion = torch.nn.GaussianNLLLoss(full=True, reduction="sum")
     kl_criterion = GaussianKLDivLoss(reduction="sum")
+    ccm = CummulativeClassificationMetrics()
 
     def _batch_step(batch, labeled=True):
         x = batch.x.to(device)
@@ -88,40 +90,36 @@ def train_VGAE(
 
         if labeled:
             cls_loss = cls_criterion(pred_y, real_y)
-            pred = pred_y.argmax(dim=1)
-            correct = pred == real_y
-            accuracy = correct.float().sum()
+            ccm.update_batch(real_y, pred_y)
         else:
             cls_loss = None
-            accuracy = None
         w_std = w_std.expand(w_mu.size())
         # rc_loss = -torch.sum((edge_weight / 2 + 0.5) * torch.log(w_mu / 2 + 0.5))
         rc_loss = gauss_criterion(edge_weight, w_mu, w_std ** 2)
         kl = kl_criterion(z_mu, z_std ** 2, torch.zeros_like(z_mu), torch.ones_like(z_std))
-        return cls_loss, rc_loss, kl, accuracy
+        return cls_loss, rc_loss, kl
 
     loss_val = 0
-    acc_val = 0
     n_labeled = len(labeled_dl.dataset)
     n_unlabeled = 0. if unlabeled_dl is None else len(unlabeled_dl.dataset)
     n_all = n_labeled + n_unlabeled
 
     for batch in labeled_dl:
-        cls_loss, rc_loss, kl, accuracy = _batch_step(batch, True)
+        cls_loss, rc_loss, kl = _batch_step(batch, True)
         loss = cls_loss / n_labeled + \
             (gamma1 * rc_loss + gamma2 * kl) / n_all
         loss_val += loss.item()
-        acc_val += accuracy.item() / n_labeled
         loss.backward()
 
     if unlabeled_dl is not None:
         for batch in unlabeled_dl:
-            _, rc_loss, kl, _ = _batch_step(batch, False)
+            _, rc_loss, kl = _batch_step(batch, False)
             loss = (gamma1 * rc_loss + gamma2 * kl) / n_all
             loss_val += loss.item()
             loss.backward()
 
     optimizer.step()
+    acc_val = ccm.accuracy.item()
     return loss_val, acc_val
 
 
@@ -130,6 +128,7 @@ def test_VGAE(device, model, test_dl):
     model.eval()
 
     criterion = torch.nn.CrossEntropyLoss(reduction="sum")
+    ccm = CummulativeClassificationMetrics()
 
     def _batch_step(batch):
         x = batch.x.to(device)
@@ -143,17 +142,22 @@ def test_VGAE(device, model, test_dl):
         )
         real_y = batch.y.to(device)
         loss = criterion(pred_y, real_y)
-        pred = pred_y.argmax(dim=1)
-        correct = pred == real_y
-        accuracy = correct.float().sum()
-        return loss, accuracy
+        ccm.update_batch(real_y, pred_y)
+        return loss
 
     loss_val = 0
-    acc_val = 0
     n = len(test_dl.dataset)
     for batch in test_dl:
-        loss, accuracy = _batch_step(batch)
+        loss = _batch_step(batch)
         loss_val += loss.item() / n
-        acc_val += accuracy.item() / n
 
-    return loss_val, acc_val
+    acc_val = ccm.accuracy.item()
+    sensitivity = ccm.tpr
+    specificity = ccm.tnr
+    f1_score = ccm.f1_score
+    metrics = {
+        "sensitivity": sensitivity.item(),
+        "specificity": specificity.item(),
+        "f1": f1_score.item()
+    }
+    return loss_val, acc_val, metrics

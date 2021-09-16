@@ -1,5 +1,12 @@
+import os
+import sys
 import torch
 import torch.nn.functional as F
+
+__dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(__dir__)
+
+from utils.metrics import ClassificationMetrics as CM
 
 
 class decoder(torch.nn.Module):
@@ -177,9 +184,7 @@ def train_DIVA(
     loss.backward()
     optimizer.step()
 
-    pred = pred_y.argmax(dim=1)
-    correct = pred[labeled_idx] == real_y[labeled_idx]
-    accuracy = correct.float().mean()
+    accuracy = CM.accuracy(real_y[labeled_idx], pred_y[labeled_idx])
     return loss_val, accuracy.item()
 
 
@@ -194,7 +199,15 @@ def test_DIVA(device, model, data, test_idx):
 
     criterion = torch.nn.CrossEntropyLoss()
     loss = criterion(pred_y, real_y)
-    pred = pred_y.argmax(dim=1)
-    correct = pred == real_y
-    accuracy = correct.float().mean()
-    return loss.item(), accuracy.item()
+
+    pred_y = pred_y.argmax(dim=1)
+    accuracy = CM.accuracy(real_y, pred_y)
+    sensitivity = CM.tpr(real_y, pred_y)
+    specificity = CM.tnr(real_y, pred_y)
+    f1_score = CM.f1_score(real_y, pred_y)
+    metrics = {
+        "sensitivity": sensitivity.item(),
+        "specificity": specificity.item(),
+        "f1": f1_score.item()
+    }
+    return loss.item(), accuracy.item(), metrics

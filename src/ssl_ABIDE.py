@@ -66,19 +66,16 @@ def get_experiment_param(
     param["test"] = test
     param["harmonized"] = harmonized
     param["save_model"] = save_model
-    param["model_path"] = None      # set when run
-    param["acc"] = None             # set when run
-    param["loss"] = None            # set when run
-    param["time"] = None            # set when run
-    param["device"] = None          # set when run
     for k, v in kwargs.items():
         param[k] = v
     return param
 
-def set_experiment_param(param, model_path, acc, loss, time, device):
-    param["model_path"] = model_path
+def set_experiment_param(param, model_path, acc, loss, time, device, **kwargs):
     param["acc"] = acc
-    param["loss"] = loss 
+    param["loss"] = loss
+    for k, v in kwargs.items():
+        param[k] = v
+    param["model_path"] = model_path
     param["time"] = time
     param["device"] = device
 
@@ -246,7 +243,7 @@ def train_test_step(
         train_loss, train_acc = train_GCN(
             device, model, data, optimizer, labeled_train_indices
         )
-        test_loss, test_acc = test_GCN(
+        test_loss, test_acc, test_metrics = test_GCN(
             device, model, data, test_indices
         )
     elif param["model"] == "FFN":
@@ -254,7 +251,7 @@ def train_test_step(
             device, model, data, optimizer, labeled_train_indices,
             all_train_indices, param["gamma_lap"]
         )
-        test_loss, test_acc = test_FFN(
+        test_loss, test_acc, test_metrics = test_FFN(
             device, model, data, test_indices
         )
     elif param["model"] == "AE":
@@ -262,7 +259,7 @@ def train_test_step(
             device, model, data, optimizer, labeled_train_indices,
             all_train_indices, param["gamma"]
         )
-        test_loss, test_acc = test_AE(
+        test_loss, test_acc, test_metrics = test_AE(
             device, model, data, test_indices
         )
     elif param["model"] == "VAE":
@@ -270,7 +267,7 @@ def train_test_step(
             device, model, data, optimizer, labeled_train_indices,
             all_train_indices, param["gamma1"], param["gamma2"]
         )
-        test_loss, test_acc = test_VAE(
+        test_loss, test_acc, test_metrics = test_VAE(
             device, model, data, test_indices
         )
     elif param["model"] == "GNN":
@@ -278,7 +275,7 @@ def train_test_step(
         train_loss, train_acc = train_GNN(
             device, model, train_dl, optimizer, param["gamma"]
         )
-        test_loss, test_acc = test_GNN(
+        test_loss, test_acc, test_metrics = test_GNN(
             device, model, test_dl
         )
     elif param["model"] == "VGAE":
@@ -287,7 +284,7 @@ def train_test_step(
             device, model, labeled_dl, unlabeled_dl, optimizer,
             param["gamma1"], param["gamma2"]
         )
-        test_loss, test_acc = test_VGAE(
+        test_loss, test_acc, test_metrics = test_VGAE(
             device, model, test_dl
         )
     elif param["model"] == "DIVA":
@@ -297,17 +294,18 @@ def train_test_step(
             param["beta_klzy"], param["beta_d"], param["beta_y"],
             param["beta_recon"]
         )
-        test_loss, test_acc = test_DIVA(
+        test_loss, test_acc, test_metrics = test_DIVA(
             device, model, data, test_indices
         )
     else:
         raise TypeError(
             "Invalid model of type {}".format(param["model"])
         )
-    return train_loss, train_acc, test_loss, test_acc
+    return train_loss, train_acc, test_loss, test_acc, test_metrics
 
 @on_error({}, True)
 def experiment(args, param, model_dir):
+    seed_torch()
     device = get_device(args.gpu)
     verbose = args.verbose
 
@@ -322,14 +320,16 @@ def experiment(args, param, model_dir):
 
     best_acc = 0
     best_loss = np.inf
+    best_metrics = {}
     best_model = None
     ema = EMA(k=param["ema"])
+    ema_metrics = EMA(k=param["ema"])
     patience = 1000
     cur_patience = 0
     pbar = get_pbar(param["epochs"], verbose)
 
     for epoch in pbar:
-        train_loss, train_acc, test_loss, test_acc = train_test_step(
+        train_loss, train_acc, test_loss, test_acc, test_metrics = train_test_step(
             param, device, model, data, optimizer, 
             labeled_train_indices, all_train_indices,
             test_indices
@@ -337,6 +337,7 @@ def experiment(args, param, model_dir):
         train_loss, train_acc, test_loss, test_acc = ema.update(
             train_loss, train_acc, test_loss, test_acc
         )
+        test_metrics = ema_metrics.update_dict(test_metrics)
 
         # early stopping
         if test_loss >= best_loss:
@@ -348,6 +349,7 @@ def experiment(args, param, model_dir):
             best_loss = test_loss
         if test_acc > best_acc:
             best_acc = test_acc
+            best_metrics = test_metrics
             best_model = copy.deepcopy(model.state_dict())
             model_time = int(time.time())
 
@@ -370,13 +372,13 @@ def experiment(args, param, model_dir):
 
     end = time.time()
     set_experiment_param(
-        param, model_path, best_acc, best_loss, end - start, args.gpu
+        param, model_path, best_acc, best_loss, end - start, args.gpu,
+        **best_metrics
     )
     print(param)
     return param
 
 def main(args):
-    seed_torch()
     script_name = os.path.splitext(os.path.basename(__file__))[0]
 
     sites = np.array([
@@ -386,8 +388,8 @@ def main(args):
     ])
     print(sites)
 
-    for seed in range(10):
-        ssl = True
+    for seed in range(1):
+        ssl = False
         harmonized = False
             
         print("===================")
@@ -402,7 +404,7 @@ def main(args):
         print("Experiment result: {}".format(exp_dir))
 
         res = []
-        for site in sites:
+        for site in sites[:1]:
             print("SITE: {}".format(site))
             for fold in range(5):
                 # param = get_experiment_param(
@@ -411,12 +413,12 @@ def main(args):
                 #     site=site, ema=0.2, lr=0.00005, l2_reg=0.001,
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
-                # param = get_experiment_param(
-                #     model="FFN", L1=150, L2=50, L3=30, gamma_lap=0, 
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
-                #     site=site, ema=0.2, lr=0.00005, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
+                param = get_experiment_param(
+                    model="FFN", L1=150, L2=50, L3=30, gamma_lap=0, 
+                    seed=seed, fold=fold, ssl=ssl, save_model=False, 
+                    site=site, ema=0.2, lr=0.00005, l2_reg=0.001,
+                    test=False, harmonized=harmonized, epochs=1000
+                )
                 # param = get_experiment_param(
                 #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=2e-3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
@@ -443,14 +445,14 @@ def main(args):
                 #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
                 #     test=False, harmonized=harmonized, epochs=500
                 # )
-                param = get_experiment_param(
-                    model="DIVA", hidden1=150, emb=50, hidden2=30, 
-                    beta_klzd=1, beta_klzx=1, beta_klzy=1, 
-                    beta_d=1, beta_y=1, beta_recon=3e-6,
-                    seed=seed, fold=fold, ssl=ssl, save_model=False,
-                    site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
-                    test=False, harmonized=harmonized, epochs=500
-                )
+                # param = get_experiment_param(
+                #     model="DIVA", hidden1=150, emb=50, hidden2=30, 
+                #     beta_klzd=1, beta_klzx=1, beta_klzy=1, 
+                #     beta_d=1, beta_y=1, beta_recon=3e-6,
+                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
+                #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
+                #     test=False, harmonized=harmonized, epochs=500
+                # )
 
                 # SSL
                 # param = get_experiment_param(

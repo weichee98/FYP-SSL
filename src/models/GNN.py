@@ -1,6 +1,13 @@
+import os
+import sys
 import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GraphConv, global_mean_pool
+
+__dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(__dir__)
+
+from utils.metrics import CummulativeClassificationMetrics
 
 
 class GNN(torch.nn.Module):
@@ -46,6 +53,7 @@ def train_GNN(device, model, train_dl, optimizer, gamma=0):
 
     cls_criterion = torch.nn.CrossEntropyLoss(reduction="sum")
     gauss_criterion = torch.nn.GaussianNLLLoss(full=True, reduction="sum")
+    ccm = CummulativeClassificationMetrics()
 
     def _batch_step(batch):
         x = batch.x.to(device)
@@ -63,24 +71,20 @@ def train_GNN(device, model, train_dl, optimizer, gamma=0):
             sim = F.cosine_similarity(z[edge_index[0]], z[edge_index[1]])
             loss += gauss_criterion(edge_weight, sim, torch.ones_like(sim))
 
-        pred = pred_y.argmax(dim=1)
-        correct = pred == real_y
-        accuracy = correct.float().sum()
-        return loss, accuracy
+        ccm.update_batch(real_y, pred_y)
+        return loss
 
     loss_val = 0
-    acc_val = 0
     n = len(train_dl.dataset)
 
     for batch in train_dl:
-        loss, accuracy = _batch_step(batch)
+        loss = _batch_step(batch)
         loss = loss / n
-        accuracy = accuracy / n
         loss_val += loss.item()
-        acc_val += accuracy.item()
         loss.backward()
 
     optimizer.step()
+    acc_val = ccm.accuracy.item()
     return loss_val, acc_val
 
 
@@ -89,6 +93,7 @@ def test_GNN(device, model, test_dl):
     model.eval()
 
     criterion = torch.nn.CrossEntropyLoss(reduction="sum")
+    ccm = CummulativeClassificationMetrics()
 
     def _batch_step(batch):
         x = batch.x.to(device)
@@ -100,17 +105,22 @@ def test_GNN(device, model, test_dl):
         pred_y = model(x, edge_index, edge_weight, batch_idx)
         real_y = batch.y.to(device)
         loss = criterion(pred_y, real_y)
-        pred = pred_y.argmax(dim=1)
-        correct = pred == real_y
-        accuracy = correct.float().sum()
-        return loss, accuracy
+        ccm.update_batch(real_y, pred_y)
+        return loss
 
     loss_val = 0
-    acc_val = 0
     n = len(test_dl.dataset)
     for batch in test_dl:
-        loss, accuracy = _batch_step(batch)
+        loss = _batch_step(batch)
         loss_val += loss.item() / n
-        acc_val += accuracy.item() / n
 
-    return loss_val, acc_val
+    acc_val = ccm.accuracy.item()
+    sensitivity = ccm.tpr
+    specificity = ccm.tnr
+    f1_score = ccm.f1_score
+    metrics = {
+        "sensitivity": sensitivity.item(),
+        "specificity": specificity.item(),
+        "f1": f1_score.item()
+    }
+    return loss_val, acc_val, metrics
