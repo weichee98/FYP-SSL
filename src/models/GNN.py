@@ -117,10 +117,12 @@ def test_GNN(device, model, test_dl):
     acc_val = ccm.accuracy.item()
     sensitivity = ccm.tpr
     specificity = ccm.tnr
+    precision = ccm.ppv
     f1_score = ccm.f1_score
     metrics = {
         "sensitivity": sensitivity.item(),
         "specificity": specificity.item(),
-        "f1": f1_score.item()
+        "f1": f1_score.item(),
+        "precision": precision.item()
     }
     return loss_val, acc_val, metrics

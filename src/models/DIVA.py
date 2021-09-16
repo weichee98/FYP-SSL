@@ -204,10 +204,12 @@ def test_DIVA(device, model, data, test_idx):
     accuracy = CM.accuracy(real_y, pred_y)
     sensitivity = CM.tpr(real_y, pred_y)
     specificity = CM.tnr(real_y, pred_y)
+    precision = CM.ppv(real_y, pred_y)
     f1_score = CM.f1_score(real_y, pred_y)
     metrics = {
         "sensitivity": sensitivity.item(),
         "specificity": specificity.item(),
-        "f1": f1_score.item()
+        "f1": f1_score.item(),
+        "precision": precision.item()
     }
     return loss.item(), accuracy.item(), metrics
