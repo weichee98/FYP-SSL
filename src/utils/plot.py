@@ -77,8 +77,18 @@ def plot_group_corr_mat(groups, num_process=1, verbose=False):
     return f
 
 
-def plot_group_kde(groups, num_process=1, verbose=False):
-    n = len(groups)
+def plot_group_kde(groups, num_process=1, verbose=False, group_order=None):
+    if group_order is None:
+        unique_groups = list(groups)
+    else:
+        unique_groups = list()
+        for group in group_order:
+            if group in groups:
+                unique_groups.append(group)
+
+    n = len(unique_groups)
+    if n == 0:
+        return None
     if n == 1:
         g = list(groups)[0]
         f, ax = plt.subplots(1, 1, figsize=(7, 5))
@@ -87,7 +97,6 @@ def plot_group_kde(groups, num_process=1, verbose=False):
         ax.set_title(g)
         return f
 
-    unique_groups = list(groups)
     rows, cols = np.triu_indices(n)
     f, ax = plt.subplots(n, n, figsize=(7 * n, 5 * n))
 
