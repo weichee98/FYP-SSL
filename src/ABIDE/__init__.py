@@ -59,3 +59,41 @@ def get_sites():
 
 def load_meta_df():
     return pd.read_csv(META_CSV_PATH)
+
+
+def labelling_standard(site_id):
+    """
+    "gold standard" diagnostic instruments
+    - Autism Diagnostic Observation Schedule (ADOS)
+    - Autism Diagnostic Interview - Revised (ADI-R)
+
+    1: clinical judgement + "gold standard" diagnostic instruments
+    2: clinical judgement only
+    3: "gold standard" diagnostic instruments only
+    """
+    if site_id in ["LEUVEN_1", "LEUVEN_2", "SBL"]:
+        return 2
+    if site_id in ["OLIN", "STANFORD", "UCLA_1", "UCLA_2"]:
+        return 3
+    return 1
+
+
+def get_label_standard_mask(sites, target_label_standard=None):
+    """
+    sites: np.array of site_id
+    target_label_standard: 1, 2, 3 or None
+    """
+    if target_label_standard is None:
+        return np.ones_like(sites, dtype=bool)
+    elif not isinstance(target_label_standard, int):
+        raise TypeError(
+            "target_label_standard can only be integer or None"
+        )
+    elif target_label_standard < 1 or target_label_standard > 3:
+        raise ValueError(
+            "target_label_standard must be within [1, 3], but given {}"
+            .format(target_label_standard)
+        )
+    standards = np.vectorize(labelling_standard)(sites)
+    return standards == target_label_standard
+    
