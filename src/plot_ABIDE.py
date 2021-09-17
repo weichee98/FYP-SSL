@@ -36,7 +36,7 @@ if __name__ == "__main__":
     sites = get_sites()
     SD = SiteDistribution()
 
-    dist_diff = pd.DataFrame(SD.kl_distribution_heatmap(X, sites))
+    dist_diff = pd.DataFrame(SD.kl_gauss_distribution_heatmap(X, sites))
     columns = sorting(dist_diff)
     dist_diff = dist_diff.loc[columns, :][columns]
     f = plot_heatmap(dist_diff)

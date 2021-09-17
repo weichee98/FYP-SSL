@@ -26,7 +26,7 @@ class SiteDistribution:
         return group_dic
 
     @staticmethod
-    def _kl(p, q):
+    def _kl_hist(p, q):
         eps = min(np.min(q[q > 0]), np.min(p[p > 0]), 1e-5)
         p, q = np.maximum(p, eps), np.maximum(q, eps)
         kl_div = p * np.log(p / q)
@@ -40,24 +40,16 @@ class SiteDistribution:
         )
         return kl
 
-    def _hist_kldiv(self, a, b, nbins=200):
-        ahist = np.histogram(a, bins=nbins, range=(-1, 1))[0]
-        bhist = np.histogram(b, bins=nbins, range=(-1, 1))[0]
-        ahist = ahist / np.sum(ahist)
-        bhist = bhist / np.sum(bhist)
-        return self._kl(ahist, bhist)
-
-    def _normal_kldiv(self, p, q):
-        p_mu, p_var = np.mean(p), np.var(p)
-        q_mu, q_var = np.mean(q), np.var(q)
-        return self._kl_gauss(p_mu, p_var, q_mu, q_var)
-
-    def kl_distribution_heatmap(self, X, sites):
+    def kl_gauss_distribution_heatmap(self, X, sites):
         """
         return: dict of dict
             {p -> {q -> kl_divergence}}
         """
         site_mean = self.get_site_mean(X, sites, fisher=True)
+        site_mu_var = dict(
+            (s, (np.mean(v), np.var(v)))
+            for s, v in site_mean.items()
+        )
         unique_sites = np.unique(sites)
         dist_diff = dict()
         for s1 in unique_sites:
@@ -66,9 +58,9 @@ class SiteDistribution:
                 if s1 ==  s2:
                     dist_diff[s1][s2] = 0
                 else:
-                    dist_diff[s1][s2] = self._normal_kldiv(
-                        site_mean[s1], site_mean[s2]
-                    )
+                    p_mu, p_var = site_mu_var[s1]
+                    q_mu, q_var = site_mu_var[s2]
+                    dist_diff[s1][s2] = self._kl_gauss(p_mu, p_var, q_mu, q_var)
         return dist_diff
 
     def kl_hist_distribution_heatmap(self, X, sites, bins=1000):
@@ -77,6 +69,14 @@ class SiteDistribution:
             {p -> {q -> kl_divergence}}
         """
         site_mean = self.get_site_mean(X, sites, fisher=True)
+        site_hist = dict(
+            (s, np.histogram(v, bins=bins, range=(-1, 1))[0])
+            for s, v in site_mean.items()
+        )
+        site_hist = dict(
+            (s, v / np.sum(v)) for s, v in site_hist.items()
+        )
+
         unique_sites = np.unique(sites)
         dist_diff = dict()
         for s1 in unique_sites:
@@ -85,9 +85,9 @@ class SiteDistribution:
                 if s1 ==  s2:
                     dist_diff[s1][s2] = 0
                 else:
-                    dist_diff[s1][s2] = self._hist_kldiv(
-                        site_mean[s1], site_mean[s2], bins
-                    )
+                    ahist = site_hist[s1]
+                    bhist = site_hist[s2]
+                    dist_diff[s1][s2] = self._kl_hist(ahist, bhist)
         return dist_diff
 
     def get_site_grouping(self, X, sites, metric, threshold, **kwargs):
@@ -106,7 +106,7 @@ class SiteDistribution:
         - bins: int - if metric == "kl_hist"
         """
         if metric == "kl":
-            dist_diff = self.kl_distribution_heatmap(X, sites)
+            dist_diff = self.kl_gauss_distribution_heatmap(X, sites)
         elif metric == "kl_hist":
             if "bins" in kwargs:
                 kl_hist_kwg = dict(bins=kwargs["bins"])
