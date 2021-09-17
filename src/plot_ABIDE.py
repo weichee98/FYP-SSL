@@ -53,7 +53,7 @@ if __name__ == "__main__":
     plot kde pairplot
     """
     from utils.plot import plot_group_corr_mat, plot_group_kde
-    site_mean = SD.get_site_distribution(X, sites, fisher=True)
+    site_mean = SD.get_site_mean(X, sites, fisher=True)
 
     # f = plot_group_corr_mat(site_mean, num_process=10, verbose=True)
     # f.savefig("site_mean_corr_mat.png")
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     f.savefig("site_distribution.png")
 
     # X_harmonized, _ = load_data_fmri(True)
-    # site_mean = SD.get_site_distribution(X_harmonized, sites, fisher=True)
+    # site_mean = SD.get_site_mean(X_harmonized, sites, fisher=True)
 
     # f = plot_group_corr_mat(site_mean, num_process=10, verbose=True)
     # f.savefig("combat_site_mean_corr_mat.png")

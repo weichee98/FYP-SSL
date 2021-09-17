@@ -12,7 +12,7 @@ from utils.data import corr_mx_flatten
 class SiteDistribution:
     
     @staticmethod
-    def get_site_distribution(X, sites, fisher=False):
+    def get_site_mean(X, sites, fisher=False):
         X = corr_mx_flatten(X)
         if fisher:
             X = np.arctanh(X)
@@ -57,7 +57,7 @@ class SiteDistribution:
         return: dict of dict
             {p -> {q -> kl_divergence}}
         """
-        site_mean = self.get_site_distribution(X, sites, fisher=True)
+        site_mean = self.get_site_mean(X, sites, fisher=True)
         unique_sites = np.unique(sites)
         dist_diff = dict()
         for s1 in unique_sites:
@@ -76,7 +76,7 @@ class SiteDistribution:
         return: dict of dict
             {p -> {q -> kl_divergence}}
         """
-        site_mean = self.get_site_distribution(X, sites, fisher=True)
+        site_mean = self.get_site_mean(X, sites, fisher=True)
         unique_sites = np.unique(sites)
         dist_diff = dict()
         for s1 in unique_sites:
