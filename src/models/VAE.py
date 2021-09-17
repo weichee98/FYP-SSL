@@ -34,13 +34,17 @@ class VAE(torch.nn.Module):
     def forward(self, x):
         z_mu, z_log_std = self._encode(x)
         z_std = torch.exp(z_log_std)
-        q = torch.distributions.Normal(z_mu, z_std)
-        z = q.rsample()
+
+        if self.training:
+            q = torch.distributions.Normal(z_mu, z_std)
+            z = q.rsample()
+        else:
+            z = z_mu
 
         x_mu = self._decode(z)
         x_std = torch.exp(self.log_std)
 
-        y = self.cls1(z_mu)
+        y = self.cls1(z)
         y = F.relu(y)
         y = F.dropout(y, p=0.5, training=self.training)
 

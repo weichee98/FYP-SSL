@@ -30,13 +30,17 @@ class VGAE(torch.nn.Module):
 
         z_mu, z_log_std = self._encode(x, edge_index, edge_weight)
         z_std = torch.exp(z_log_std)
-        q = torch.distributions.Normal(z_mu, z_std)
-        z = q.rsample()
+
+        if self.training:
+            q = torch.distributions.Normal(z_mu, z_std)
+            z = q.rsample()
+        else:
+            z = z_mu
 
         w_mu = self._decode(z, edge_index)
         w_std = torch.exp(self.log_std)
 
-        y = global_mean_pool(z_mu, batch)  
+        y = global_mean_pool(z, batch)  
         y = self.cls1(y)
         y = F.relu(y)
         y = F.dropout(y, p=0.5, training=self.training)
