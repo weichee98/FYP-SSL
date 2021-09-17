@@ -10,7 +10,6 @@ from tqdm import tqdm
 
 from ABIDE import *
 from config import EXPERIMENT_DIR
-from utils.metrics import EMA
 from utils import mkdir, on_error
 from models import *
 from data import *
@@ -39,7 +38,7 @@ def get_experiment_param(
         model="GCN", seed=0, fold=0, epochs=1000,
         ssl=True, test=True, save_model=True, 
         site="NYU", harmonized=False,
-        ema=None, lr=0.0001, l2_reg=0.001,
+        lr=0.0001, l2_reg=0.001,
         **kwargs
     ):
     """
@@ -61,7 +60,6 @@ def get_experiment_param(
     param["model"] = model
     param["lr"] = lr
     param["l2_reg"] = l2_reg
-    param["ema"] = ema
     param["ssl"] = ssl
     param["test"] = test
     param["harmonized"] = harmonized
@@ -70,13 +68,17 @@ def get_experiment_param(
         param[k] = v
     return param
 
-def set_experiment_param(param, model_path, acc, loss, time, device, **kwargs):
-    param["acc"] = acc
+def set_experiment_param(
+        param, model_path, time, device, 
+        best_epoch, acc, loss, **kwargs
+    ):
+    param["accuracy"] = acc
     param["loss"] = loss
     for k, v in kwargs.items():
         param[k] = v
+    param["best_epoch"] = best_epoch
     param["model_path"] = model_path
-    param["time"] = time
+    param["time_taken"] = time
     param["device"] = device
 
 def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc):
@@ -97,7 +99,7 @@ def get_pbar(max_epoch, verbose):
     else:
         return epoch_gen(max_epoch)
 
-def load_data(param, verbose):
+def load_data(param):
     X, Y = load_data_fmri(harmonized=param["harmonized"])
     splits = get_splits(site_id=param["site"], test=param["test"])
     ages, genders = get_ages_and_genders()
@@ -311,19 +313,19 @@ def experiment(args, param, model_dir):
 
     start = time.time()
     (data, labeled_train_indices, 
-    all_train_indices, test_indices) = load_data(param, verbose)
+    all_train_indices, test_indices) = load_data(param)
     model = load_model(param, data)
     optimizer = torch.optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()), 
         lr=param["lr"], weight_decay=param["l2_reg"]
     )
 
+    best_epoch = 0
     best_acc = 0
     best_loss = np.inf
+    acc_loss = np.inf
     best_metrics = {}
     best_model = None
-    ema = EMA(k=param["ema"])
-    ema_metrics = EMA(k=param["ema"])
     patience = 1000
     cur_patience = 0
     pbar = get_pbar(param["epochs"], verbose)
@@ -334,10 +336,6 @@ def experiment(args, param, model_dir):
             labeled_train_indices, all_train_indices,
             test_indices
         )
-        train_loss, train_acc, test_loss, test_acc = ema.update(
-            train_loss, train_acc, test_loss, test_acc
-        )
-        test_metrics = ema_metrics.update_dict(test_metrics)
 
         # early stopping
         if test_loss >= best_loss:
@@ -345,13 +343,30 @@ def experiment(args, param, model_dir):
         else:
             cur_patience = 0
 
+        """
+        save priority
+        1. accuracy
+        2. f1
+        3. loss
+        """
+        save = (test_acc > best_acc) or (
+            test_acc == best_acc and (
+                test_metrics["f1"] > best_metrics["f1"] or (
+                    test_metrics["f1"] == best_metrics["f1"] and
+                    test_loss < acc_loss
+                )
+            )
+        )
         if test_loss < best_loss:
             best_loss = test_loss
-        if test_acc > best_acc:
+        if save:
+            best_epoch = epoch
             best_acc = test_acc
+            acc_loss = test_loss
             best_metrics = test_metrics
-            best_model = copy.deepcopy(model.state_dict())
-            model_time = int(time.time())
+            if param["save_model"]:
+                best_model = copy.deepcopy(model.state_dict())
+                model_time = int(time.time())
 
         if verbose:
             pbar.set_postfix_str(verbose_info(
@@ -372,8 +387,9 @@ def experiment(args, param, model_dir):
 
     end = time.time()
     set_experiment_param(
-        param, model_path, best_acc, best_loss, end - start, args.gpu,
-        **best_metrics
+        param, time=end - start, device=args.gpu, model_path=model_path, 
+        best_epoch=best_epoch, acc=best_acc, loss=best_loss,
+        acc_loss=acc_loss, **best_metrics
     )
     print(param)
     return param
@@ -388,9 +404,9 @@ def main(args):
     ])
     print(sites)
 
-    for seed in range(1):
-        ssl = False
-        harmonized = False
+    for seed in range(10):
+        ssl = True
+        harmonized = True
             
         print("===================")
         print("EXPERIMENT SETTINGS")
@@ -404,45 +420,45 @@ def main(args):
         print("Experiment result: {}".format(exp_dir))
 
         res = []
-        for site in sites[:1]:
+        for site in sites:
             print("SITE: {}".format(site))
             for fold in range(5):
                 # param = get_experiment_param(
                 #     model="GCN", hidden=150, emb1=50, emb2=30, K=3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
-                #     site=site, ema=0.2, lr=0.00005, l2_reg=0.001,
+                #     site=site, lr=0.00005, l2_reg=0.001,
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
-                param = get_experiment_param(
-                    model="FFN", L1=150, L2=50, L3=30, gamma_lap=0, 
-                    seed=seed, fold=fold, ssl=ssl, save_model=False, 
-                    site=site, ema=0.2, lr=0.00005, l2_reg=0.001,
-                    test=False, harmonized=harmonized, epochs=1000
-                )
                 # param = get_experiment_param(
-                #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=2e-3, 
+                #     model="FFN", L1=150, L2=50, L3=30, gamma_lap=0, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
-                #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001,
+                #     site=site, lr=0.00005, l2_reg=0.001,
+                #     test=False, harmonized=harmonized, epochs=1000
+                # )
+                # param = get_experiment_param(
+                #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3, 
+                #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
+                #     site=site, lr=0.0001, l2_reg=0.001,
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 # param = get_experiment_param(
                 #     model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=1e-5, gamma2=1e-3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
+                #     site=site, lr=0.0001, l2_reg=0.001, 
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 # param = get_experiment_param(
                 #     model="VGAE", hidden=300, emb1=150, emb2=50, L1=30,
                 #     gamma1=3e-6, gamma2=1e-6, num_process=10, batch_size=10,
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
+                #     site=site, lr=0.0001, l2_reg=0.001, 
                 #     test=False, harmonized=harmonized, epochs=500
                 # )
                 # param = get_experiment_param(
                 #     model="GNN", hidden=300, emb1=150, emb2=50, L1=30,
                 #     gamma=0, num_process=10, batch_size=10,
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
+                #     site=site, lr=0.0001, l2_reg=0.001, 
                 #     test=False, harmonized=harmonized, epochs=500
                 # )
                 # param = get_experiment_param(
@@ -450,7 +466,7 @@ def main(args):
                 #     beta_klzd=1, beta_klzx=1, beta_klzy=1, 
                 #     beta_d=1, beta_y=1, beta_recon=3e-6,
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
+                #     site=site, lr=0.0001, l2_reg=0.001, 
                 #     test=False, harmonized=harmonized, epochs=500
                 # )
 
@@ -458,15 +474,15 @@ def main(args):
                 # param = get_experiment_param(
                 #     model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=3e-5, gamma2=1e-3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001, 
+                #     site=site, lr=0.0001, l2_reg=0.001, 
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
-                # param = get_experiment_param(
-                #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3, 
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
-                #     site=site, ema=0.2, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
+                param = get_experiment_param(
+                    model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3, 
+                    seed=seed, fold=fold, ssl=ssl, save_model=False, 
+                    site=site, lr=0.0001, l2_reg=0.001,
+                    test=False, harmonized=harmonized, epochs=1000
+                )
                 exp_res = experiment(args, param, model_dir)
                 res.append(exp_res)
         
