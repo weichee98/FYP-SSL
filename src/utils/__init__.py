@@ -1,4 +1,5 @@
 import os
+import time
 import traceback
 
 
@@ -23,3 +24,18 @@ def on_error(value, print_error_stack=True):
                 return value
         return wrapper
     return decorator
+
+
+
+def log_time(function):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        res = function(*args, **kwargs)
+        end = time.time()
+        print(
+            "[{}] takes {:.5f} s"
+            .format(function.__name__, end - start)
+        )
+        return res
+    return wrapper
+    
