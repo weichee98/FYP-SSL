@@ -1,8 +1,9 @@
 import os.path as osp
 import sys
-from matplotlib.pyplot import get
 import numpy as np
 import networkx as nx
+from enum import Enum
+from scipy.stats import gaussian_kde
 
 sys.path.append(osp.dirname(osp.dirname(osp.abspath(__file__))))
 
@@ -10,6 +11,88 @@ from utils.data import corr_mx_flatten
 
 
 class SiteDistribution:
+
+    class METRIC(Enum):
+        KL = 0
+        JS = 1
+        HELLINGER = 2
+
+        @staticmethod
+        def _hellinger_hist(p, q):
+            assert p.shape == q.shape
+            h = np.sqrt(p) - np.sqrt(q)
+            h = np.linalg.norm(h) / np.sqrt(2)
+            return h
+
+        @staticmethod
+        def _hellinger_gauss(p_mu, p_var, q_mu, q_var):
+            e = -0.25 * (p_mu - q_mu) ** 2 / (p_var + q_var)
+            m = np.sqrt(np.sqrt(4 * p_var * q_var) / (p_var + q_var))
+            h2 = 1 - m * np.exp(e)
+            return np.sqrt(h2)
+
+        @staticmethod
+        def _js_hist(p, q, eps=1e-5):
+            assert p.shape == q.shape
+            p, q = np.maximum(p, eps), np.maximum(q, eps)
+            m = 0.5 * (p + q)
+            kl_pm = p * np.log(p / m)
+            kl_qm = q * np.log(q / m)
+            js = 0.5 * (kl_pm + kl_qm)
+            return np.sum(js)
+
+        @staticmethod
+        def _kl_hist(p, q, eps=1e-5):
+            assert p.shape == q.shape
+            p, q = np.maximum(p, eps), np.maximum(q, eps)
+            kl_div = p * np.log(p / q)
+            return np.sum(kl_div)
+
+        @staticmethod
+        def _kl_gauss(p_mu, p_var, q_mu, q_var):
+            kl = 0.5 * (
+                np.log(q_var) - np.log(p_var) + \
+                (p_var + (p_mu - q_mu) ** 2) / q_var - 1
+            )
+            return kl
+
+    class METHOD(Enum):
+        GAUSS = 0
+        HIST = 1
+        KDE = 2
+
+        @staticmethod
+        def _get_mean_var(site_mean):
+            return dict(
+                (s, (np.mean(v), np.var(v)))
+                for s, v in site_mean.items()
+            )
+
+        @staticmethod
+        def _get_histogram(site_mean, bins=1000, vmin=-1, vmax=1):
+            site_hist = dict(
+                (s, np.histogram(v, bins=bins, range=(vmin, vmax))[0])
+                for s, v in site_mean.items()
+            )
+            site_hist = dict(
+                (s, v / np.sum(v)) for s, v in site_hist.items()
+            )
+            return site_hist
+
+        @staticmethod
+        def _get_binned_kde(site_mean, bins=1000, vmin=-1, vmax=1):
+            kde = dict(
+                (s, gaussian_kde(v))
+                for s, v in site_mean.items()
+            )
+            x = np.linspace(vmin, vmax, bins)
+            site_hist = dict(
+                (s, v.pdf(x)) for s, v in kde.items()
+            )
+            site_hist = dict(
+                (s, v / np.sum(v)) for s, v in site_hist.items()
+            )
+            return site_hist
     
     @staticmethod
     def get_site_mean(X, sites, fisher=False):
@@ -25,98 +108,97 @@ class SiteDistribution:
             group_dic[site] = group_mean
         return group_dic
 
-    @staticmethod
-    def _kl_hist(p, q):
-        eps = min(np.min(q[q > 0]), np.min(p[p > 0]), 1e-5)
-        p, q = np.maximum(p, eps), np.maximum(q, eps)
-        kl_div = p * np.log(p / q)
-        return np.sum(kl_div, axis=0)
+    def distribution_heatmap(self, X, sites, metric, method, **kwargs):
+        hist_kwg = dict(bins=kwargs["bins"]) if "bins" in kwargs else dict()
 
-    @staticmethod
-    def _kl_gauss(p_mu, p_var, q_mu, q_var):
-        kl = 0.5 * (
-            np.log(q_var) - np.log(p_var) + \
-            (p_var + (p_mu - q_mu) ** 2) / q_var - 1
-        )
-        return kl
-
-    def kl_gauss_distribution_heatmap(self, X, sites):
-        """
-        return: dict of dict
-            {p -> {q -> kl_divergence}}
-        """
         site_mean = self.get_site_mean(X, sites, fisher=True)
-        site_mu_var = dict(
-            (s, (np.mean(v), np.var(v)))
-            for s, v in site_mean.items()
-        )
-        unique_sites = np.unique(sites)
-        dist_diff = dict()
-        for s1 in unique_sites:
-            dist_diff[s1] = dict()
-            for s2 in unique_sites:
-                if s1 ==  s2:
-                    dist_diff[s1][s2] = 0
-                else:
-                    p_mu, p_var = site_mu_var[s1]
-                    q_mu, q_var = site_mu_var[s2]
-                    dist_diff[s1][s2] = self._kl_gauss(p_mu, p_var, q_mu, q_var)
-        return dist_diff
-
-    def kl_hist_distribution_heatmap(self, X, sites, bins=1000):
-        """
-        return: dict of dict
-            {p -> {q -> kl_divergence}}
-        """
-        site_mean = self.get_site_mean(X, sites, fisher=True)
-        site_hist = dict(
-            (s, np.histogram(v, bins=bins, range=(-1, 1))[0])
-            for s, v in site_mean.items()
-        )
-        site_hist = dict(
-            (s, v / np.sum(v)) for s, v in site_hist.items()
-        )
+        if method == self.METHOD.GAUSS:
+            site_mu_var = self.METHOD._get_mean_var(site_mean)
+        elif method == self.METHOD.HIST:
+            site_hist = self.METHOD._get_histogram(site_mean, **hist_kwg)
+        elif method == self.METHOD.KDE:
+            site_kde = self.METHOD._get_binned_kde(site_mean, **hist_kwg)
+        else:
+            raise NotImplementedError(
+                "method {} is not implemented".format(method)
+            )
 
         unique_sites = np.unique(sites)
-        dist_diff = dict()
-        for s1 in unique_sites:
-            dist_diff[s1] = dict()
-            for s2 in unique_sites:
-                if s1 ==  s2:
+        dist_diff = dict((s1, dict()) for s1 in unique_sites)
+        num_sites = len(unique_sites)
+
+        for i in range(num_sites):
+            for j in range(i, num_sites):
+                s1, s2 = unique_sites[i], unique_sites[j]
+                if s1 == s2:
                     dist_diff[s1][s2] = 0
+                    continue
+
+                if method == self.METHOD.GAUSS:
+                    if metric == self.METRIC.HELLINGER:
+                        d1 = d2 = self.METRIC._hellinger_gauss(*site_mu_var[s1], *site_mu_var[s2])
+                    elif metric == self.METRIC.KL:
+                        d1 = self.METRIC._kl_gauss(*site_mu_var[s1], *site_mu_var[s2])
+                        d2 = self.METRIC._kl_gauss(*site_mu_var[s2], *site_mu_var[s1])
+                    else:
+                        raise NotImplementedError(
+                            "{} metric not implemented for {} method"
+                            .format(metric, method)
+                        )
+
+                elif method == self.METHOD.HIST:
+                    if metric == self.METRIC.HELLINGER:
+                        d1 = d2 = self.METRIC._hellinger_hist(site_hist[s1], site_hist[s2])
+                    elif metric == self.METRIC.JS:
+                        d1 = d2 = self.METRIC._js_hist(site_hist[s1], site_hist[s2])
+                    elif metric == self.METRIC.KL:
+                        d1 = self.METRIC._kl_hist(site_hist[s1], site_hist[s2])
+                        d2 = self.METRIC._kl_hist(site_hist[s2], site_hist[s1])
+                    else:
+                        raise NotImplementedError(
+                            "{} metric not implemented for {} method"
+                            .format(metric, method)
+                        )
+
+                elif method == self.METHOD.KDE:
+                    if metric == self.METRIC.HELLINGER:
+                        d1 = d2 = self.METRIC._hellinger_hist(site_kde[s1], site_kde[s2])
+                    elif metric == self.METRIC.JS:
+                        d1 = d2 = self.METRIC._js_hist(site_kde[s1], site_kde[s2])
+                    elif metric == self.METRIC.KL:
+                        d1 = self.METRIC._kl_hist(site_kde[s1], site_kde[s2])
+                        d2 = self.METRIC._kl_hist(site_kde[s2], site_kde[s1])
+                    else:
+                        raise NotImplementedError(
+                            "{} metric not implemented for {} method"
+                            .format(metric, method)
+                        )
+
                 else:
-                    ahist = site_hist[s1]
-                    bhist = site_hist[s2]
-                    dist_diff[s1][s2] = self._kl_hist(ahist, bhist)
+                    raise NotImplementedError(
+                        "method {} is not implemented".format(method)
+                    )
+
+                dist_diff[s1][s2] = d1
+                dist_diff[s2][s1] = d2
+
         return dist_diff
 
-    def get_site_grouping(self, X, sites, metric, threshold, **kwargs):
+    def get_site_grouping(self, X, sites, metric, method, threshold, **kwargs):
         """
         Partition sites into optimal subsets, sites in the
         same subset would have statistical difference less 
         than the specified threshold
 
-        metric
-        - "kl": kl divergence assuming normal distribution
-        - "kl_hist": kl divergence using histogram, 1000 bins
+        metric: METRIC.KL, METRIC.JS, METRIC.HELLINGER
+        method: METHOD.GAUSS, METHOD.HIST, METHOD.KDE
 
         threshold: the maximum difference in distribution allowed
 
         kwargs: additional keyword argument to be passed
-        - bins: int - if metric == "kl_hist"
+        - bins: int - if method == METHOD.HIST or METHOD.KDE
         """
-        if metric == "kl":
-            dist_diff = self.kl_gauss_distribution_heatmap(X, sites)
-        elif metric == "kl_hist":
-            if "bins" in kwargs:
-                kl_hist_kwg = dict(bins=kwargs["bins"])
-            else:
-                kl_hist_kwg = dict()
-            dist_diff = self.kl_hist_distribution_heatmap(
-                X, sites, **kl_hist_kwg
-            )
-        else:
-            raise ValueError("invalid metric {}".format(metric))
+        dist_diff = self.distribution_heatmap(X, sites, metric, method, **kwargs)
 
         """
         Create a graph with nodes as the sites,
@@ -283,10 +365,9 @@ class SiteDistribution:
 
 if __name__ == "__main__":
     from ABIDE import *
-    import matplotlib.pyplot as plt
 
     X, _ = load_data_fmri()
     sites = get_sites()
     SD = SiteDistribution()
-    groupings = SD.get_site_grouping(X, sites, "kl", 0.01)
+    groupings = SD.get_site_grouping(X, sites, SD.METRIC.HELLINGER, SD.METHOD.GAUSS, 0.05)
     print(groupings)
