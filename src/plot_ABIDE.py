@@ -14,7 +14,7 @@ def sorting(df):
     return columns
 
 
-def plot_heatmap(df):
+def plot_heatmap(df, metric):
     f, ax = plt.subplots(1, 1, figsize=(15, 15))
     sb.heatmap(
         df, cmap="Blues", square=True, annot=True, 
@@ -22,8 +22,25 @@ def plot_heatmap(df):
     )
     ax.set_xlabel("P")
     ax.set_ylabel("Q")
-    ax.set_title("KL(P||Q)")
+    if metric == SD.METRIC.KL:
+        ax.set_title("KL(P||Q)")
+    elif metric == SD.METRIC.JS:
+        ax.set_title("JS DIVERGENCE")
+    elif metric == SD.METRIC.HELLINGER:
+        ax.set_title("HELLINGER DISTANCE")
+    else:
+        raise NotImplementedError("title not set for metric {}".format(metric))
     plt.tight_layout()
+    return f
+
+
+def plot_distribution(X, sites, metric, method, columns=None, **kwargs):
+    dist_diff = SD.distribution_heatmap(X, sites, metric, method, **kwargs)
+    dist_diff = pd.DataFrame(dist_diff)
+    if columns is None:
+        columns = sorting(dist_diff)
+    dist_diff = dist_diff.loc[columns, :][columns]
+    f = plot_heatmap(dist_diff, metric)
     return f
 
 
@@ -32,33 +49,47 @@ if __name__ == "__main__":
     """
     plot kl divergence heatmap
     """
-    X, _ = load_data_fmri()
+    X, y = load_data_fmri()
     sites = get_sites()
     SD = SiteDistribution()
 
-    dist_diff = pd.DataFrame(SD.kl_gauss_distribution_heatmap(X, sites))
-    columns = sorting(dist_diff)
-    dist_diff = dist_diff.loc[columns, :][columns]
-    f = plot_heatmap(dist_diff)
-    f.savefig("distribution_kldiv_normal.png")
+    columns = [
+        "CMU", "OHSU", "YALE", "LEUVEN_1", "LEUVEN_2",
+        "UCLA_2", "UCLA_1", "SBL", "TRINITY", "SDSU",
+        "OLIN", "PITT", "KKI", "STANFORD", "CALTECH",
+        "UM_1", "UM_2", "MAX_MUN", "NYU", "USM"
+    ]
 
-    bins = [100, 200, 500, 1000]
-    for bin in bins:
-        dist_diff = pd.DataFrame(SD.kl_hist_distribution_heatmap(X, sites, bin))
-        dist_diff = dist_diff.loc[columns, :][columns]
-        f = plot_heatmap(dist_diff)
-        f.savefig("distribution_kldiv_hist_{}bins.png".format(bin))
+    # for metric in SD.METRIC:
+    #     for method in SD.METHOD:
+    #         try:
+    #             f = plot_distribution(
+    #                 X, sites, metric, method,
+    #                 bins=1000, columns=columns
+    #             )
+    #             f.savefig("distribution_{}_{}.png".format(metric, method))
+    #         except Exception as e:
+    #             print(e)
 
     """
     plot kde pairplot
     """
-    from utils.plot import plot_group_corr_mat, plot_group_kde
-    site_mean = SD.get_site_mean(X, sites, fisher=True)
+    from utils.plot import plot_group_kde
 
-    # f = plot_group_corr_mat(site_mean, num_process=10, verbose=True)
-    # f.savefig("site_mean_corr_mat.png")
+    is_diseased = y[:, 1] == 1
+    site_mean_control = SD.get_site_mean(X[~is_diseased], sites[~is_diseased], fisher=True)
+    site_mean_diseased = SD.get_site_mean(X[is_diseased], sites[is_diseased], fisher=True)
+    
+    site_mean = dict()
+    for s in np.unique(sites):
+        site_mean[s] = dict()
+        if s in site_mean_control:
+            site_mean[s]["control"] = site_mean_control[s]
+        if s in site_mean_diseased:
+            site_mean[s]["diseased"] = site_mean_diseased[s]
+
     f = plot_group_kde(site_mean, num_process=10, verbose=True, group_order=columns)
-    f.savefig("site_distribution.png")
+    f.savefig("site_distribution_with_classes.png")
 
     # X_harmonized, _ = load_data_fmri(True)
     # site_mean = SD.get_site_mean(X_harmonized, sites, fisher=True)

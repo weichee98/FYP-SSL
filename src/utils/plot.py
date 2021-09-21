@@ -100,17 +100,28 @@ def plot_group_kde(groups, num_process=1, verbose=False, group_order=None):
     rows, cols = np.triu_indices(n)
     f, ax = plt.subplots(n, n, figsize=(7 * n, 5 * n))
 
+    def plot_kde(groups, ax, label):
+        if isinstance(groups, dict):
+            for k, v in groups.items():
+                lbl = "{} {}".format(label, k)
+                sb.kdeplot(v, shade=True, ax=ax, label=lbl)
+        else:
+            sb.kdeplot(groups, shade=True, ax=ax, label=label)
+
     def task(r, c):
         g = unique_groups[r]
         f = plt.figure(figsize=(7, 5))
         ax = plt.axes()
         ax.set_xlabel("ROI correlation")
-        sb.kdeplot(groups[g], shade=True, ax=ax, label=g)
+        plot_kde(groups[g], ax, g)
         if r == c:
-            ax.legend([g])
+            if isinstance(groups[g], dict) and len(groups[g]) > 1:
+                ax.legend()
+            else:
+                ax.legend([g])
         else:
             g = unique_groups[c]
-            sb.kdeplot(groups[g], shade=True, ax=ax, label=g)
+            plot_kde(groups[g], ax, g)
             ax.legend()
 
         buf = io.BytesIO()
