@@ -104,9 +104,10 @@ def train_VAE(
         all_idx = labeled_idx
     x_std = x_std.expand(x_mu[all_idx].size())
     rc_loss = gauss_criterion(x[all_idx], x_mu[all_idx], x_std ** 2)
-    kl = kl_criterion(z_mu, z_std ** 2, torch.zeros_like(z_mu), torch.ones_like(z_std))
-    # if torch.all(torch.rand(1) < 0.1):
-    #     print(loss.item(), rc_loss.item(), kl.item())
+    kl = kl_criterion(
+        z_mu[all_idx], z_std[all_idx] ** 2, 
+        torch.zeros_like(z_mu[all_idx]), torch.ones_like(z_std[all_idx])
+    )
     loss += gamma1 * rc_loss + gamma2 * kl
 
     loss_val = loss.item()
