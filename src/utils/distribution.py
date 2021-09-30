@@ -354,13 +354,11 @@ class SiteDistribution:
             return min_intersect, best_site_group
 
         _, best_site_group = complete_groups(site_group, visited_cliques)
-        if best_site_group is None:
-            return None
-        group_subset = dict()
-        for site, group in sorted(best_site_group.items()):
-            group_subset.setdefault(group, list())
-            group_subset[group].append(site)
-        return sorted(group_subset.values())
+        unique_groups = sorted(set(best_site_group.values()))
+        group_map = dict((g, ng) for g, ng in zip(unique_groups, range(len(unique_groups))))
+        for site in best_site_group:
+            best_site_group[site] = group_map[best_site_group[site]]
+        return best_site_group
 
 
 if __name__ == "__main__":
@@ -369,5 +367,5 @@ if __name__ == "__main__":
     X, _ = load_data_fmri()
     sites = get_sites()
     SD = SiteDistribution()
-    groupings = SD.get_site_grouping(X, sites, SD.METRIC.HELLINGER, SD.METHOD.GAUSS, 0.05)
+    groupings = SD.get_site_grouping(X, sites, SD.METRIC.HELLINGER, SD.METHOD.KDE, 0.063)
     print(groupings)
