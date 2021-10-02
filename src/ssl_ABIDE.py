@@ -1,38 +1,17 @@
 import os
 import copy
 import time
-import random
 import argparse
 import torch
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 from ABIDE import *
 from config import EXPERIMENT_DIR
-from utils import mkdir, on_error
+from utils import *
 from models import *
 from data import *
 
-
-def get_device(id):
-    if id >= 0 and torch.cuda.is_available():
-        print("Using device: cuda:{}".format(id))
-        device = torch.device("cuda:{}".format(id))
-    else:
-        print("Using device: cpu")
-        device = torch.device("cpu")
-    return device
-
-def seed_torch(seed=42):
-    random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
 
 def get_experiment_param(
         model="GCN", seed=0, fold=0, epochs=1000,
@@ -80,24 +59,6 @@ def set_experiment_param(
     param["model_path"] = model_path
     param["time_taken"] = time
     param["device"] = device
-
-def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc):
-    return "Epoch: {:03d}, Train Acc: {:.4f}, Test Acc: {:.4f}, " \
-        "Train Loss: {:.4f}, Test Loss: {:.4f}".format(
-            epoch, train_acc, test_acc, train_loss, test_loss
-        )
-
-def epoch_gen(max_epoch=1000):
-    i = 1
-    while i <= max_epoch:
-        yield i
-        i += 1
-
-def get_pbar(max_epoch, verbose):
-    if verbose:
-        return tqdm(epoch_gen(max_epoch))
-    else:
-        return epoch_gen(max_epoch)
 
 def load_data(param):
     X, Y = load_data_fmri(harmonized=param["harmonized"])
@@ -305,6 +266,12 @@ def train_test_step(
         )
     return train_loss, train_acc, test_loss, test_acc, test_metrics
 
+def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc):
+    return "Epoch: {:03d}, Train Acc: {:.4f}, Test Acc: {:.4f}, " \
+        "Train Loss: {:.4f}, Test Loss: {:.4f}".format(
+            epoch, train_acc, test_acc, train_loss, test_loss
+        )
+
 @on_error({}, True)
 def experiment(args, param, model_dir):
     seed_torch()
@@ -471,18 +438,18 @@ def main(args):
                 # )
 
                 # SSL
-                # param = get_experiment_param(
-                #     model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=3e-5, gamma2=1e-3, 
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001, 
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
                 param = get_experiment_param(
-                    model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3, 
-                    seed=seed, fold=fold, ssl=ssl, save_model=False, 
-                    site=site, lr=0.0001, l2_reg=0.001,
+                    model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=3e-5, gamma2=1e-3, 
+                    seed=seed, fold=fold, ssl=ssl, save_model=False,
+                    site=site, lr=0.0001, l2_reg=0.001, 
                     test=False, harmonized=harmonized, epochs=1000
                 )
+                # param = get_experiment_param(
+                #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3, 
+                #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
+                #     site=site, lr=0.0001, l2_reg=0.001,
+                #     test=False, harmonized=harmonized, epochs=1000
+                # )
                 exp_res = experiment(args, param, model_dir)
                 res.append(exp_res)
         
@@ -491,6 +458,35 @@ def main(args):
         if not df.empty:
             res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
             df.to_csv(res_path, index=False)
+
+
+    # res = []
+    # experiment_name = "{}_{}".format(script_name, int(time.time()))
+    # exp_dir = os.path.join(args.exp_dir, experiment_name)
+    # model_dir = os.path.join(exp_dir, "models")    
+    # print("Experiment result: {}".format(exp_dir))
+
+    # for seed in range(10):
+    #     for harmonized in [False, True]:                
+    #         print("===================")
+    #         print("EXPERIMENT SETTINGS")
+    #         print("===================")
+    #         print("HARMONIZED: {}".format(harmonized))
+    #         for fold in range(5):
+    #             param = get_experiment_param(
+    #                 model="FFN", L1=150, L2=50, L3=30, gamma_lap=0, 
+    #                 seed=seed, fold=fold, ssl=False, save_model=False, 
+    #                 site=None, lr=0.00005, l2_reg=0.001,
+    #                 test=False, harmonized=harmonized, epochs=1000
+    #             )
+    #             exp_res = experiment(args, param, model_dir)
+    #             res.append(exp_res)
+            
+    # mkdir(exp_dir)
+    # df = pd.DataFrame(res).dropna(how="all")
+    # if not df.empty:
+    #     res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
+    #     df.to_csv(res_path, index=False)
 
 
 if __name__ == "__main__":

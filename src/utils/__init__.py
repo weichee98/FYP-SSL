@@ -64,13 +64,6 @@ def seed_torch(seed=42):
     torch.backends.cudnn.deterministic = True
 
 
-def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc):
-    return "Epoch: {:03d}, Train Acc: {:.4f}, Test Acc: {:.4f}, " \
-        "Train Loss: {:.4f}, Test Loss: {:.4f}".format(
-            epoch, train_acc, test_acc, train_loss, test_loss
-        )
-
-
 def epoch_gen(max_epoch=1000):
     i = 1
     while i <= max_epoch:
