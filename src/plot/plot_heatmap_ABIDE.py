@@ -1,7 +1,11 @@
+import os
+import sys
 import numpy as np
 import pandas as pd
 import seaborn as sb
 import matplotlib.pyplot as plt
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ABIDE import load_data_fmri, get_sites
 from utils.distribution import SiteDistribution
@@ -60,41 +64,13 @@ if __name__ == "__main__":
         "UM_1", "UM_2", "MAX_MUN", "NYU", "USM"
     ]
 
-    # for metric in SD.METRIC:
-    #     for method in SD.METHOD:
-    #         try:
-    #             f = plot_distribution(
-    #                 X, sites, metric, method,
-    #                 bins=1000, columns=columns
-    #             )
-    #             f.savefig("distribution_{}_{}.png".format(metric, method))
-    #         except Exception as e:
-    #             print(e)
-
-    """
-    plot kde pairplot
-    """
-    from utils.plot import plot_group_kde
-
-    is_diseased = y[:, 1] == 1
-    site_mean_control = SD.get_site_mean(X[~is_diseased], sites[~is_diseased], fisher=True)
-    site_mean_diseased = SD.get_site_mean(X[is_diseased], sites[is_diseased], fisher=True)
-    
-    site_mean = dict()
-    for s in np.unique(sites):
-        site_mean[s] = dict()
-        if s in site_mean_control:
-            site_mean[s]["control"] = site_mean_control[s]
-        if s in site_mean_diseased:
-            site_mean[s]["diseased"] = site_mean_diseased[s]
-
-    f = plot_group_kde(site_mean, num_process=10, verbose=True, group_order=columns)
-    f.savefig("site_distribution_with_classes.png")
-
-    # X_harmonized, _ = load_data_fmri(True)
-    # site_mean = SD.get_site_mean(X_harmonized, sites, fisher=True)
-
-    # f = plot_group_corr_mat(site_mean, num_process=10, verbose=True)
-    # f.savefig("combat_site_mean_corr_mat.png")
-    # f = plot_group_kde(site_mean, num_process=10, verbose=True, group_order=columns)
-    # f.savefig("combat_site_distribution.png")
+    for metric in SD.METRIC:
+        for method in SD.METHOD:
+            try:
+                f = plot_distribution(
+                    X, sites, metric, method,
+                    bins=1000, columns=columns
+                )
+                f.savefig("distribution_{}_{}.png".format(metric, method))
+            except Exception as e:
+                print(e)
