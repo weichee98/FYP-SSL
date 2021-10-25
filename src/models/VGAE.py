@@ -2,7 +2,9 @@ import os
 import sys
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GraphConv, global_mean_pool
+from torch_scatter import scatter_add
+from torch_geometric.utils import softmax
+from torch_geometric.nn import GraphConv
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
@@ -11,23 +13,34 @@ from utils.loss import GaussianKLDivLoss
 from utils.metrics import CummulativeClassificationMetrics
 
 
+class GlobalAttentionPooling(torch.nn.Module):
+
+    def __init__(self, input_size, l1):
+        super().__init__()
+        self.linear = torch.nn.Linear(input_size, l1)
+        self.gate = GraphConv(l1, 1)
+
+    def forward(self, x, edge_index, edge_weight, batch, size=None):
+        x1 = self.linear(x)
+        gate = self.gate(x1, edge_index, edge_weight)
+        assert gate.dim() == x.dim() and gate.size(0) == x.size(0)
+        gate = softmax(gate, batch, num_nodes=size)
+        out = scatter_add(gate * x, batch, dim=0, dim_size=size)
+        return out
+
+
 class VGAE(torch.nn.Module):
     
-    def __init__(self, input_size, hidden, emb1, emb2, l1):
+    def __init__(self, input_size, emb1, emb2, l1):
         super().__init__()
-        self.emb = torch.nn.Embedding(input_size, hidden, max_norm=1)
-        self.encoder1 = GraphConv(hidden, emb1)
+        self.encoder1 = GraphConv(input_size, emb1)
         self.encoder_mu = GraphConv(emb1, emb2)
-        self.encoder_std = GraphConv(emb1, emb2)
-
-        self.cls1 = torch.nn.Linear(emb2, l1)
-        self.cls2 = torch.nn.Linear(l1, 2)  # this is the head for disease class
+        self.encoder_std = torch.nn.Linear(emb1, emb2)
+        self.pool = GlobalAttentionPooling(emb2, l1)
+        self.cls = torch.nn.Linear(emb2, 2)  # this is the head for disease class
         self.log_std = torch.nn.Parameter(torch.tensor([0.0]))
 
     def forward(self, x, edge_index, edge_weight, batch):
-        x = self.emb(x)
-        x = F.dropout(x, p=0.5, training=self.training)
-
         z_mu, z_log_std = self._encode(x, edge_index, edge_weight)
         z_std = torch.exp(z_log_std)
 
@@ -40,12 +53,8 @@ class VGAE(torch.nn.Module):
         w_mu = self._decode(z, edge_index)
         w_std = torch.exp(self.log_std)
 
-        y = global_mean_pool(z, batch)  
-        y = self.cls1(y)
-        y = F.relu(y)
-        y = F.dropout(y, p=0.5, training=self.training)
-
-        y = self.cls2(y)
+        y = self.pool(z, edge_index, edge_weight, batch)
+        y = self.cls(y)
         y = F.softmax(y, dim=1) # output for disease classification
         return y, w_mu, w_std, z, z_mu, z_std
 
@@ -56,14 +65,12 @@ class VGAE(torch.nn.Module):
 
         mu = self.encoder_mu(x, edge_index, edge_weight)
         mu = torch.tanh(mu)
-        log_std = self.encoder_std(x, edge_index, edge_weight)
+        log_std = self.encoder_std(x)
         log_std = torch.tanh(log_std)
         return mu, log_std
 
     def _decode(self, x, edge_index):
         x = F.cosine_similarity(x[edge_index[0]], x[edge_index[1]])
-        # x = x[edge_index[0]] * x[edge_index[1]]
-        # x = torch.tanh(x.sum(dim=1))
         return x
 
 
@@ -86,7 +93,6 @@ def train_VGAE(
         edge_weight = batch.edge_attr.to(device)
         batch_idx = batch.batch.to(device)
 
-        x = x.argmax(dim=1)
         pred_y, w_mu, w_std, z, z_mu, z_std = model(
             x, edge_index, edge_weight, batch_idx
         )
@@ -98,7 +104,6 @@ def train_VGAE(
         else:
             cls_loss = None
         w_std = w_std.expand(w_mu.size())
-        # rc_loss = -torch.sum((edge_weight / 2 + 0.5) * torch.log(w_mu / 2 + 0.5))
         rc_loss = gauss_criterion(edge_weight, w_mu, w_std ** 2)
         kl = kl_criterion(z_mu, z_std ** 2, torch.zeros_like(z_mu), torch.ones_like(z_std))
         return cls_loss, rc_loss, kl
@@ -140,7 +145,6 @@ def test_VGAE(device, model, test_dl):
         edge_weight = batch.edge_attr.to(device)
         batch_idx = batch.batch.to(device)
 
-        x = x.argmax(dim=1)
         pred_y, _, _, _, _, _ = model(
             x, edge_index, edge_weight, batch_idx
         )

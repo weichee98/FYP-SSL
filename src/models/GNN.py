@@ -2,7 +2,7 @@ import os
 import sys
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GraphConv, global_mean_pool
+from torch_geometric.nn import GraphConv, GlobalAttention
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
@@ -12,19 +12,15 @@ from utils.metrics import CummulativeClassificationMetrics
 
 class GNN(torch.nn.Module):
     
-    def __init__(self, input_size, hidden, emb1, emb2, l1):
+    def __init__(self, input_size, emb1, emb2, l1):
         super().__init__()
-        self.emb = torch.nn.Embedding(input_size, hidden, max_norm=1)
-        self.conv1 = GraphConv(hidden, emb1)
+        self.conv1 = GraphConv(input_size, emb1)
         self.conv2 = GraphConv(emb1, emb2)
-
+        self.pool = GlobalAttention(torch.nn.Linear(emb2, l1))
         self.cls1 = torch.nn.Linear(emb2, l1)
         self.cls2 = torch.nn.Linear(l1, 2) # this is the head for disease class
 
     def forward(self, x, edge_index, edge_weight, batch):
-        x = self.emb(x)
-        x = F.dropout(x, p=0.5, training=self.training)
-
         x = self.conv1(x, edge_index, edge_weight)
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
@@ -33,7 +29,7 @@ class GNN(torch.nn.Module):
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
 
-        x = global_mean_pool(x, batch)  
+        x = self.pool(x, batch)
         x = self.cls1(x)
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
@@ -61,7 +57,6 @@ def train_GNN(device, model, train_dl, optimizer, gamma=0):
         edge_weight = batch.edge_attr.to(device)
         batch_idx = batch.batch.to(device)
 
-        x = x.argmax(dim=1)
         pred_y = model(x, edge_index, edge_weight, batch_idx)
         real_y = batch.y.to(device)
         loss = cls_criterion(pred_y, real_y)
@@ -101,7 +96,6 @@ def test_GNN(device, model, test_dl):
         edge_weight = batch.edge_attr.to(device)
         batch_idx = batch.batch.to(device)
 
-        x = x.argmax(dim=1)
         pred_y = model(x, edge_index, edge_weight, batch_idx)
         real_y = batch.y.to(device)
         loss = criterion(pred_y, real_y)

@@ -108,12 +108,12 @@ def make_graph_dataset(X, y, num_process=1, verbose=False):
     """
     def task(x, y):
         embeddings = np.eye(x.shape[0])
-        node_features = torch.tensor(embeddings).float() # (num_nodes, num_features)
-        edge_index = torch.tensor(np.argwhere(embeddings == 0).T) # (2, num_edges)
+        node_features = torch.tensor(x).float()
+        edge_index = torch.tensor(np.argwhere(embeddings == 0).T)
         weights = torch.tensor(x)[edge_index[0], edge_index[1]].float()
         d = torch_geometric.data.Data(
             x=node_features, edge_index=edge_index, 
-            edge_attr=weights, y=torch.tensor([y])
+            edge_attr=weights, y=torch.tensor([y]),
         )
         return d
 
@@ -125,13 +125,23 @@ def make_graph_dataset(X, y, num_process=1, verbose=False):
         delayed(task)(X[i], y[i])
         for i in pbar
     )
+
+    """
+    dataset: list[torch_geometric.data.Data]
+        a list of graphs, each with attributes
+        - x: (num_nodes, num_features) - node features
+        - y: (1,) - graph label
+        - edge_index: (2, num_edges) - edges
+        - edge_attr: (num_edges,) - edge weights
+        - pos: (num_nodes,) - node index
+    """
     return dataset
 
 
 def make_graph_dataloader(data, labeled_idx, all_idx, test_idx, batch_size=None):
-    labeled_dl = torch_geometric.data.DataLoader(
+    labeled_dl = torch_geometric.loader.DataLoader(
         dataset=[data[i] for i in labeled_idx], 
-        batch_size=labeled_idx.shape[0] if batch_size is None else batch_size
+        batch_size=labeled_idx.shape[0] if batch_size is None else min(batch_size, labeled_idx.shape[0])
     )
 
     if all_idx is None:
@@ -139,15 +149,15 @@ def make_graph_dataloader(data, labeled_idx, all_idx, test_idx, batch_size=None)
     else:
         unlabeled_idx = np.setdiff1d(all_idx, labeled_idx)
     if unlabeled_idx.shape[0] > 0:
-        unlabeled_dl = torch_geometric.data.DataLoader(
+        unlabeled_dl = torch_geometric.loader.DataLoader(
             dataset=[data[i] for i in unlabeled_idx], 
-            batch_size=unlabeled_idx.shape[0] if batch_size is None else batch_size
+            batch_size=unlabeled_idx.shape[0] if batch_size is None else min(batch_size, unlabeled_idx.shape[0])
         )
     else:
         unlabeled_dl = None
     
-    test_dl = torch_geometric.data.DataLoader(
+    test_dl = torch_geometric.loader.DataLoader(
         dataset=[data[i] for i in test_idx], 
-        batch_size=test_idx.shape[0] if batch_size is None else batch_size
+        batch_size=test_idx.shape[0] if batch_size is None else min(batch_size, test_idx.shape[0])
     )
     return labeled_dl, unlabeled_dl, test_dl
