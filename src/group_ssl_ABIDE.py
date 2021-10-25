@@ -1,9 +1,11 @@
 import os
 import json
 import time
+import copy
 import argparse
 import torch
 import numpy as np
+from collections import defaultdict
 
 from ABIDE import *
 from config import EXPERIMENT_DIR
@@ -13,10 +15,13 @@ from utils.data import *
 from utils.distribution import SiteDistribution
 
 
+MIN_GROUP_TRAIN_SUBJECTS = 100
+
+
 def get_experiment_param(
         model="FFN", seed=0, fold=0, epochs=1000,
-        test=True, harmonized=False,
-        lr=0.0001, l2_reg=0.001,
+        ssl=False, test=True, harmonized=False,
+        lr=0.0001, l2_reg=0.001, save_model=False,
         **kwargs
     ):
     """
@@ -34,25 +39,30 @@ def get_experiment_param(
     param["model"] = model
     param["lr"] = lr
     param["l2_reg"] = l2_reg
+    param["ssl"] = ssl
     param["test"] = test
     param["harmonized"] = harmonized
+    param["save_model"] = save_model
     for k, v in kwargs.items():
         param[k] = v
     return param
 
 def set_experiment_param(
-        param, time, device, training_group, test_results,
-        train_indices, test_indices
+        param, time, device, target_group, test_results,
+        train_indices, test_indices, model_path=None
     ):
     param["time_taken"] = time
     param["device"] = device
-    param["training_group"] = training_group
-    param["num_train"] = len(train_indices[training_group])
+    param["training_group"] = target_group
+    param["num_labeled_train"] = len(train_indices[target_group])
+    param["num_unlabeled_train"] = sum([len(train_indices[group]) for group in train_indices if group != target_group])
     param["test_results"] = list()
     for group, res in test_results.items():
         res["testing_group"] = group
         res["num_test"] = len(test_indices[group])
         param["test_results"].append(res)
+    if model_path is not None:
+        param["model_path"] = model_path
 
 def load_input(param, groups):
     seed = param["seed"]
@@ -78,18 +88,19 @@ def load_input(param, groups):
         }
     return X, Y, splits
 
-def get_train_test_indices(groups, splits, target_group):
+def get_train_test_indices(groups, splits, target_group, ssl):
     """
     groups: dict, key = site, value = group_id
     """
-    group_names = dict((group, list()) for group in groups.values())
-    train_indices = {target_group: list()}
-    test_indices = dict((group, list()) for group in groups.values())
+    group_names = defaultdict(list)
+    train_indices = defaultdict(list)
+    test_indices = defaultdict(list)
     
     for site, group in groups.items():
         train_idx = splits[site]["train_indices"]
         test_idx = splits[site]["test_indices"]
-        if group == target_group:
+        if group == target_group or ssl:
+            train_indices
             train_indices[group].append(train_idx)
             test_indices[group].append(test_idx)
         else:
@@ -113,17 +124,29 @@ def get_train_test_indices(groups, splits, target_group):
         for group, test_idx in test_indices.items()
     )
 
+    for group in list(train_indices):
+        idx = train_indices[group]
+        if len(idx) < MIN_GROUP_TRAIN_SUBJECTS:
+            test_indices[group] = np.concatenate([test_indices[group], idx], axis=0)
+            train_indices.pop(group)
+
     print("TRAIN:")
     for i, (group, idx) in enumerate(train_indices.items(), start=1):
         print("{}. GROUP {}: {}".format(i, group, len(idx)))
     print("TEST")
     for i, (group, idx) in enumerate(test_indices.items(), start=1):
         print("{}. GROUP {}: {}".format(i, group, len(idx)))
-    return train_indices, test_indices
+    return train_indices, test_indices, group_names[target_group]
 
-def load_data(param, X, Y, train_indices, test_indices):
-    assert len(train_indices) == 1
-    train_indices = list(train_indices.items())[0][1]
+def load_data(param, X, Y, train_indices, test_indices, target_group):
+
+    unlabeled_indices = [train_indices[group] for group in train_indices if group != target_group]
+    if len(unlabeled_indices) == 0:
+        unlabeled_indices = None
+    elif len(unlabeled_indices) == 1:
+        unlabeled_indices = unlabeled_indices[0]
+    else:
+        unlabeled_indices = np.concatenate(unlabeled_indices, axis=0)
 
     if param["model"] in ["FFN", "AE", "VAE"]:
         X_flattened = corr_mx_flatten(X)
@@ -135,23 +158,30 @@ def load_data(param, X, Y, train_indices, test_indices):
             X, Y.argmax(axis=1), param.get("num_process", 1), False
         )
         train_dl = torch_geometric.data.DataLoader(
-            dataset=[data[i] for i in train_indices], 
+            dataset=[data[i] for i in train_indices[target_group]], 
             batch_size=train_indices.shape[0] if batch_size is None else batch_size
         )
+        if unlabeled_indices is None:
+            unlabeled_dl = None
+        else:
+            unlabeled_dl = torch_geometric.data.DataLoader(
+                dataset=[data[i] for i in unlabeled_indices], 
+                batch_size=train_indices.shape[0] if batch_size is None else batch_size
+            )
         test_dl = dict()
         for test_group, test_idx in test_indices.items():
             test_dl[test_group] = torch_geometric.data.DataLoader(
                 dataset=[data[i] for i in test_idx], 
                 batch_size=test_idx.shape[0] if batch_size is None else batch_size
             )
-        data = (train_dl, test_dl)
+        data = (train_dl, unlabeled_dl, test_dl)
 
     else:
         raise NotImplementedError(
             "No dataloader function implemented for model {}"
             .format(param["model"])
         )
-    return data
+    return data, unlabeled_indices
 
 def load_model(param, data):
     if param["model"] == "FFN":
@@ -203,49 +233,48 @@ def load_model(param, data):
 
 def train_test_step(
         param, device, model, data, optimizer, 
-        train_indices, test_indices
+        train_indices, unlabeled_indices, test_indices,
+        target_group
     ):
-    assert len(train_indices) == 1
     train_results = dict()
     test_results = dict()
 
     if param["model"] in ["GNN", "VGAE"]:
-        train_dl, test_dl = data
+        train_dl, unlabeled_dl, test_dl = data
 
     # training
-    for group, train_idx in train_indices.items():
-        if param["model"] == "FFN":
-            train_loss, train_acc = train_FFN(
-                device, model, data, optimizer, train_idx,
-                None, param["gamma_lap"]
-            )
-        elif param["model"] == "AE":
-            train_loss, train_acc = train_AE(
-                device, model, data, optimizer, train_idx,
-                None, param["gamma"]
-            )
-        elif param["model"] == "VAE":
-            train_loss, train_acc = train_VAE(
-                device, model, data, optimizer, train_idx,
-                None, param["gamma1"], param["gamma2"]
-            )
-        elif param["model"] == "GNN":
-            train_loss, train_acc = train_GNN(
-                device, model, train_dl, optimizer, param["gamma"]
-            )
-        elif param["model"] == "VGAE":
-            train_loss, train_acc = train_VGAE(
-                device, model, train_dl, None, optimizer,
-                param["gamma1"], param["gamma2"]
-            )
-        else:
-            raise TypeError(
-                "Invalid model of type {}".format(param["model"])
-            )
-        train_results[group] = dict(
-            loss=train_loss,
-            accuracy=train_acc
+    if param["model"] == "FFN":
+        train_loss, train_acc = train_FFN(
+            device, model, data, optimizer, train_indices,
+            unlabeled_indices, param["gamma_lap"]
         )
+    elif param["model"] == "AE":
+        train_loss, train_acc = train_AE(
+            device, model, data, optimizer, train_indices,
+            unlabeled_indices, param["gamma"]
+        )
+    elif param["model"] == "VAE":
+        train_loss, train_acc = train_VAE(
+            device, model, data, optimizer, train_indices,
+            unlabeled_indices, param["gamma1"], param["gamma2"]
+        )
+    elif param["model"] == "GNN":
+        train_loss, train_acc = train_GNN(
+            device, model, train_dl, optimizer, param["gamma"]
+        )
+    elif param["model"] == "VGAE":
+        train_loss, train_acc = train_VGAE(
+            device, model, train_dl, unlabeled_dl, optimizer,
+            param["gamma1"], param["gamma2"]
+        )
+    else:
+        raise TypeError(
+            "Invalid model of type {}".format(param["model"])
+        )
+    train_results[target_group] = dict(
+        loss=train_loss,
+        accuracy=train_acc
+    )
 
     # testing
     for group, test_idx in test_indices.items():
@@ -288,20 +317,20 @@ def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc):
         )
 
 @on_error({}, True)
-def experiment(args, param, groups, target_group):
+def experiment(args, param, groups, target_group, model_dir):
     seed_torch()
     device = get_device(args.gpu)
     verbose = args.verbose
+    ssl = param["ssl"]
 
     start = time.time()
     X, Y, splits = load_input(param, groups)
-    train_indices, test_indices = get_train_test_indices(groups, splits, target_group)
-    assert len(train_indices) == 1
-    training_group = list(train_indices)[0]
-    if len(train_indices[training_group]) < 100:
+    train_indices, test_indices, target_group = get_train_test_indices(groups, splits, target_group, ssl=ssl)
+    assert ssl or len(train_indices) == 1
+    if len(train_indices[target_group]) < MIN_GROUP_TRAIN_SUBJECTS:
         return {}
 
-    data = load_data(param, X, Y, train_indices, test_indices)
+    data, unlabeled_indices = load_data(param, X, Y, train_indices, test_indices, target_group)
     model = load_model(param, data)
     optimizer = torch.optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()), 
@@ -313,16 +342,18 @@ def experiment(args, param, groups, target_group):
     best_loss = dict()
     acc_loss = dict()
     best_metrics = dict()
+    best_model = None
     pbar = get_pbar(param["epochs"], verbose)
 
     for epoch in pbar:
         train_results, test_results = train_test_step(
             param, device, model, data, optimizer, 
-            train_indices, test_indices
+            train_indices[target_group], unlabeled_indices, 
+            test_indices, target_group
         )
 
         assert len(train_results) == 1
-        train_results = train_results[training_group]
+        train_results = train_results[target_group]
         train_loss = train_results["loss"]
         train_acc = train_results["accuracy"]
 
@@ -357,6 +388,9 @@ def experiment(args, param, groups, target_group):
                 best_acc[group] = test_acc
                 acc_loss[group] = test_loss
                 best_metrics[group] = test_metrics
+                if param["save_model"] and group == target_group:
+                    best_model = copy.deepcopy(model.state_dict())
+                    model_time = int(time.time())
 
         if verbose:
             pbar.set_postfix_str(verbose_info(
@@ -373,13 +407,22 @@ def experiment(args, param, groups, target_group):
             **best_metrics[group]
         )
 
+    if param["save_model"] and best_model is not None:
+        mkdir(model_dir)
+        model_name = "{}.pt".format(model_time)
+        model_path = os.path.join(model_dir, model_name)
+        torch.save(best_model, model_path)
+    else:
+        model_path = None
+
     end = time.time()
     set_experiment_param(
         param, time=end - start, device=args.gpu,
-        training_group=training_group,
+        target_group=target_group,
         test_results=test_results,
         train_indices=train_indices,
-        test_indices=test_indices
+        test_indices=test_indices,
+        model_path=model_path
     )
     print(param)
     return param
@@ -403,11 +446,13 @@ def main(args):
     script_name = os.path.splitext(os.path.basename(__file__))[0]
 
     groups = get_groups()
+    ssl = True
     harmonized = True
 
     for seed in range(10):
         experiment_name = "{}_{}".format(script_name, int(time.time()))
-        exp_dir = os.path.join(args.exp_dir, experiment_name) 
+        exp_dir = os.path.join(args.exp_dir, experiment_name)
+        model_dir = os.path.join(exp_dir, "models")
         
         print("===================")
         print("EXPERIMENT SETTINGS")
@@ -420,24 +465,26 @@ def main(args):
         for target_group in sorted(set(groups.values())):
             print("TARGET_GROUP: {}".format(target_group))
             for fold in range(5):
-                param = get_experiment_param(
-                    model="FFN", L1=150, L2=50, L3=30, gamma_lap=0, 
-                    seed=seed, fold=fold, epochs=1000,
-                    test=False, harmonized=harmonized,
-                    lr=0.0001, l2_reg=0.001,
-                )
+                # param = get_experiment_param(
+                #     model="FFN", L1=150, L2=50, L3=30, gamma_lap=0, 
+                #     seed=seed, fold=fold, epochs=1000,
+                #     test=False, harmonized=harmonized,
+                #     lr=0.0001, l2_reg=0.001, 
+                # )
                 # param = get_experiment_param(
                 #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3, 
                 #     seed=seed, fold=fold, epochs=1000,
                 #     test=False, harmonized=harmonized,
-                #     lr=0.0001, l2_reg=0.001,
+                #     lr=0.0001, l2_reg=0.001, ssl=ssl,
+                #     save_model=True
                 # )
-                # param = get_experiment_param(
-                #     model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=3e-5, gamma2=1e-3, 
-                #     seed=seed, fold=fold, epochs=1000,
-                #     test=False, harmonized=harmonized,
-                #     lr=0.0001, l2_reg=0.001,
-                # )
+                param = get_experiment_param(
+                    model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=3e-5, gamma2=1e-3, 
+                    seed=seed, fold=fold, epochs=1000,
+                    test=False, harmonized=harmonized,
+                    lr=0.0001, l2_reg=0.001, ssl=ssl,
+                    save_model=True
+                )
                 # param = get_experiment_param(
                 #     model="VGAE", hidden=300, emb1=150, emb2=50, L1=30,
                 #     gamma1=3e-6, gamma2=1e-6, num_process=10, batch_size=10,
@@ -452,7 +499,7 @@ def main(args):
                 #     test=False, harmonized=harmonized,
                 #     lr=0.0001, l2_reg=0.001,
                 # )
-                exp_res = experiment(args, param, groups, target_group)
+                exp_res = experiment(args, param, groups, target_group, model_dir)
                 if len(exp_res) > 0:
                     res.append(exp_res)
         

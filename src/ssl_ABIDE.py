@@ -26,7 +26,7 @@ def get_experiment_param(
     2. FFN model (L1, L2, L3, gamma_lap)
     3. AE model (L1, L2, L3, emb, gamma)
     4. VAE model (L1, L2, L3, emb, gamma1, gamma2)
-    5. VGAE model (hidden, emb1, emb2, L1, gamma1, gamma2, num_process, batch_size)
+    5. VGAE model (emb1, emb2, L1, gamma1, gamma2, num_process, batch_size)
     6. GNN model (hidden, emb1, emb2, L1, gamma, num_process, batch_size)
     7. DIVA model (emb, hidden1, hidden2, beta_klzd, beta_klzx, 
                    beta_klzy, beta_d, beta_y, beta_recon)
@@ -178,7 +178,6 @@ def load_model(param, data):
         batch = next(iter(data[0]))
         model = VGAE(
             input_size=batch.x.size(1), 
-            hidden=param["hidden"],
             emb1=param["emb1"], 
             emb2=param["emb2"],
             l1=param["L1"], 
@@ -369,26 +368,35 @@ def main(args):
         "OLIN", "PITT", "STANFORD", "TRINITY", "UCLA_1", "UCLA_2", 
         "UM_1", "UM_2", "USM", "YALE"
     ])
+    sites = np.array(["NYU"])
     print(sites)
 
-    for seed in range(10):
-        ssl = True
-        harmonized = True
-            
+    ssl = True
+    harmonized = False
+    SEED = 10
+
+    experiment_name = "{}_{}".format(script_name, int(time.time()))
+    exp_dir = os.path.join(args.exp_dir, experiment_name)
+    model_dir = os.path.join(exp_dir, "models")    
+    print("Experiment result: {}".format(exp_dir))
+    res = []
+
+    for seed in range(SEED):
         print("===================")
         print("EXPERIMENT SETTINGS")
         print("===================")
         print("SSL: {}".format(ssl))
         print("HARMONIZED: {}".format(harmonized))
 
-        experiment_name = "{}_{}".format(script_name, int(time.time()))
-        exp_dir = os.path.join(args.exp_dir, experiment_name)
-        model_dir = os.path.join(exp_dir, "models")    
-        print("Experiment result: {}".format(exp_dir))
+        # experiment_name = "{}_{}".format(script_name, int(time.time()))
+        # exp_dir = os.path.join(args.exp_dir, experiment_name)
+        # model_dir = os.path.join(exp_dir, "models")    
+        # print("Experiment result: {}".format(exp_dir))
+        # res = []
 
-        res = []
         for site in sites:
             print("SITE: {}".format(site))
+            
             for fold in range(5):
                 # param = get_experiment_param(
                 #     model="GCN", hidden=150, emb1=50, emb2=30, K=3, 
@@ -414,13 +422,13 @@ def main(args):
                 #     site=site, lr=0.0001, l2_reg=0.001, 
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
-                # param = get_experiment_param(
-                #     model="VGAE", hidden=300, emb1=150, emb2=50, L1=30,
-                #     gamma1=3e-6, gamma2=1e-6, num_process=10, batch_size=10,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001, 
-                #     test=False, harmonized=harmonized, epochs=500
-                # )
+                param = get_experiment_param(
+                    model="VGAE", emb1=150, emb2=50, L1=10,
+                    gamma1=1e-5, gamma2=1e-5, num_process=10, batch_size=50,
+                    seed=seed, fold=fold, ssl=ssl, save_model=False,
+                    site=site, lr=0.0001, l2_reg=0.001, 
+                    test=False, harmonized=harmonized, epochs=500
+                )
                 # param = get_experiment_param(
                 #     model="GNN", hidden=300, emb1=150, emb2=50, L1=30,
                 #     gamma=0, num_process=10, batch_size=10,
@@ -438,12 +446,12 @@ def main(args):
                 # )
 
                 # SSL
-                param = get_experiment_param(
-                    model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=3e-5, gamma2=1e-3, 
-                    seed=seed, fold=fold, ssl=ssl, save_model=False,
-                    site=site, lr=0.0001, l2_reg=0.001, 
-                    test=False, harmonized=harmonized, epochs=1000
-                )
+                # param = get_experiment_param(
+                #     model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=3e-5, gamma2=1e-3, 
+                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
+                #     site=site, lr=0.0001, l2_reg=0.001, 
+                #     test=False, harmonized=harmonized, epochs=1000
+                # )
                 # param = get_experiment_param(
                 #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
@@ -453,11 +461,11 @@ def main(args):
                 exp_res = experiment(args, param, model_dir)
                 res.append(exp_res)
         
-        mkdir(exp_dir)
-        df = pd.DataFrame(res).dropna(how="all")
-        if not df.empty:
-            res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
-            df.to_csv(res_path, index=False)
+                mkdir(exp_dir)
+                df = pd.DataFrame(res).dropna(how="all")
+                if not df.empty:
+                    res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
+                    df.to_csv(res_path, index=False)
 
 
     # res = []
