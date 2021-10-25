@@ -283,7 +283,7 @@ class CummulativeClassificationMetrics:
 
     @property
     def ppv(self):
-        return self.tp / (self.p + self.fp)
+        return self.tp / (self.tp + self.fp)
 
     @property
     def npv(self):
@@ -299,7 +299,7 @@ class CummulativeClassificationMetrics:
 
     @property
     def fdr(self):
-        return self.p / (self.tp + self.fp)
+        return self.fp / (self.tp + self.fp)
 
     @property
     def fomr(self):
