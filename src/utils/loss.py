@@ -73,8 +73,8 @@ class LaplacianRegularization(nn.Module):
             )
             num_nodes = y.size(0)
             row, col = edge_index
-            lap = torch.zeros((num_nodes, num_nodes)).float().to(y.device)
-            lap[row, col] = edge_weight.float()
+            lap = torch.zeros((num_nodes, num_nodes), dtype=edge_weight.dtype).to(y.device)
+            lap[row, col] = edge_weight
             return lap
 
 

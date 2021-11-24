@@ -40,7 +40,7 @@ class pz(torch.nn.Module):
 
     def forward(self, y):
         if y.ndim == 1:
-            y = F.one_hot(y, num_classes=self.y_dim).float()
+            y = F.one_hot(y, num_classes=self.y_dim).type(torch.get_default_dtype())
 
         h = self.linear1(y)
         h = F.relu(h)
