@@ -9,3 +9,7 @@ from AE import *
 from VAE import *
 from VGAE import *
 from DIVA import *
+
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)

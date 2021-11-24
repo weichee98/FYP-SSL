@@ -1,6 +1,7 @@
 import os
 import copy
 import time
+import json
 import argparse
 import torch
 import numpy as np
@@ -14,7 +15,8 @@ from data import *
 
 
 def get_experiment_param(
-        model="GCN", seed=0, fold=0, epochs=1000,
+        model="GCN", seed=0, fold=0, 
+        epochs=1000, patience=1000,
         ssl=True, test=True, save_model=True, 
         site="NYU", harmonized=False,
         lr=0.0001, l2_reg=0.001,
@@ -26,8 +28,8 @@ def get_experiment_param(
     2. FFN model (L1, L2, L3, gamma_lap)
     3. AE model (L1, L2, L3, emb, gamma)
     4. VAE model (L1, L2, L3, emb, gamma1, gamma2)
-    5. VGAE model (emb1, emb2, L1, gamma1, gamma2, num_process, batch_size)
-    6. GNN model (hidden, emb1, emb2, L1, gamma, num_process, batch_size)
+    5. VGAE model (emb1, emb2, L1, gamma1, gamma2, num_process)
+    6. GNN model (emb1, emb2, L1, gamma, num_process)
     7. DIVA model (emb, hidden1, hidden2, beta_klzd, beta_klzx, 
                    beta_klzy, beta_d, beta_y, beta_recon)
     """
@@ -36,6 +38,7 @@ def get_experiment_param(
     param["seed"] = seed
     param["fold"] = fold
     param["epochs"] = epochs
+    param["patience"] = patience
     param["model"] = model
     param["lr"] = lr
     param["l2_reg"] = l2_reg
@@ -98,7 +101,7 @@ def load_data(param):
         (data, labeled_train_indices, 
         all_train_indices, test_indices) = load_GNN_data(
             X, Y, labeled_train_indices, test_indices,
-            param.get("num_process", 1), param["batch_size"], 
+            param.get("num_process", 1), 
             verbose=False
         )
     elif param["model"] == "VGAE":
@@ -106,7 +109,7 @@ def load_data(param):
         all_train_indices, test_indices) = load_GAE_data(
             X, Y, param["ssl"], labeled_train_indices, 
             test_indices, param.get("num_process", 1),
-            param["batch_size"], verbose=False
+            verbose=False
         )
     elif param["model"] == "DIVA":
         (data, labeled_train_indices, 
@@ -169,7 +172,6 @@ def load_model(param, data):
         batch = next(iter(data[0]))
         model = GNN(
             input_size=batch.x.size(1), 
-            hidden=param["hidden"],
             emb1=param["emb1"], 
             emb2=param["emb2"],
             l1=param["L1"], 
@@ -180,7 +182,7 @@ def load_model(param, data):
             input_size=batch.x.size(1), 
             emb1=param["emb1"], 
             emb2=param["emb2"],
-            l1=param["L1"], 
+            l1=param["L1"],
         )
     elif param["model"] == "DIVA":
         model = DIVA(
@@ -194,6 +196,8 @@ def load_model(param, data):
         raise TypeError(
             "Invalid model of type {}".format(param["model"])
         )
+    param["model_size"] = count_parameters(model)
+    print("MODEL_SIZE: {}".format(param["model_size"]))
     return model
 
 def train_test_step(
@@ -235,7 +239,7 @@ def train_test_step(
     elif param["model"] == "GNN":
         train_dl, _, test_dl = data
         train_loss, train_acc = train_GNN(
-            device, model, train_dl, optimizer, param["gamma"]
+            device, model, train_dl, optimizer
         )
         test_loss, test_acc, test_metrics = test_GNN(
             device, model, test_dl
@@ -265,13 +269,13 @@ def train_test_step(
         )
     return train_loss, train_acc, test_loss, test_acc, test_metrics
 
-def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc):
-    return "Epoch: {:03d}, Train Acc: {:.4f}, Test Acc: {:.4f}, " \
+def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc, best_test_acc):
+    return "Train Acc: {:.4f}, Test Acc: {:.4f}, Best Test Acc: {:.4f}, " \
         "Train Loss: {:.4f}, Test Loss: {:.4f}".format(
-            epoch, train_acc, test_acc, train_loss, test_loss
+            train_acc, test_acc, best_test_acc, train_loss, test_loss
         )
 
-@on_error({}, True)
+@on_error(({}, {}), True)
 def experiment(args, param, model_dir):
     seed_torch()
     device = get_device(args.gpu)
@@ -292,9 +296,14 @@ def experiment(args, param, model_dir):
     acc_loss = np.inf
     best_metrics = {}
     best_model = None
-    patience = 1000
+    patience = param["patience"]
     cur_patience = 0
     pbar = get_pbar(param["epochs"], verbose)
+
+    train_losses = []
+    test_losses = []
+    train_accuracies = []
+    test_accuracies = []
 
     for epoch in pbar:
         train_loss, train_acc, test_loss, test_acc, test_metrics = train_test_step(
@@ -336,8 +345,12 @@ def experiment(args, param, model_dir):
 
         if verbose:
             pbar.set_postfix_str(verbose_info(
-                epoch, train_loss, test_loss, train_acc, test_acc
+                epoch, train_loss, test_loss, train_acc, test_acc, best_acc
             ))
+        train_losses.append(train_loss)
+        test_losses.append(test_loss)
+        train_accuracies.append(train_acc)
+        test_accuracies.append(test_acc)
 
         # early stopping
         if cur_patience == patience:
@@ -358,7 +371,15 @@ def experiment(args, param, model_dir):
         acc_loss=acc_loss, **best_metrics
     )
     print(param)
-    return param
+
+    training_curve = {
+        "train_accuracies": train_accuracies,
+        "test_accuracies": test_accuracies,
+        "train_losses": train_losses,
+        "test_losses": test_losses
+    }
+    training_curve.update(param)
+    return param, training_curve
 
 def main(args):
     script_name = os.path.splitext(os.path.basename(__file__))[0]
@@ -380,14 +401,9 @@ def main(args):
     model_dir = os.path.join(exp_dir, "models")    
     print("Experiment result: {}".format(exp_dir))
     res = []
+    curves = []
 
     for seed in range(SEED):
-        print("===================")
-        print("EXPERIMENT SETTINGS")
-        print("===================")
-        print("SSL: {}".format(ssl))
-        print("HARMONIZED: {}".format(harmonized))
-
         # experiment_name = "{}_{}".format(script_name, int(time.time()))
         # exp_dir = os.path.join(args.exp_dir, experiment_name)
         # model_dir = os.path.join(exp_dir, "models")    
@@ -395,9 +411,18 @@ def main(args):
         # res = []
 
         for site in sites:
-            print("SITE: {}".format(site))
             
             for fold in range(5):
+
+                print("===================")
+                print("EXPERIMENT SETTINGS")
+                print("===================")
+                print("SEED: {}".format(seed))
+                print("FOLD: {}".format(fold))
+                print("SSL: {}".format(ssl))
+                print("HARMONIZED: {}".format(harmonized))
+                print("SITE: {}".format(site))
+
                 # param = get_experiment_param(
                 #     model="GCN", hidden=150, emb1=50, emb2=30, K=3, 
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False, 
@@ -423,18 +448,18 @@ def main(args):
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 param = get_experiment_param(
-                    model="VGAE", emb1=150, emb2=50, L1=10,
-                    gamma1=1e-5, gamma2=1e-5, num_process=10, batch_size=50,
+                    model="VGAE", emb1=300, emb2=100, L1=50,
+                    gamma1=1e-5, gamma2=5e-6, num_process=10,
                     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                    site=site, lr=0.0001, l2_reg=0.001, 
-                    test=False, harmonized=harmonized, epochs=500
+                    site=site, lr=0.001, l2_reg=0.001, 
+                    test=False, harmonized=harmonized, 
+                    epochs=1000, patience=300
                 )
                 # param = get_experiment_param(
-                #     model="GNN", hidden=300, emb1=150, emb2=50, L1=30,
-                #     gamma=0, num_process=10, batch_size=10,
+                #     model="GNN", emb1=300, emb2=100, L1=50, num_process=10,
                 #     seed=seed, fold=fold, ssl=ssl, save_model=False,
                 #     site=site, lr=0.0001, l2_reg=0.001, 
-                #     test=False, harmonized=harmonized, epochs=500
+                #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 # param = get_experiment_param(
                 #     model="DIVA", hidden1=150, emb=50, hidden2=30, 
@@ -458,15 +483,19 @@ def main(args):
                 #     site=site, lr=0.0001, l2_reg=0.001,
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
-                exp_res = experiment(args, param, model_dir)
+                exp_res, training_curve = experiment(args, param, model_dir)
                 res.append(exp_res)
+                curves.append(training_curve)
         
-                mkdir(exp_dir)
                 df = pd.DataFrame(res).dropna(how="all")
                 if not df.empty:
+                    mkdir(exp_dir)
                     res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
                     df.to_csv(res_path, index=False)
 
+                    curves_path = os.path.join(exp_dir, "{}.json".format(experiment_name))
+                    with open(curves_path, "w") as f:
+                        json.dump(curves, f, indent=4, sort_keys=True)
 
     # res = []
     # experiment_name = "{}_{}".format(script_name, int(time.time()))
