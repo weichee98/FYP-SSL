@@ -2,8 +2,6 @@ import os
 import sys
 import torch
 import torch.nn.functional as F
-from torch_scatter import scatter_add
-from torch_geometric.utils import softmax
 from torch_geometric.nn import GraphConv
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -83,7 +81,7 @@ def train_GNN(device, model, train_dl, optimizer):
         return loss
 
     loss_val = 0
-    n = len(train_dl.dataset)
+    n = len(train_dl)
 
     for data in train_dl:
         loss = _step(data)
@@ -114,7 +112,7 @@ def test_GNN(device, model, test_dl):
         return loss
 
     loss_val = 0
-    n = len(test_dl.dataset)
+    n = len(test_dl)
     for data in test_dl:
         loss = _step(data)
         loss_val += loss.item() / n

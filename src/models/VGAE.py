@@ -2,8 +2,6 @@ import os
 import sys
 import torch
 import torch.nn.functional as F
-from torch_scatter import scatter_add
-from torch_geometric.utils import softmax
 from torch_geometric.nn import GraphConv
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -119,8 +117,8 @@ def train_VGAE(
         return cls_loss, rc_loss, kl
 
     loss_val = 0
-    n_labeled = len(labeled_dl.dataset)
-    n_unlabeled = 0. if unlabeled_dl is None else len(unlabeled_dl.dataset)
+    n_labeled = len(labeled_dl)
+    n_unlabeled = 0. if unlabeled_dl is None else len(unlabeled_dl)
     n_all = n_labeled + n_unlabeled
 
     for data in labeled_dl:
@@ -160,7 +158,7 @@ def test_VGAE(device, model, test_dl):
         return loss
 
     loss_val = 0
-    n = len(test_dl.dataset)
+    n = len(test_dl)
     for data in test_dl:
         loss = _step(data)
         loss_val += loss.item() / n
