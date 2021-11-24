@@ -92,7 +92,7 @@ def load_FFN_data(
 
 def load_GAE_data(
         X, Y, ssl, labeled_train_indices, test_indices, 
-        num_process=1, batch_size=None, verbose=False
+        num_process=1, verbose=False
     ):
     if ssl:
         data = make_graph_dataset(X, Y.argmax(axis=1), num_process, verbose)
@@ -108,14 +108,14 @@ def load_GAE_data(
         test_indices = np.array(range(n_train, n_train + n_test))
         all_train_indices = None
     data = make_graph_dataloader(
-        data, labeled_train_indices, all_train_indices, test_indices, batch_size
+        data, labeled_train_indices, all_train_indices, test_indices
     )
     return data, labeled_train_indices, all_train_indices, test_indices
 
 
 def load_GNN_data(
         X, Y, train_indices, test_indices, 
-        num_process=1, batch_size=None, verbose=False
+        num_process=1, verbose=False
     ):
     all_indices = np.concatenate([train_indices, test_indices], axis=0)
     data = make_graph_dataset(
@@ -126,6 +126,6 @@ def load_GNN_data(
     train_indices = np.array(range(n_train))
     test_indices = np.array(range(n_train, n_train + n_test))
     data = make_graph_dataloader(
-        data, train_indices, None, test_indices, batch_size
+        data, train_indices, None, test_indices
     )
     return data, train_indices, None, test_indices
