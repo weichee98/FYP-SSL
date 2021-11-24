@@ -19,16 +19,16 @@ class ChebGCN(torch.nn.Module):
         self.conv2 = ChebConv(emb1, emb2, K=K)
         self.linear2 = torch.nn.Linear(emb2, 2) # this is the head for disease class
             
-    def forward(self, x, edge_index, edge_weight):
+    def forward(self, x, adj_t):
         x = self.linear1(x)
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
 
-        x = self.conv1(x, edge_index, edge_weight)
+        x = self.conv1(x, adj_t)
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
         
-        x = self.conv2(x, edge_index, edge_weight)
+        x = self.conv2(x, adj_t)
         x = F.relu(x)
         x = F.dropout(x, p=0.5, training=self.training)
 
@@ -42,7 +42,7 @@ def train_GCN(device, model, data, optimizer, train_idx):
     model.train()
     optimizer.zero_grad()  # Clear gradients
 
-    pred_y = model(data.x.to(device), data.edge_index.to(device), data.edge_attr.to(device))
+    pred_y = model(data.x.to(device), data.adj_t.to(device))
     real_y = data.y[train_idx].to(device)
     criterion = torch.nn.CrossEntropyLoss()
     loss = criterion(pred_y[train_idx], real_y)
@@ -58,7 +58,7 @@ def test_GCN(device, model, data, test_idx):
     model.to(device)
     model.eval()
 
-    pred_y = model(data.x.to(device), data.edge_index.to(device), data.edge_attr.to(device))
+    pred_y = model(data.x.to(device), data.adj_t.to(device))
     real_y = data.y[test_idx].to(device)
     criterion = torch.nn.CrossEntropyLoss()
     loss = criterion(pred_y[test_idx], real_y)
