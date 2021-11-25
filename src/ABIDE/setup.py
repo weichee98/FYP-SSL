@@ -28,14 +28,6 @@ def get_processed_corr_mat_file_ids(corr_mat_dir):
     return file_ids
 
 
-def get_file_path(corr_mat_dir, dx_group, file_id):
-    filename = "{}_power.npy".format(file_id)
-    if dx_group == 1:
-        return os.path.join(corr_mat_dir, "diseased", filename)
-    else:
-        return os.path.join(corr_mat_dir, "normal", filename)
-
-
 def extract_data(corr_mat_dir, meta_csv_path):    
     meta_df = pd.read_csv(meta_csv_path, index_col=0)
     meta_df = meta_df.drop(["Unnamed: 0.1", "subject"], axis=1)
@@ -44,17 +36,24 @@ def extract_data(corr_mat_dir, meta_csv_path):
     meta_df["PROCESSED"] = meta_df["FILE_ID"].apply(lambda x: x in file_ids)
     processed_df = meta_df[meta_df["PROCESSED"]].sort_values("SUB_ID")
     processed_df = processed_df.drop("PROCESSED", axis=1)
-    processed_df["FILE_PATH"] = processed_df[["DX_GROUP", "FILE_ID"]].apply(
-        lambda x: get_file_path(corr_mat_dir, x["DX_GROUP"], x["FILE_ID"]), axis=1
+    processed_df["FILE_PATH"] = processed_df["FILE_ID"].apply(
+        lambda x: os.path.join(corr_mat_dir, "{}_power.npy".format(x))
+    )
+    processed_df["TIME_SERIES_PATH"] = processed_df["FILE_ID"].apply(
+        lambda x: os.path.join(corr_mat_dir, "{}_power_TS.npy".format(x))
     )
     processed_df.to_csv(META_CSV_PATH, header=True, index=False)
 
     X = np.array([np.load(fname) for fname in processed_df["FILE_PATH"]])
     X = np.nan_to_num(X)
+    X_ts = np.empty(X.shape[0], dtype=object)
+    for i, fname in enumerate(processed_df["TIME_SERIES_PATH"]):
+        X_ts[i] = np.nan_to_num(np.load(fname))
     Y = np.array(2 - processed_df["DX_GROUP"])
     Y_onehot = np.eye(2)[Y.astype(int)]
-    np.save(X_PATH, X)           # (823, 264, 264)
-    np.save(Y_PATH, Y_onehot)    # (823, 2)
+    np.save(X_PATH, X)          # (823, 264, 264)
+    np.save(X_TS_PATH, X_ts)    # (823, 264, 264)
+    np.save(Y_PATH, Y_onehot)   # (823, 2)
     return processed_df, X, Y
 
 
@@ -199,7 +198,7 @@ def combat_harmonization(X, meta_df):
 if __name__ == "__main__":
 
     main_dir = "/data/data_repo/neuro_img/ABIDE"
-    corr_mat_dir = os.path.join(main_dir, "fmri", "processed_corr_mat")
+    corr_mat_dir = os.path.join(main_dir, "fmri", "processed_ts")
     meta_csv_path = os.path.join(main_dir, "meta", "Phenotypic_V1_0b_preprocessed1.csv")
 
     if not os.path.exists(SSL_SPLITS_DIR):

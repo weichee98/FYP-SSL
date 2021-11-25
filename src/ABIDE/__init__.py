@@ -8,16 +8,19 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from abide_config import *
 
 
-def load_data_fmri(harmonized=False):
+def load_data_fmri(harmonized=False, time_series=False):
     """
     Inputs
     site_id: str or None
         - if specified, splits will only contains index of subjects from the specified site
     harmonized: bool
         - whether or not to return combat harmonized X
+    time_series: bool
+        - whether or not to return time_series
     
     Returns
     X: np.ndarray with 823 subject samples, each sample consists of a 264 x 264 correlation matrix
+    X_ts: np.ndarray with 823 subject samples, each sample consists of a 264 x k time series matrix
     Y: np.ndarray with 823 subject samples, each sample has a one-hot encoded label (0: Normal, 1: Diseased)
     """
     if harmonized:
@@ -25,7 +28,10 @@ def load_data_fmri(harmonized=False):
     else:
         X = np.load(X_PATH)
     Y = np.load(Y_PATH)
-    return X, Y
+    if not time_series:
+        return X, Y
+    X_ts = np.load(X_TS_PATH, allow_pickle=True)
+    return X, Y, X_ts
 
 
 def get_splits(site_id=None, test=False):
