@@ -4,7 +4,7 @@ import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ABIDE import load_data_fmri, get_sites, get_labelling_standards
+from ADHD import load_data_fmri, get_sites, get_labelling_standards
 from utils.distribution import SiteDistribution
 from utils.plot import plot_group_kde
 from collections import defaultdict
@@ -111,18 +111,15 @@ if __name__ == "__main__":
     X_harmonized, _ = load_data_fmri(harmonized=True)
     sites = get_sites()
     columns = [
-        "CMU", "OHSU", "YALE", "LEUVEN_1", "LEUVEN_2",
-        "UCLA_2", "UCLA_1", "SBL", "TRINITY", "SDSU",
-        "OLIN", "PITT", "KKI", "STANFORD", "CALTECH",
-        "UM_1", "UM_2", "MAX_MUN", "NYU", "USM"
+        "NI", "KKI", "PITT", "NYU", "WUSTL", "PKU", "OHSU"
     ]
 
-    # plot_pairwise_site(X, y, sites, columns, "site_distribution")
-    # plot_pairwise_site(X_harmonized, y, sites, columns, "site_distribution_combat")
+    plot_pairwise_site(X, y, sites, columns, "site_distribution")
+    plot_pairwise_site(X_harmonized, y, sites, columns, "site_distribution_combat")
 
-    group_ids = get_groups(X, sites)
-    plot_pairwise_group(X, y, sites, group_ids, "group_distribution")
-    plot_pairwise_group(X_harmonized, y, sites, group_ids, "group_distribution_combat")
+    # group_ids = get_groups(X, sites)
+    # plot_pairwise_group(X, y, sites, group_ids, "group_distribution")
+    # plot_pairwise_group(X_harmonized, y, sites, group_ids, "group_distribution_combat")
     
 
     
