@@ -140,5 +140,6 @@ models
 !src/models
 compare
 nohup*
+*.out
 *.png
 *.jpg
