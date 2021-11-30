@@ -7,7 +7,7 @@
 1. Make sure that the path in ``setup.py`` is correct
 
         main_dir = "/data/data_repo/neuro_img/ABIDE"
-        corr_mat_dir = os.path.join(main_dir, "fmri", "processed_corr_mat")
+        corr_mat_dir = os.path.join(main_dir, "fmri", "processed_ts")
         meta_csv_path = os.path.join(main_dir, "meta", "Phenotypic_V1_0b_preprocessed1.csv")
 
 2. Run ``setup.py``
