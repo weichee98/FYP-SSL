@@ -9,6 +9,7 @@ from AE import *
 from VAE import *
 from VGAE import *
 from DIVA import *
+from VGAETS import *
 
 
 def count_parameters(model):
