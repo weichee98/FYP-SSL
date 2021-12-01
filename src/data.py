@@ -92,15 +92,18 @@ def load_FFN_data(
 
 def load_GAE_data(
         X, Y, ssl, labeled_train_indices, test_indices, 
-        num_process=1, verbose=False
+        X_ts=None, num_process=1, verbose=False
     ):
     if ssl:
-        data = make_graph_dataset(X, Y.argmax(axis=1), num_process, verbose)
+        data = make_graph_dataset(X, Y.argmax(axis=1), X_ts, num_process=num_process, verbose=verbose)
         all_train_indices = np.setdiff1d(np.arange(len(X)), test_indices)
     else:
         all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
+        if X_ts is not None:
+            X_ts = X_ts[all_indices]
         data = make_graph_dataset(
-            X[all_indices], Y[all_indices].argmax(axis=1), num_process, verbose
+            X[all_indices], Y[all_indices].argmax(axis=1), X_ts,
+            num_process=num_process, verbose=verbose
         )
         n_train = len(labeled_train_indices)
         n_test = len(test_indices)
@@ -115,11 +118,14 @@ def load_GAE_data(
 
 def load_GNN_data(
         X, Y, train_indices, test_indices, 
-        num_process=1, verbose=False
+        X_ts=None, num_process=1, verbose=False
     ):
     all_indices = np.concatenate([train_indices, test_indices], axis=0)
+    if X_ts is not None:
+        X_ts = X_ts[all_indices]
     data = make_graph_dataset(
-        X[all_indices], Y[all_indices].argmax(axis=1), num_process, verbose
+        X[all_indices], Y[all_indices].argmax(axis=1), X_ts,
+        num_process=num_process, verbose=verbose
     )
     n_train = len(train_indices)
     n_test = len(test_indices)

@@ -74,8 +74,11 @@ def make_population_graph(X, A, y, min_weight=0, **kwargs):
     X.shape == (num_samples, num_features)
     y.shape == (num_samples,)
     """
-    node_features = torch.tensor(X) # (num_nodes, num_features)
-    adj_t = SparseTensor.from_dense(torch.tensor(A), has_value=True)
+    node_features = torch.tensor(X).type(torch.get_default_dtype())
+    adj_t = SparseTensor.from_dense(
+        torch.tensor(A).type(torch.get_default_dtype()), 
+        has_value=True
+    )
     d = Data(
         x=node_features, adj_t=adj_t, y=torch.tensor(y)
     )
@@ -89,7 +92,7 @@ def make_dataset(X, y, d=None, **kwargs):
     X.shape == (num_samples, num_features)
     y.shape == (num_samples,)
     """
-    node_features = torch.tensor(X) # (num_nodes, num_features)
+    node_features = torch.tensor(X).type(torch.get_default_dtype())
     graph = Data(
         x=node_features, y=torch.tensor(y)
     )
@@ -102,14 +105,20 @@ def make_dataset(X, y, d=None, **kwargs):
     return graph
 
 
-def make_graph_dataset(X, y, num_process=1, verbose=False):
+def make_graph_dataset(X, y, X_ts=None, num_process=1, verbose=False):
     """
     X.shape == (num_samples, num_nodes, num_nodes)
     y.shape == (num_samples,)
     """
-    def task(x, y):
-        node_features = torch.tensor(x)
-        adj = SparseTensor.from_dense(node_features, has_value=True)
+    def task(x, y, x_ts=None):
+        if x_ts is None:
+            node_features = torch.tensor(x).type(torch.get_default_dtype())
+        else:
+            node_features = torch.tensor(x_ts).type(torch.get_default_dtype())
+        adj = SparseTensor.from_dense(
+            torch.tensor(x).type(torch.get_default_dtype()), 
+            has_value=True
+        )
         d = Data(
             x=node_features, y=torch.tensor([y]),
             adj_t = adj
@@ -120,17 +129,15 @@ def make_graph_dataset(X, y, num_process=1, verbose=False):
         pbar = tqdm(range(y.shape[0]), desc="Make Graph Dataset")
     else:
         pbar = range(y.shape[0])
+    if X_ts is None:
+        X_ts = [None] * y.shape[0]
     dataset = Parallel(n_jobs=num_process)(
-        delayed(task)(X[i], y[i])
+        delayed(task)(X[i], y[i], X_ts[i])
         for i in pbar
     )
 
     """
     dataset: list[torch_geometric.data.Data]
-        a list of graphs, each with attributes
-        - x: (num_nodes, num_features) - node features
-        - y: (1,) - graph label
-        - pos: (num_nodes,) - node index
     """
     return dataset
 

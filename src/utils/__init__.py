@@ -62,8 +62,8 @@ def seed_torch(seed=42):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-    torch.set_default_dtype(torch.float64)
-    torch.set_default_tensor_type(torch.DoubleTensor)
+    # torch.set_default_dtype(torch.float64)
+    # torch.set_default_tensor_type(torch.DoubleTensor)
     torch.use_deterministic_algorithms(True)
 
 
