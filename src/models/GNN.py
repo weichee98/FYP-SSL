@@ -91,7 +91,13 @@ def train_GNN(device, model, train_dl, optimizer):
 
     optimizer.step()
     acc_val = ccm.accuracy.item()
-    return loss_val, acc_val
+    metrics = {
+        "sensitivity": ccm.tpr.item(),
+        "specificity": ccm.tnr.item(),
+        "f1": ccm.f1_score.item(),
+        "precision": ccm.ppv.item()
+    }
+    return loss_val, acc_val, metrics
 
 
 def test_GNN(device, model, test_dl):

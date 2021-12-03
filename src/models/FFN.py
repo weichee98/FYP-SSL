@@ -77,7 +77,17 @@ def train_FFN(device, model, data, optimizer, labeled_idx,
     optimizer.step()    # Update parameters based on gradients.
     
     accuracy = CM.accuracy(real_y, pred_y[labeled_idx])
-    return loss_val, accuracy.item()
+    sensitivity = CM.tpr(real_y, pred_y[labeled_idx])
+    specificity = CM.tnr(real_y, pred_y[labeled_idx])
+    precision = CM.ppv(real_y, pred_y[labeled_idx])
+    f1_score = CM.f1_score(real_y, pred_y[labeled_idx])
+    metrics = {
+        "sensitivity": sensitivity.item(),
+        "specificity": specificity.item(),
+        "f1": f1_score.item(),
+        "precision": precision.item()
+    }
+    return loss_val, accuracy.item(), metrics
 
 
 def test_FFN(device, model, data, test_idx):

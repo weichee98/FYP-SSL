@@ -185,7 +185,17 @@ def train_DIVA(
     optimizer.step()
 
     accuracy = CM.accuracy(real_y[labeled_idx], pred_y[labeled_idx])
-    return loss_val, accuracy.item()
+    sensitivity = CM.tpr(real_y[labeled_idx], pred_y[labeled_idx])
+    specificity = CM.tnr(real_y[labeled_idx], pred_y[labeled_idx])
+    precision = CM.ppv(real_y[labeled_idx], pred_y[labeled_idx])
+    f1_score = CM.f1_score(real_y[labeled_idx], pred_y[labeled_idx])
+    metrics = {
+        "sensitivity": sensitivity.item(),
+        "specificity": specificity.item(),
+        "f1": f1_score.item(),
+        "precision": precision.item()
+    }
+    return loss_val, accuracy.item(), metrics
 
 
 def test_DIVA(device, model, data, test_idx):
