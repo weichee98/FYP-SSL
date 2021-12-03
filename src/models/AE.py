@@ -1,6 +1,7 @@
 import os
 import sys
 import torch
+from torch.functional import _return_counts
 import torch.nn.functional as F
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -63,7 +64,7 @@ class AE(torch.nn.Module):
 
 def train_AE(
         device, model, data, optimizer, labeled_idx, 
-        all_idx=None, gamma=0
+        all_idx=None, gamma=0, weight=False
     ):
     """
     all_idx: the indices of labeled and unlabeled data (exclude test indices)
@@ -73,11 +74,16 @@ def train_AE(
     model.train()
     optimizer.zero_grad()  # Clear gradients
 
-    cls_criterion = torch.nn.CrossEntropyLoss()
-
     x = data.x.to(device)
-    pred_y, pred_x = model(x)
     real_y = data.y[labeled_idx].to(device)
+    if weight:
+        _, counts = torch.unique(real_y, sorted=True, return_counts=True)
+        weight = counts[[1, 0]] / counts.sum()
+    else:
+        weight = None
+    cls_criterion = torch.nn.CrossEntropyLoss(weight=weight)
+    
+    pred_y, pred_x = model(x)
     loss = cls_criterion(pred_y[labeled_idx], real_y)
 
     if all_idx is None:

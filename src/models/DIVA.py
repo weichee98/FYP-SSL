@@ -154,7 +154,7 @@ class DIVA(torch.nn.Module):
 def train_DIVA(
         device, model, data, optimizer, labeled_idx, 
         all_idx=None, beta_klzd=1, beta_klzx=1, beta_klzy=1, 
-        beta_d=1, beta_y=1, beta_recon=1
+        beta_d=1, beta_y=1, beta_recon=1, weight=False
     ):
     model.to(device)
     model.train()
@@ -168,7 +168,13 @@ def train_DIVA(
     qzx, pzx, zx, qzy, pzy, zy, 
     qzd, pzd, zd) = model(x, real_d, real_y)
 
-    ce_y = F.cross_entropy(pred_y[labeled_idx], real_y[labeled_idx])
+    if weight:
+        _, counts = torch.unique(real_y, sorted=True, return_counts=True)
+        weight = counts[[1, 0]] / counts.sum()
+    else:
+        weight = None
+
+    ce_y = F.cross_entropy(pred_y[labeled_idx], real_y[labeled_idx], weight=weight)
     ce_d = F.cross_entropy(pred_d[all_idx], real_d[all_idx])
     recon_loss = -torch.sum(p_xhat.log_prob(x), dim=1)[all_idx].mean()
 

@@ -61,12 +61,19 @@ class GNN(torch.nn.Module):
         return x
 
 
-def train_GNN(device, model, train_dl, optimizer):
+def train_GNN(device, model, train_dl, optimizer, weight=False):
     model.to(device)
     model.train()
     optimizer.zero_grad()
 
-    cls_criterion = torch.nn.CrossEntropyLoss(reduction="sum")
+    if weight:
+        all_y = torch.cat([data.y for data in train_dl], dim=0)
+        _, counts = torch.unique(all_y, sorted=True, return_counts=True)
+        weight = counts[[1, 0]] / counts.sum()
+    else:
+        weight = None
+
+    cls_criterion = torch.nn.CrossEntropyLoss(weight=weight, reduction="sum")
     ccm = CummulativeClassificationMetrics()
 
     def _step(data):

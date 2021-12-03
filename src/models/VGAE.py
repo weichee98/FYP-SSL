@@ -87,13 +87,20 @@ class VGAE(torch.nn.Module):
 
 def train_VGAE(
         device, model, labeled_dl, unlabeled_dl, optimizer, 
-        gamma1=0, gamma2=0
+        gamma1=0, gamma2=0, weight=False
     ):
     model.to(device)
     model.train()
     optimizer.zero_grad()
 
-    cls_criterion = torch.nn.CrossEntropyLoss(reduction="sum")
+    if weight:
+        all_y = torch.cat([data.y for data in labeled_dl], dim=0)
+        _, counts = torch.unique(all_y, sorted=True, return_counts=True)
+        weight = counts[[1, 0]] / counts.sum()
+    else:
+        weight = None
+
+    cls_criterion = torch.nn.CrossEntropyLoss(weight=weight, reduction="sum")
     gauss_criterion = torch.nn.GaussianNLLLoss(full=True, reduction="sum")
     kl_criterion = GaussianKLDivLoss(reduction="sum")
     ccm = CummulativeClassificationMetrics()

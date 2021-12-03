@@ -79,7 +79,7 @@ class VAE(torch.nn.Module):
 
 def train_VAE(
         device, model, data, optimizer, labeled_idx, 
-        all_idx=None, gamma1=0, gamma2=0
+        all_idx=None, gamma1=0, gamma2=0, weight=False
     ):
     """
     all_idx: the indices of labeled and unlabeled data (exclude test indices)
@@ -90,14 +90,18 @@ def train_VAE(
     model.train()
     optimizer.zero_grad()
 
-    cls_criterion = torch.nn.CrossEntropyLoss()
-    gauss_criterion = torch.nn.GaussianNLLLoss(full=True)
-    kl_criterion = GaussianKLDivLoss()
-
     x = data.x.to(device)
     pred_y, x_mu, x_std, z, z_mu, z_std = model(x)
     real_y = data.y[labeled_idx].to(device)
+    if weight:
+        _, counts = torch.unique(real_y, sorted=True, return_counts=True)
+        weight = counts[[1, 0]] / counts.sum()
+    else:
+        weight = None
 
+    cls_criterion = torch.nn.CrossEntropyLoss(weight=weight)
+    gauss_criterion = torch.nn.GaussianNLLLoss(full=True)
+    kl_criterion = GaussianKLDivLoss()
     loss = cls_criterion(pred_y[labeled_idx], real_y)
 
     if all_idx is None:

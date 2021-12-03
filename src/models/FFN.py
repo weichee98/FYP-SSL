@@ -52,7 +52,7 @@ def get_laplacian_regularization(device, data, laplacian_idx, y):
 
 
 def train_FFN(device, model, data, optimizer, labeled_idx, 
-              all_idx=None, gamma_lap=0):
+              all_idx=None, gamma_lap=0, weight=False):
     """
     all_idx: the indices of labeled and unlabeled data
                    (exclude test indices)
@@ -64,7 +64,12 @@ def train_FFN(device, model, data, optimizer, labeled_idx,
 
     pred_y = model(data.x.to(device))
     real_y = data.y[labeled_idx].to(device)
-    criterion = torch.nn.CrossEntropyLoss()
+    if weight:
+        _, counts = torch.unique(real_y, sorted=True, return_counts=True)
+        weight = counts[[1, 0]] / counts.sum()
+    else:
+        weight = None
+    criterion = torch.nn.CrossEntropyLoss(weight=weight)
     loss = criterion(pred_y[labeled_idx], real_y)
     
     if all_idx is not None and gamma_lap > 0:

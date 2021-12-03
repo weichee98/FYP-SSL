@@ -37,14 +37,19 @@ class ChebGCN(torch.nn.Module):
         return x
 
 
-def train_GCN(device, model, data, optimizer, train_idx):
+def train_GCN(device, model, data, optimizer, train_idx, weight=False):
     model.to(device)
     model.train()
     optimizer.zero_grad()  # Clear gradients
 
     pred_y = model(data.x.to(device), data.adj_t.to(device))
     real_y = data.y[train_idx].to(device)
-    criterion = torch.nn.CrossEntropyLoss()
+    if weight:
+        _, counts = torch.unique(real_y, sorted=True, return_counts=True)
+        weight = counts[[1, 0]] / counts.sum()
+    else:
+        weight = None
+    criterion = torch.nn.CrossEntropyLoss(weight=weight)
     loss = criterion(pred_y[train_idx], real_y)
     loss_val = loss.item()
     loss.backward()     # Derive gradients.
