@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import warnings
 import numpy as np
@@ -37,12 +38,15 @@ class ExtractData:
     def _get_file_id(df):
         return df["SCANDIR_ID"].apply(lambda x: int(str(x)[1:]))
 
-    def _merge_df(self, df: pd.DataFrame, prefix: str):
-        df["FILE_ID"] = df["FILE_ID"].apply(lambda x: prefix + "{:06d}".format(x))
+    def _merge_df(self, df: pd.DataFrame, prefix: str, id_length: int = 6):
+        if id_length == 6:
+            df["FILE_ID"] = df["FILE_ID"].apply(lambda x: prefix + "{:06d}".format(x))
+        else:
+            df["FILE_ID"] = df["FILE_ID"].apply(lambda x: prefix + "{:07d}".format(x))
 
         files = [x for x in self.file_names if x.startswith(prefix)]
         merge_df = pd.DataFrame({
-            "FILE_ID": map(lambda x: x.split("_")[0], files),
+            "FILE_ID": map(lambda x: re.match(r"{}\d+".format(prefix), x).group(0), files),
             "FILE_PATH": map(lambda x: os.path.join(corr_mat_dir, x), files)
         })
         merge_df = merge_df.groupby("FILE_ID")["FILE_PATH"].apply(list).reset_index()
@@ -72,9 +76,8 @@ class ExtractData:
         meta_csv_path = os.path.join(self.phenotypics_path, folder_name, "NYU_phenotypic.csv")
         df = self._standard_preprocess(meta_csv_path)
         df["SITE_NAME"] = "NYU"
-        df["FILE_ID"] = self._get_file_id(df)
-        df["FILE_ID"] = df["FILE_ID"].apply(lambda x: x + 10000 if x <= 129 else x)
-        df = self._merge_df(df, "NYU-")
+        df["FILE_ID"] = df["SCANDIR_ID"]
+        df = self._merge_df(df, "NYU_preproc_filtfix-", 7)
         return df
 
     def _OHSU(self):
