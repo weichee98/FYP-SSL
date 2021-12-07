@@ -3,14 +3,22 @@ from utils.data import *
 
 
 def load_GCN_data(
-        X, Y, ages, genders, ssl, labeled_train_indices, test_indices
+        X, Y, ages, genders, ssl, labeled_train_indices, test_indices, sites=None, n_ssl=None
     ):
     X_flattened = corr_mx_flatten(X)
-    if ssl:
+    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
         # if SSL is used, all subjects from all sites are used to create graph
         A = get_pop_A(X_flattened, ages, genders)
         data = make_population_graph(X_flattened, A, Y.argmax(axis=1))
-        all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
+        if isinstance(ssl, (list, tuple)):
+            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
+            all_train_indices = np.union1d(unlabeled_train_indices, labeled_train_indices)
+        else:
+            all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
+        if n_ssl is not None:
+            unlabeled_train_indices = np.setdiff1d(all_train_indices, labeled_train_indices)
+            unlabeled_train_indices = np.random.choice(unlabeled_train_indices, size=n_ssl, replace=False)
+            all_train_indices = np.union1d(unlabeled_train_indices, labeled_train_indices)
     else:
         # if SSL is not used, only subjects from largest site is used to create graph
         # adjust the indices accordingly to match the subject used in the graph
@@ -30,12 +38,20 @@ def load_GCN_data(
 
 
 def load_AE_data(
-        X, Y, ssl, labeled_train_indices, test_indices
+        X, Y, ssl, labeled_train_indices, test_indices, sites=None, n_ssl=None
     ):
     X_flattened = corr_mx_flatten(X)
-    if ssl:
+    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
         data = make_dataset(X_flattened, Y.argmax(axis=1))
-        all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
+        if isinstance(ssl, (list, tuple)):
+            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
+            all_train_indices = np.union1d(unlabeled_train_indices, labeled_train_indices)
+        else:
+            all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
+        if n_ssl is not None:
+            unlabeled_train_indices = np.setdiff1d(all_train_indices, labeled_train_indices)
+            unlabeled_train_indices = np.random.choice(unlabeled_train_indices, size=n_ssl, replace=False)
+            all_train_indices = np.union1d(unlabeled_train_indices, labeled_train_indices)
     else:
         all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
         data = make_dataset(X_flattened[all_indices], Y[all_indices].argmax(axis=1))
@@ -48,12 +64,20 @@ def load_AE_data(
 
 
 def load_DIVA_data(
-        X, Y, sites, ssl, labeled_train_indices, test_indices
+        X, Y, sites, ssl, labeled_train_indices, test_indices, n_ssl=None
     ):
     X_flattened = corr_mx_flatten(X)
-    if ssl:
+    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
         data = make_dataset(X_flattened, Y.argmax(axis=1), sites)
-        all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
+        if isinstance(ssl, (list, tuple)):
+            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
+            all_train_indices = np.union1d(unlabeled_train_indices, labeled_train_indices)
+        else:
+            all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
+        if n_ssl is not None:
+            unlabeled_train_indices = np.setdiff1d(all_train_indices, labeled_train_indices)
+            unlabeled_train_indices = np.random.choice(unlabeled_train_indices, size=n_ssl, replace=False)
+            all_train_indices = np.union1d(unlabeled_train_indices, labeled_train_indices)
     else:
         all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
         data = make_dataset(
@@ -69,14 +93,22 @@ def load_DIVA_data(
 
 
 def load_FFN_data(
-        X, Y, ages, genders, ssl, labeled_train_indices, test_indices
+        X, Y, ages, genders, ssl, labeled_train_indices, test_indices, sites=None, n_ssl=None
     ):
     X_flattened = corr_mx_flatten(X)
-    if ssl:
+    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
         # if SSL is used, all subjects from all sites are used to create graph
         A = get_pop_A(X_flattened, ages, genders)
         data = make_population_graph(X_flattened, A, Y.argmax(axis=1))
-        all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
+        if isinstance(ssl, (list, tuple)):
+            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
+            all_train_indices = np.union1d(unlabeled_train_indices, labeled_train_indices)
+        else:
+            all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
+        if n_ssl is not None:
+            unlabeled_train_indices = np.setdiff1d(all_train_indices, labeled_train_indices)
+            unlabeled_train_indices = np.random.choice(unlabeled_train_indices, size=n_ssl, replace=False)
+            all_train_indices = np.union1d(unlabeled_train_indices, labeled_train_indices)
     else:
         # if SSL is not used, only subjects from largest site is used to create graph
         # adjust the indices accordingly to match the subject used in the graph
@@ -92,11 +124,19 @@ def load_FFN_data(
 
 def load_GAE_data(
         X, Y, ssl, labeled_train_indices, test_indices, 
-        X_ts=None, num_process=1, verbose=False
+        X_ts=None, num_process=1, verbose=False, sites=None, n_ssl=None
     ):
-    if ssl:
+    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
         data = make_graph_dataset(X, Y.argmax(axis=1), X_ts, num_process=num_process, verbose=verbose)
-        all_train_indices = np.setdiff1d(np.arange(len(X)), test_indices)
+        if isinstance(ssl, (list, tuple)):
+            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
+            all_train_indices = np.union1d(unlabeled_train_indices, labeled_train_indices)
+        else:
+            all_train_indices = np.setdiff1d(np.arange(len(X)), test_indices)
+        if n_ssl is not None:
+            unlabeled_train_indices = np.setdiff1d(all_train_indices, labeled_train_indices)
+            unlabeled_train_indices = np.random.choice(unlabeled_train_indices, size=n_ssl, replace=False)
+            all_train_indices = np.union1d(unlabeled_train_indices, labeled_train_indices)
     else:
         all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
         if X_ts is not None:
