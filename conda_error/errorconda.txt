@@ -1,91 +1,99 @@
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/2/2621A'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P12'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P12-M'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P12-M-W'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P12-W'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P14'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P14-M'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P14-M-W'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P14-W'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P4'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P5'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P7'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P8'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P8-W'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P9'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P9-8'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P9-8-W'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/P/P9-W'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/e/eterm'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/e/eterm-color'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/h/hp2621a'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/h/hp70092A'
 specified in the package manifest cannot be found.
 
-CondaVerificationError: The package for ncurses located at /data/ychan019/anaconda3/pkgs/ncurses-6.3-h7f8727e_2
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
 appears to be corrupted. The path 'share/terminfo/l/lft-pc850'
+specified in the package manifest cannot be found.
+
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
+appears to be corrupted. The path 'share/terminfo/n/ncr260vt300wpp'
+specified in the package manifest cannot be found.
+
+CondaVerificationError: The package for ncurses located at /data/yeww0006/miniconda3/pkgs/ncurses-6.3-h7f8727e_2
+appears to be corrupted. The path 'share/terminfo/n/ncrvt100wpp'
 specified in the package manifest cannot be found.

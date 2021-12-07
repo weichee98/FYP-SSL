@@ -61,21 +61,9 @@ def read_errorconda(errorconda, verbose=False):
     all_paths_complete = [os.path.join(d, p) for d, p in zip(all_directories, all_paths)]
     
     if verbose:
-        # What we actually have installed (just fyi)
-        all_installed = []
-        for directory in set(all_directories):
-            main_dir = os.path.join(directory, 'share/terminfo')
-            for d in os.listdir(main_dir):
-                d = os.path.join(main_dir, d)
-                for p in os.listdir(d):
-                    all_installed.append(os.path.join(d, p))
-        print("\nWhat we actually have installed")
-        for i, path in enumerate(all_installed, start=1):
-            print('{}.\t{}\t{}'.format(i, path, "({})".format(PathType(path))))
-
         print('\nWhat they want')
         for i, path in enumerate(all_paths_complete, start=1):
-            print('{}.\t{}\t{}'.format(i, path, "({})".format(PathType(path))))
+            print('{}.\t{}'.format(i, path))
     
     return all_directories, all_paths, all_paths_complete
 
@@ -93,41 +81,48 @@ def create_backup(all_directories, verbose=False):
 
 
 def solve(all_paths_complete, all_directories, verbose=False):
-    print("\nSolving error")
+    if verbose:
+        print("\nSolving error")
+
+    all_installed = dict()
+    for directory in set(all_directories):
+        main_dir = os.path.join(directory, 'share/terminfo')
+        for d in os.listdir(main_dir):
+            d = os.path.join(main_dir, d)
+            for p in os.listdir(d):
+                installed = os.path.join(d, p)
+                all_installed[installed.lower()] = installed
     
     try:
         for i, path in enumerate(all_paths_complete, start=1): 
-            directory = os.path.dirname(path)
-            filename = os.path.basename(path)
-            
-            for installed in os.listdir(directory):
-                if not filename.lower() == installed.lower():
-                    continue
+            if path.lower() not in all_installed:
+                raise FileNotFoundError("{} not found".format(path))
                 
-                wrong = os.path.join(directory, installed)
-                if path == wrong:
-                    if verbose:
-                        print("{}.\t{} already done!".format(i, path))
-                    continue
-                
-                temp = os.path.join(directory, '/temp_{}'.format(installed))
-                if os.path.islink(wrong):
-                    target = os.path.join(directory, os.readlink(wrong))
-                    os.remove(wrong)
-                    os.symlink(target, path)
-
-                else:
-                    if not os.path.isfile(wrong):
-                        raise FileNotFoundError("{} is not a file".format(wrong))
-                    shutil.copyfile(wrong, temp)
-                    os.remove(wrong)
-                    shutil.copyfile(temp, path)
-                    if not os.path.exists(path):
-                        raise FileNotFoundError("{} failed to be renamed to {}".format(wrong, path))
-                    os.remove(temp)
-                
+            wrong = all_installed[path.lower()]
+            if path == wrong:
                 if verbose:
-                    print("{}.\t{} renamed to {}".format(i, wrong, path))
+                    print("{}.\t{} already done!".format(i, path))
+                continue
+            
+            installed = os.path.basename(wrong)
+            temp = os.path.join(directory, 'temp_{}'.format(installed))
+            if os.path.islink(wrong):
+                target = os.path.join(directory, os.readlink(wrong))
+                os.remove(wrong)
+                os.symlink(target, path)
+
+            else:
+                if not os.path.isfile(wrong):
+                    raise FileNotFoundError("{} is not a file".format(wrong))
+                shutil.copyfile(wrong, temp)
+                os.remove(wrong)
+                shutil.copyfile(temp, path)
+                if not os.path.exists(path):
+                    raise FileNotFoundError("{} failed to be renamed to {}".format(wrong, path))
+                os.remove(temp)
+            
+            if verbose:
+                print("{}.\t{} renamed to {}".format(i, wrong, path))
 
         # if os.path.isdir(directory + '/share/terminfo_copy/'):
         #     shutil.rmtree(directory + '/share/terminfo_copy/')
@@ -140,9 +135,8 @@ def solve(all_paths_complete, all_directories, verbose=False):
         for directory in set(all_directories):
             backup = os.path.join(directory, 'share/terminfo_copy')
             source = os.path.join(directory, 'share/terminfo')
-            if not os.path.isdir(backup):
-                shutil.rmtree(source)
-                shutil.copytree(backup, source, dirs_exist_ok=True)        
+            shutil.rmtree(source)
+            shutil.copytree(backup, source, dirs_exist_ok=True)        
         print("Rollback successful! Try to run the script again, somehow it works on the second try...")
 
 
@@ -159,7 +153,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--errorconda', type=str, default=-'./errorconda.txt',
+    parser.add_argument('--errorconda', type=str, default='./errorconda.txt',
                         help='the path to errorconda.txt')
     parser.add_argument('--verbose', action='store_true')
     args = parser.parse_args()

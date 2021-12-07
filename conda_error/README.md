@@ -23,4 +23,4 @@ The error message produced shows all the files it looks for, so we save them in 
 2. Copy the error message into a text file, save it as `errorconda.txt` (replace the existing one in this folder)
 3. Run the Python script `conda_workaround.py`, it has additional features (like backup and rollback) as compared to this notebook.
 4. If there's a bug, run the script again and somehow it works on the second try...
-5. Remember to delete the envirnoment conda previously tried to create `rm {PATH_TO_MINICONDA}/envs/py38` before trying Step 1 again (replace miniconda with anaconda as needed)
+5. Remember to delete the envirnoment conda previously tried to create `rm -r {PATH_TO_MINICONDA}/envs/py38` before trying Step 1 again (replace miniconda with anaconda as needed)
