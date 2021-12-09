@@ -169,7 +169,9 @@ class PowerCrossleyVisualizer:
         final_sensitivity = nodal_sensitivity * (nodal_sensitivity > t)
         self._power_sphere(final_sensitivity, sen_file_path)
 
-    def plot_stat_map(self, score_matrix, output_dir, output_prefix="", threshold=0.1):
+    def plot_stat_map(
+        self, score_matrix, output_dir, output_prefix="", threshold=0.1, vmax=None
+    ):
         if not os.path.exists("/tmp"):
             os.makedirs("/tmp")
         sen_file_path = "/tmp/temp_{}.nii".format(uuid.uuid4().hex)
@@ -193,7 +195,7 @@ class PowerCrossleyVisualizer:
                 cut_coords=7,
                 draw_cross=False,
                 black_bg=False,
-                vmax=0.037,
+                vmax=vmax,
             )
             y = plot_stat_map(
                 stat_map_img=sen_file_path,
@@ -206,7 +208,7 @@ class PowerCrossleyVisualizer:
                 cut_coords=7,
                 draw_cross=False,
                 black_bg=False,
-                vmax=0.037,
+                vmax=vmax,
             )
             z = plot_stat_map(
                 stat_map_img=sen_file_path,
@@ -219,7 +221,7 @@ class PowerCrossleyVisualizer:
                 cut_coords=7,
                 draw_cross=False,
                 black_bg=False,
-                vmax=0.037,
+                vmax=vmax,
             )
             os.remove(sen_file_path)
             return x, y, z
