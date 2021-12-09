@@ -1,17 +1,17 @@
 import os
 import sys
 import torch
-from torch.functional import _return_counts
 import torch.nn.functional as F
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
 
+from utils import seed_torch
 from utils.metrics import ClassificationMetrics as CM
+from models.base import SaliencyScoreForward
 
 
-class AE(torch.nn.Module):
-    
+class AE(torch.nn.Module, SaliencyScoreForward):
     def __init__(self, input_size, l1, l2, l3, emb_size):
         """
         l1: number of nodes in the hidden layer of encoder and decoder
@@ -25,9 +25,9 @@ class AE(torch.nn.Module):
         self.decoder2 = torch.nn.Linear(l1, input_size)
         self.cls1 = torch.nn.Linear(emb_size, l2)
         self.cls2 = torch.nn.Linear(l2, l3)
-        self.cls3 = torch.nn.Linear(l3, 2) # this is the head for disease class
+        self.cls3 = torch.nn.Linear(l3, 2)  # this is the head for disease class
 
-    def forward(self, x): # full batch
+    def forward(self, x):  # full batch
         emb = self._encode(x)
         x_ = self._decode(emb)
 
@@ -40,7 +40,7 @@ class AE(torch.nn.Module):
         y = F.dropout(y, p=0.5, training=self.training)
 
         y = self.cls3(y)
-        y = F.softmax(y, dim=1) # output for disease classification
+        y = F.softmax(y, dim=1)  # output for disease classification
         return y, x_
 
     def _encode(self, x):
@@ -61,11 +61,13 @@ class AE(torch.nn.Module):
         x = torch.tanh(x)
         return x
 
+    def ss_forward(self, x):
+        return self.forward(x)[0]
+
 
 def train_AE(
-        device, model, data, optimizer, labeled_idx, 
-        all_idx=None, gamma=0, weight=False
-    ):
+    device, model, data, optimizer, labeled_idx, all_idx=None, gamma=0, weight=False
+):
     """
     all_idx: the indices of labeled and unlabeled data (exclude test indices)
     gamma: float, the weightage of reconstruction loss
@@ -82,7 +84,7 @@ def train_AE(
     else:
         weight = None
     cls_criterion = torch.nn.CrossEntropyLoss(weight=weight)
-    
+
     pred_y, pred_x = model(x)
     loss = cls_criterion(pred_y[labeled_idx], real_y)
 
@@ -92,11 +94,11 @@ def train_AE(
     rc_loss = (pred_x[all_idx] - x[all_idx]) ** 2
     rc_loss = rc_loss.sum(dim=1).mean()
     loss += gamma * rc_loss
-    
+
     loss_val = loss.item()
-    loss.backward()     # Derive gradients.
-    optimizer.step()    # Update parameters based on gradients.
-    
+    loss.backward()  # Derive gradients.
+    optimizer.step()  # Update parameters based on gradients.
+
     accuracy = CM.accuracy(real_y, pred_y[labeled_idx])
     sensitivity = CM.tpr(real_y, pred_y[labeled_idx])
     specificity = CM.tnr(real_y, pred_y[labeled_idx])
@@ -106,7 +108,7 @@ def train_AE(
         "sensitivity": sensitivity.item(),
         "specificity": specificity.item(),
         "f1": f1_score.item(),
-        "precision": precision.item()
+        "precision": precision.item(),
     }
     return loss_val, accuracy.item(), metrics
 
@@ -119,7 +121,7 @@ def test_AE(device, model, data, test_idx):
     real_y = data.y[test_idx].to(device)
     criterion = torch.nn.CrossEntropyLoss()
     loss = criterion(pred_y[test_idx], real_y)
-    
+
     pred_y = pred_y.argmax(dim=1)[test_idx]
     accuracy = CM.accuracy(real_y, pred_y)
     sensitivity = CM.tpr(real_y, pred_y)
@@ -130,6 +132,6 @@ def test_AE(device, model, data, test_idx):
         "sensitivity": sensitivity.item(),
         "specificity": specificity.item(),
         "f1": f1_score.item(),
-        "precision": precision.item()
+        "precision": precision.item(),
     }
     return loss.item(), accuracy.item(), metrics

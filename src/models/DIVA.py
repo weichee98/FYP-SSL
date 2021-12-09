@@ -7,10 +7,10 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
 
 from utils.metrics import ClassificationMetrics as CM
+from models.base import SaliencyScoreForward
 
 
 class decoder(torch.nn.Module):
-
     def __init__(self, emb_dim, hidden_dim, output_dim):
         super().__init__()
         self.decoder1 = torch.nn.Linear(emb_dim, hidden_dim)
@@ -30,7 +30,6 @@ class decoder(torch.nn.Module):
 
 
 class pz(torch.nn.Module):
-
     def __init__(self, y_dim, hidden_dim, z_dim):
         super().__init__()
         self.y_dim = y_dim
@@ -57,7 +56,6 @@ class pz(torch.nn.Module):
 
 
 class encoder(torch.nn.Module):
-
     def __init__(self, input_dim, hidden_dim, z_dim):
         super().__init__()
         self.encoder1 = torch.nn.Linear(input_dim, hidden_dim)
@@ -80,7 +78,6 @@ class encoder(torch.nn.Module):
 
 
 class classifier(torch.nn.Module):
-
     def __init__(self, z_dim, hidden_dim, y_dim):
         super().__init__()
         self.linear1 = torch.nn.Linear(z_dim, hidden_dim)
@@ -96,8 +93,7 @@ class classifier(torch.nn.Module):
         return y
 
 
-class DIVA(torch.nn.Module):
-
+class DIVA(torch.nn.Module, SaliencyScoreForward):
     def __init__(self, input_size, z_dim, d_dim, hidden1, hidden2):
         super().__init__()
 
@@ -111,7 +107,6 @@ class DIVA(torch.nn.Module):
         self.pzy = pz(2, hidden2, z_dim)
 
         self.px = decoder(z_dim, hidden1, input_size)
-
 
     def forward(self, x, d=None, y=None):
         zx_mu, zx_std = self.zx(x)
@@ -150,12 +145,27 @@ class DIVA(torch.nn.Module):
 
         return y_hat, d_hat, p_xhat, qzx, pzx, zx, qzy, pzy, zy, qzd, pzd, zd
 
+    def ss_forward(self, x):
+        zy_mu, _ = self.zy(x)
+        y_hat = self.y(zy_mu)
+        return y_hat
+
 
 def train_DIVA(
-        device, model, data, optimizer, labeled_idx, 
-        all_idx=None, beta_klzd=1, beta_klzx=1, beta_klzy=1, 
-        beta_d=1, beta_y=1, beta_recon=1, weight=False
-    ):
+    device,
+    model,
+    data,
+    optimizer,
+    labeled_idx,
+    all_idx=None,
+    beta_klzd=1,
+    beta_klzx=1,
+    beta_klzy=1,
+    beta_d=1,
+    beta_y=1,
+    beta_recon=1,
+    weight=False,
+):
     model.to(device)
     model.train()
     optimizer.zero_grad()
@@ -164,9 +174,9 @@ def train_DIVA(
     real_d = data.d.to(device)
     real_y = data.y.to(device)
 
-    (pred_y, pred_d, p_xhat, 
-    qzx, pzx, zx, qzy, pzy, zy, 
-    qzd, pzd, zd) = model(x, real_d, real_y)
+    (pred_y, pred_d, p_xhat, qzx, pzx, zx, qzy, pzy, zy, qzd, pzd, zd) = model(
+        x, real_d, real_y
+    )
 
     if weight:
         _, counts = torch.unique(real_y, sorted=True, return_counts=True)
@@ -183,8 +193,12 @@ def train_DIVA(
     kl_zd = torch.sum(qzd.log_prob(zd) - pzd.log_prob(zd), dim=1)[all_idx].mean()
 
     loss = (
-        beta_y * ce_y + beta_d * ce_d + beta_recon * recon_loss + \
-        beta_klzd * kl_zd + beta_klzx * kl_zx + beta_klzy * kl_zy
+        beta_y * ce_y
+        + beta_d * ce_d
+        + beta_recon * recon_loss
+        + beta_klzd * kl_zd
+        + beta_klzx * kl_zx
+        + beta_klzy * kl_zy
     )
     loss_val = loss.item()
     loss.backward()
@@ -199,7 +213,7 @@ def train_DIVA(
         "sensitivity": sensitivity.item(),
         "specificity": specificity.item(),
         "f1": f1_score.item(),
-        "precision": precision.item()
+        "precision": precision.item(),
     }
     return loss_val, accuracy.item(), metrics
 
@@ -226,6 +240,6 @@ def test_DIVA(device, model, data, test_idx):
         "sensitivity": sensitivity.item(),
         "specificity": specificity.item(),
         "f1": f1_score.item(),
-        "precision": precision.item()
+        "precision": precision.item(),
     }
     return loss.item(), accuracy.item(), metrics

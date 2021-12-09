@@ -10,13 +10,13 @@ sys.path.append(__dir__)
 
 from utils.loss import GaussianKLDivLoss
 from utils.metrics import CummulativeClassificationMetrics
+from models.base import GraphSaliencyScoreForward
 
 
 _DROPOUT = 0.1
 
 
 class GlobalAttentionPooling(torch.nn.Module):
-
     def __init__(self, input_size, l1):
         super().__init__()
         self.gate1 = GraphConv(input_size, l1)
@@ -34,8 +34,7 @@ class GlobalAttentionPooling(torch.nn.Module):
         return out
 
 
-class VGAETS(torch.nn.Module):
-    
+class VGAETS(torch.nn.Module, GraphSaliencyScoreForward):
     def __init__(self, tsemb, emb1, emb2, l1, bidirectional=True):
         super().__init__()
         self.tsae = TSEncoder(tsemb, bidirectional, dropout=0)
@@ -43,7 +42,7 @@ class VGAETS(torch.nn.Module):
         self.encoder1 = GraphConv(tsemb * (2 if bidirectional else 1), emb1)
         self.encoder_mu = GraphConv(emb1, emb2)
         self.encoder_std = torch.nn.Linear(emb1, emb2)
-        
+
         self.pool = GlobalAttentionPooling(emb2, l1)
         self.cls1 = torch.nn.Linear(emb2, l1)
         self.cls2 = torch.nn.Linear(l1, 2)
@@ -90,11 +89,13 @@ class VGAETS(torch.nn.Module):
         x = F.cosine_similarity(x[row], x[col])
         return x
 
+    def saliency_score(self, data):
+        raise NotImplementedError
+
 
 def train_VGAETS(
-        device, model, labeled_dl, unlabeled_dl, optimizer, 
-        gamma1=0, gamma2=0, weight=False
-    ):
+    device, model, labeled_dl, unlabeled_dl, optimizer, gamma1=0, gamma2=0, weight=False
+):
     model.to(device)
     model.train()
     optimizer.zero_grad()
@@ -126,18 +127,19 @@ def train_VGAETS(
             cls_loss = None
         w_std = w_std.expand(w_mu.size())
         rc_loss = gauss_criterion(value, w_mu, w_std ** 2)
-        kl = kl_criterion(z_mu, z_std ** 2, torch.zeros_like(z_mu), torch.ones_like(z_std))
+        kl = kl_criterion(
+            z_mu, z_std ** 2, torch.zeros_like(z_mu), torch.ones_like(z_std)
+        )
         return cls_loss, rc_loss, kl
 
     loss_val = 0
     n_labeled = len(labeled_dl)
-    n_unlabeled = 0. if unlabeled_dl is None else len(unlabeled_dl)
+    n_unlabeled = 0.0 if unlabeled_dl is None else len(unlabeled_dl)
     n_all = n_labeled + n_unlabeled
 
     for data in labeled_dl:
         cls_loss, rc_loss, kl = _step(data, True)
-        loss = cls_loss / n_labeled + \
-            (gamma1 * rc_loss + gamma2 * kl) / n_all
+        loss = cls_loss / n_labeled + (gamma1 * rc_loss + gamma2 * kl) / n_all
         loss_val += loss.item()
         loss.backward()
 
@@ -154,7 +156,7 @@ def train_VGAETS(
         "sensitivity": ccm.tpr.item(),
         "specificity": ccm.tnr.item(),
         "f1": ccm.f1_score.item(),
-        "precision": ccm.ppv.item()
+        "precision": ccm.ppv.item(),
     }
     return loss_val, acc_val, metrics
 
@@ -191,6 +193,6 @@ def test_VGAETS(device, model, test_dl):
         "sensitivity": sensitivity.item(),
         "specificity": specificity.item(),
         "f1": f1_score.item(),
-        "precision": precision.item()
+        "precision": precision.item(),
     }
     return loss_val, acc_val, metrics

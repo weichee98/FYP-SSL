@@ -2,7 +2,6 @@ import torch
 
 
 class TSEncoder(torch.nn.Module):
-
     def __init__(self, output_dim, bidirectional=True, dropout=0):
         super().__init__()
         self.encoder = torch.nn.LSTM(
@@ -11,7 +10,7 @@ class TSEncoder(torch.nn.Module):
             num_layers=1,
             batch_first=True,
             bidirectional=bidirectional,
-            dropout=dropout
+            dropout=dropout,
         )
 
     def forward(self, x):
@@ -23,7 +22,6 @@ class TSEncoder(torch.nn.Module):
 
 
 class TSDecoder(torch.nn.Module):
-
     def __init__(self, input_dim, dropout=0):
         super().__init__()
         self.decoder = torch.nn.LSTM(
@@ -31,7 +29,7 @@ class TSDecoder(torch.nn.Module):
             hidden_size=1,
             num_layers=1,
             batch_first=True,
-            dropout=dropout
+            dropout=dropout,
         )
 
     def forward(self, z, seq_len):
@@ -43,17 +41,13 @@ class TSDecoder(torch.nn.Module):
 
 
 class TSAE(torch.nn.Module):
-
     def __init__(self, emb=500, bidirectional=True, dropout=0):
         super().__init__()
         self.encoder = TSEncoder(
-            output_dim=emb,
-            bidirectional=bidirectional,
-            dropout=dropout
+            output_dim=emb, bidirectional=bidirectional, dropout=dropout
         )
         self.decoder = TSDecoder(
-            input_dim=emb * 2 if bidirectional else emb,
-            dropout=dropout
+            input_dim=emb * 2 if bidirectional else emb, dropout=dropout
         )
 
     def forward(self, x):

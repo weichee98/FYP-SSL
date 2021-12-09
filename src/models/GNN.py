@@ -3,18 +3,19 @@ import sys
 import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GraphConv
+from captum.attr import IntegratedGradients
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
 
 from utils.metrics import CummulativeClassificationMetrics
+from models.base import GraphSaliencyScoreForward
 
 
 _DROPOUT = 0.1
 
 
 class GlobalAttentionPooling(torch.nn.Module):
-
     def __init__(self, input_size, l1):
         super().__init__()
         self.gate1 = GraphConv(input_size, l1)
@@ -32,15 +33,14 @@ class GlobalAttentionPooling(torch.nn.Module):
         return out
 
 
-class GNN(torch.nn.Module):
-    
+class GNN(torch.nn.Module, GraphSaliencyScoreForward):
     def __init__(self, input_size, emb1, emb2, l1):
         super().__init__()
         self.conv1 = GraphConv(input_size, emb1)
         self.conv2 = GraphConv(emb1, emb2)
         self.pool = GlobalAttentionPooling(emb2, l1)
         self.cls1 = torch.nn.Linear(emb2, l1)
-        self.cls2 = torch.nn.Linear(l1, 2) # this is the head for disease class
+        self.cls2 = torch.nn.Linear(l1, 2)  # this is the head for disease class
 
     def forward(self, x, adj_t):
         x = self.conv1(x, adj_t)
@@ -57,8 +57,11 @@ class GNN(torch.nn.Module):
         x = F.dropout(x, p=_DROPOUT, training=self.training)
 
         x = self.cls2(x)
-        x = F.softmax(x, dim=1) # output for disease classification
+        x = F.softmax(x, dim=1)  # output for disease classification
         return x
+
+    def ss_forward(self, x, adj_t):
+        return self.forward(x, adj_t)
 
 
 def train_GNN(device, model, train_dl, optimizer, weight=False):
@@ -102,7 +105,7 @@ def train_GNN(device, model, train_dl, optimizer, weight=False):
         "sensitivity": ccm.tpr.item(),
         "specificity": ccm.tnr.item(),
         "f1": ccm.f1_score.item(),
-        "precision": ccm.ppv.item()
+        "precision": ccm.ppv.item(),
     }
     return loss_val, acc_val, metrics
 
@@ -139,6 +142,6 @@ def test_GNN(device, model, test_dl):
         "sensitivity": sensitivity.item(),
         "specificity": specificity.item(),
         "f1": f1_score.item(),
-        "precision": precision.item()
+        "precision": precision.item(),
     }
     return loss_val, acc_val, metrics

@@ -1,17 +1,20 @@
 import os
 import sys
 import torch
+import numpy as np
 import torch.nn.functional as F
+from scipy.spatial.distance import squareform
+from captum.attr import IntegratedGradients
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
 
 from utils.loss import GaussianKLDivLoss
 from utils.metrics import ClassificationMetrics as CM
+from models.base import SaliencyScoreForward
 
 
-class VAE(torch.nn.Module):
-    
+class VAE(torch.nn.Module, SaliencyScoreForward):
     def __init__(self, input_size, l1, l2, emb_size, l3):
         """
         l1: number of nodes in the hidden layer of encoder and decoder
@@ -28,7 +31,7 @@ class VAE(torch.nn.Module):
 
         self.cls1 = torch.nn.Linear(emb_size, l2)
         self.cls2 = torch.nn.Linear(l2, l3)
-        self.cls3 = torch.nn.Linear(l3, 2) # this is the head for disease class
+        self.cls3 = torch.nn.Linear(l3, 2)  # this is the head for disease class
         self.log_std = torch.nn.Parameter(torch.tensor([[0.0]]))
 
     def forward(self, x):
@@ -53,7 +56,7 @@ class VAE(torch.nn.Module):
         y = F.dropout(y, p=0.5, training=self.training)
 
         y = self.cls3(y)
-        y = F.softmax(y, dim=1) # output for disease classification
+        y = F.softmax(y, dim=1)  # output for disease classification
         return y, x_mu, x_std, z, z_mu, z_std
 
     def _encode(self, x):
@@ -76,11 +79,21 @@ class VAE(torch.nn.Module):
         x = torch.tanh(x)
         return x
 
+    def ss_forward(self, x):
+        return self.forward(x)[0]
+
 
 def train_VAE(
-        device, model, data, optimizer, labeled_idx, 
-        all_idx=None, gamma1=0, gamma2=0, weight=False
-    ):
+    device,
+    model,
+    data,
+    optimizer,
+    labeled_idx,
+    all_idx=None,
+    gamma1=0,
+    gamma2=0,
+    weight=False,
+):
     """
     all_idx: the indices of labeled and unlabeled data (exclude test indices)
     gamma1: float, the weightage of reconstruction loss
@@ -109,15 +122,17 @@ def train_VAE(
     x_std = x_std.expand(x_mu[all_idx].size())
     rc_loss = gauss_criterion(x[all_idx], x_mu[all_idx], x_std ** 2)
     kl = kl_criterion(
-        z_mu[all_idx], z_std[all_idx] ** 2, 
-        torch.zeros_like(z_mu[all_idx]), torch.ones_like(z_std[all_idx])
+        z_mu[all_idx],
+        z_std[all_idx] ** 2,
+        torch.zeros_like(z_mu[all_idx]),
+        torch.ones_like(z_std[all_idx]),
     )
     loss += gamma1 * rc_loss + gamma2 * kl
 
     loss_val = loss.item()
     loss.backward()
     optimizer.step()
-    
+
     accuracy = CM.accuracy(real_y, pred_y[labeled_idx])
     sensitivity = CM.tpr(real_y, pred_y[labeled_idx])
     specificity = CM.tnr(real_y, pred_y[labeled_idx])
@@ -127,7 +142,7 @@ def train_VAE(
         "sensitivity": sensitivity.item(),
         "specificity": specificity.item(),
         "f1": f1_score.item(),
-        "precision": precision.item()
+        "precision": precision.item(),
     }
     return loss_val, accuracy.item(), metrics
 
@@ -151,6 +166,6 @@ def test_VAE(device, model, data, test_idx):
         "sensitivity": sensitivity.item(),
         "specificity": specificity.item(),
         "f1": f1_score.item(),
-        "precision": precision.item()
+        "precision": precision.item(),
     }
     return loss.item(), accuracy.item(), metrics
