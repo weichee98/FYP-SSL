@@ -7,7 +7,7 @@ import torch
 import numpy as np
 import pandas as pd
 
-from ABIDE import *
+from ADHD import *
 from config import EXPERIMENT_DIR
 from utils import *
 from models import *
@@ -60,10 +60,7 @@ def get_experiment_param(
     return param
 
 
-def set_experiment_param(
-    param, model_path, time, device, best_epoch, acc, loss, **kwargs
-):
-    param["accuracy"] = acc
+def set_experiment_param(param, model_path, time, device, best_epoch, loss, **kwargs):
     param["loss"] = loss
     for k, v in kwargs.items():
         param[k] = v
@@ -74,7 +71,7 @@ def set_experiment_param(
 
 
 def load_data(param):
-    X, Y, X_ts = load_data_fmri(harmonized=param["harmonized"], time_series=True)
+    X, Y = load_data_fmri(harmonized=param["harmonized"])
     splits = get_splits(site_id=param["site"], test=param["test"])
     ages, genders = get_ages_and_genders()
 
@@ -123,17 +120,14 @@ def load_data(param):
         (data, labeled_train_indices, all_train_indices, test_indices) = load_DIVA_data(
             X, Y, get_sites(), param["ssl"], labeled_train_indices, test_indices
         )
-    elif param["model"] == "VGAETS":
-        (data, labeled_train_indices, all_train_indices, test_indices) = load_GAE_data(
-            X,
-            Y,
-            param["ssl"],
-            labeled_train_indices,
-            test_indices,
-            X_ts,
-            num_process=param.get("num_process", 1),
-            verbose=False,
-        )
+    # elif param["model"] == "VGAETS":
+    #     (data, labeled_train_indices,
+    #     all_train_indices, test_indices) = load_GAE_data(
+    #         X, Y, param["ssl"], labeled_train_indices,
+    #         test_indices, X_ts,
+    #         num_process=param.get("num_process", 1),
+    #         verbose=False
+    #     )
     else:
         raise NotImplementedError(
             "No dataloader function implemented for model {}".format(param["model"])
@@ -207,14 +201,14 @@ def load_model(param, data):
             hidden1=param["hidden1"],
             hidden2=param["hidden2"],
         )
-    elif param["model"] == "VGAETS":
-        model = VGAETS(
-            tsemb=param["tsemb"],
-            emb1=param["emb1"],
-            emb2=param["emb2"],
-            l1=param["L1"],
-            bidirectional=param["bidirectional"],
-        )
+    # elif param["model"] == "VGAETS":
+    #     model = VGAETS(
+    #         tsemb=param["tsemb"],
+    #         emb1=param["emb1"],
+    #         emb2=param["emb2"],
+    #         l1=param["L1"],
+    #         bidirectional=param["bidirectional"]
+    #     )
     else:
         raise TypeError("Invalid model of type {}".format(param["model"]))
     param["model_size"] = count_parameters(model)
@@ -233,12 +227,12 @@ def train_test_step(
     test_indices,
 ):
     if param["model"] == "GCN":
-        train_loss, train_acc, _ = train_GCN(
-            device, model, data, optimizer, labeled_train_indices
+        train_loss, train_acc, train_metrics = train_GCN(
+            device, model, data, optimizer, labeled_train_indices, weight=False
         )
         test_loss, test_acc, test_metrics = test_GCN(device, model, data, test_indices)
     elif param["model"] == "FFN":
-        train_loss, train_acc, _ = train_FFN(
+        train_loss, train_acc, train_metrics = train_FFN(
             device,
             model,
             data,
@@ -246,10 +240,11 @@ def train_test_step(
             labeled_train_indices,
             all_train_indices,
             param["gamma_lap"],
+            weight=False,
         )
         test_loss, test_acc, test_metrics = test_FFN(device, model, data, test_indices)
     elif param["model"] == "AE":
-        train_loss, train_acc, _ = train_AE(
+        train_loss, train_acc, train_metrics = train_AE(
             device,
             model,
             data,
@@ -257,10 +252,11 @@ def train_test_step(
             labeled_train_indices,
             all_train_indices,
             param["gamma"],
+            weight=False,
         )
         test_loss, test_acc, test_metrics = test_AE(device, model, data, test_indices)
     elif param["model"] == "VAE":
-        train_loss, train_acc, _ = train_VAE(
+        train_loss, train_acc, train_metrics = train_VAE(
             device,
             model,
             data,
@@ -269,15 +265,18 @@ def train_test_step(
             all_train_indices,
             param["gamma1"],
             param["gamma2"],
+            weight=False,
         )
         test_loss, test_acc, test_metrics = test_VAE(device, model, data, test_indices)
     elif param["model"] == "GNN":
         train_dl, _, test_dl = data
-        train_loss, train_acc, _ = train_GNN(device, model, train_dl, optimizer)
+        train_loss, train_acc, train_metrics = train_GNN(
+            device, model, train_dl, optimizer, weight=False
+        )
         test_loss, test_acc, test_metrics = test_GNN(device, model, test_dl)
     elif param["model"] == "VGAE":
         labeled_dl, unlabeled_dl, test_dl = data
-        train_loss, train_acc, _ = train_VGAE(
+        train_loss, train_acc, train_metrics = train_VGAE(
             device,
             model,
             labeled_dl,
@@ -285,10 +284,11 @@ def train_test_step(
             optimizer,
             param["gamma1"],
             param["gamma2"],
+            weight=False,
         )
         test_loss, test_acc, test_metrics = test_VGAE(device, model, test_dl)
     elif param["model"] == "DIVA":
-        train_loss, train_acc, _ = train_DIVA(
+        train_loss, train_acc, train_metrics = train_DIVA(
             device,
             model,
             data,
@@ -301,23 +301,23 @@ def train_test_step(
             param["beta_d"],
             param["beta_y"],
             param["beta_recon"],
+            weight=False,
         )
         test_loss, test_acc, test_metrics = test_DIVA(device, model, data, test_indices)
-    elif param["model"] == "VGAETS":
-        labeled_dl, unlabeled_dl, test_dl = data
-        train_loss, train_acc, _ = train_VGAETS(
-            device,
-            model,
-            labeled_dl,
-            unlabeled_dl,
-            optimizer,
-            param["gamma1"],
-            param["gamma2"],
-        )
-        test_loss, test_acc, test_metrics = test_VGAETS(device, model, test_dl)
+    # elif param["model"] == "VGAETS":
+    #     labeled_dl, unlabeled_dl, test_dl = data
+    #     train_loss, train_acc, train_metrics = train_VGAETS(
+    #         device, model, labeled_dl, unlabeled_dl, optimizer,
+    #         param["gamma1"], param["gamma2"], weight=False
+    #     )
+    #     test_loss, test_acc, test_metrics = test_VGAETS(
+    #         device, model, test_dl
+    #     )
     else:
         raise TypeError("Invalid model of type {}".format(param["model"]))
-    return train_loss, train_acc, test_loss, test_acc, test_metrics
+    train_metrics["accuracy"] = train_acc
+    test_metrics["accuracy"] = test_acc
+    return train_loss, train_metrics, test_loss, test_metrics
 
 
 def verbose_info(epoch, train_loss, test_loss, train_acc, test_acc, best_test_acc):
@@ -345,7 +345,6 @@ def experiment(args, param, model_dir):
     )
 
     best_epoch = 0
-    best_acc = 0
     best_loss = np.inf
     acc_loss = np.inf
     best_metrics = {}
@@ -356,11 +355,13 @@ def experiment(args, param, model_dir):
 
     train_losses = []
     test_losses = []
+    train_f1_scores = []
+    test_f1_scores = []
     train_accuracies = []
     test_accuracies = []
 
     for epoch in pbar:
-        train_loss, train_acc, test_loss, test_acc, test_metrics = train_test_step(
+        train_loss, train_metrics, test_loss, test_metrics = train_test_step(
             param,
             device,
             model,
@@ -377,20 +378,26 @@ def experiment(args, param, model_dir):
         2. f1
         3. loss
         """
-        save = (test_acc > best_acc) or (
-            test_acc == best_acc
-            and (
-                test_metrics["f1"] > best_metrics["f1"]
-                or (test_metrics["f1"] == best_metrics["f1"] and test_loss < acc_loss)
+        save = (
+            (len(best_metrics) == 0)
+            or (test_metrics["accuracy"] > best_metrics["accuracy"])
+            or (
+                test_metrics["accuracy"] == best_metrics["accuracy"]
+                and (
+                    test_metrics["f1"] > best_metrics["f1"]
+                    or (
+                        test_metrics["f1"] == best_metrics["f1"]
+                        and test_loss < acc_loss
+                    )
+                )
             )
         )
         if test_loss < best_loss:
             best_loss = test_loss
         if save:
             best_epoch = epoch
-            best_acc = test_acc
             acc_loss = test_loss
-            best_metrics = test_metrics
+            best_metrics = test_metrics.copy()
             if param["save_model"]:
                 best_model = copy.deepcopy(model.state_dict())
                 model_time = int(time.time())
@@ -401,13 +408,20 @@ def experiment(args, param, model_dir):
         if verbose:
             pbar.set_postfix_str(
                 verbose_info(
-                    epoch, train_loss, test_loss, train_acc, test_acc, best_acc
+                    epoch,
+                    train_loss,
+                    test_loss,
+                    train_metrics["accuracy"],
+                    test_metrics["accuracy"],
+                    best_metrics["accuracy"],
                 )
             )
         train_losses.append(train_loss)
         test_losses.append(test_loss)
-        train_accuracies.append(train_acc)
-        test_accuracies.append(test_acc)
+        train_f1_scores.append(train_metrics["f1"])
+        test_f1_scores.append(test_metrics["f1"])
+        train_accuracies.append(train_metrics["accuracy"])
+        test_accuracies.append(test_metrics["accuracy"])
 
         # early stopping
         if cur_patience == patience:
@@ -428,7 +442,6 @@ def experiment(args, param, model_dir):
         device=args.gpu,
         model_path=model_path,
         best_epoch=best_epoch,
-        acc=best_acc,
         loss=best_loss,
         acc_loss=acc_loss,
         **best_metrics
@@ -438,6 +451,8 @@ def experiment(args, param, model_dir):
     training_curve = {
         "train_accuracies": train_accuracies,
         "test_accuracies": test_accuracies,
+        "train_f1_scores": train_f1_scores,
+        "test_f1_scores": test_f1_scores,
         "train_losses": train_losses,
         "test_losses": test_losses,
     }
@@ -448,48 +463,24 @@ def experiment(args, param, model_dir):
 def main(args):
     script_name = os.path.splitext(os.path.basename(__file__))[0]
 
-    sites = np.array(
-        [
-            "CALTECH",
-            "LEUVEN_1",
-            "LEUVEN_2",
-            "MAX_MUN",
-            "NYU",
-            "OHSU",
-            "OLIN",
-            "PITT",
-            "STANFORD",
-            "TRINITY",
-            "UCLA_1",
-            "UCLA_2",
-            "UM_1",
-            "UM_2",
-            "USM",
-            "YALE",
-        ]
-    )
-    sites = np.array(["NYU"])
+    sites = np.array(["NI", "NYU", "OHSU", "PKU"])
     print(sites)
 
-    ssl = True
-    harmonized = True
+    ssl = args.ssl
+    harmonized = args.harmonize
     SEED = 10
 
-    experiment_name = "{}_{}".format(script_name, int(time.time()))
-    exp_dir = os.path.join(args.exp_dir, experiment_name)
-    model_dir = os.path.join(exp_dir, "models")
-    print("Experiment result: {}".format(exp_dir))
-    res = []
-    curves = []
+    for site in sites:
+        experiment_name = "{}_{}".format(script_name, int(time.time()))
+        exp_dir = os.path.join(args.exp_dir, experiment_name)
+        model_dir = os.path.join(exp_dir, "models")
+        print("Experiment result: {}".format(exp_dir))
+        res = []
+        curves = []
 
-    for seed in range(SEED):
-        # experiment_name = "{}_{}".format(script_name, int(time.time()))
-        # exp_dir = os.path.join(args.exp_dir, experiment_name)
-        # model_dir = os.path.join(exp_dir, "models")
-        # print("Experiment result: {}".format(exp_dir))
-        # res = []
+        save_model = True if site in ["NYU", "PKU"] else False
 
-        for site in sites:
+        for seed in range(SEED):
 
             for fold in range(5):
 
@@ -508,37 +499,63 @@ def main(args):
                 #     site=site, lr=0.00005, l2_reg=0.001,
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
-                # param = get_experiment_param(
-                #     model="FFN", L1=150, L2=50, L3=30, gamma_lap=0,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=True,
-                #     site=site, lr=0.00005, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
-                # param = get_experiment_param(
-                #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=True,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
-                param = get_experiment_param(
-                    model="VAE",
-                    L1=300,
-                    L2=50,
-                    emb=150,
-                    L3=30,
-                    gamma1=1e-5,
-                    gamma2=1e-3,
-                    seed=seed,
-                    fold=fold,
-                    ssl=ssl,
-                    save_model=True,
-                    site=site,
-                    lr=0.0001,
-                    l2_reg=0.001,
-                    test=False,
-                    harmonized=harmonized,
-                    epochs=1000,
-                )
+                if args.model == "FFN":
+                    param = get_experiment_param(
+                        model="FFN",
+                        L1=150,
+                        L2=50,
+                        L3=30,
+                        gamma_lap=0,
+                        seed=seed,
+                        fold=fold,
+                        ssl=ssl,
+                        save_model=save_model,
+                        site=site,
+                        lr=0.00005,
+                        l2_reg=0.001,
+                        test=False,
+                        harmonized=harmonized,
+                        epochs=1000,
+                    )
+                if args.model == "AE":
+                    param = get_experiment_param(
+                        model="AE",
+                        L1=300,
+                        L2=50,
+                        emb=150,
+                        L3=30,
+                        gamma=1e-3,
+                        seed=seed,
+                        fold=fold,
+                        ssl=ssl,
+                        save_model=save_model,
+                        site=site,
+                        lr=0.0001,
+                        l2_reg=0.001,
+                        test=False,
+                        harmonized=harmonized,
+                        epochs=1000,
+                    )
+                if args.model == "VAE":
+                    param = get_experiment_param(
+                        model="VAE",
+                        L1=300,
+                        L2=50,
+                        emb=150,
+                        L3=30,
+                        gamma1=1e-5,
+                        gamma2=1e-3,
+                        seed=seed,
+                        fold=fold,
+                        ssl=ssl,
+                        save_model=save_model,
+                        site=site,
+                        lr=0.0001,
+                        l2_reg=0.001,
+                        test=False,
+                        harmonized=harmonized,
+                        epochs=1000,
+                    )
                 # param = get_experiment_param(
                 #     model="VGAE", emb1=300, emb2=100, L1=50,
                 #     gamma1=1e-5, gamma2=5e-6, num_process=10,
@@ -571,19 +588,6 @@ def main(args):
                 #     test=False, harmonized=harmonized, epochs=500
                 # )
 
-                # SSL
-                # param = get_experiment_param(
-                #     model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=3e-5, gamma2=1e-3,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
-                # param = get_experiment_param(
-                #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
                 exp_res, training_curve = experiment(args, param, model_dir)
                 res.append(exp_res)
                 curves.append(training_curve)
@@ -636,6 +640,9 @@ if __name__ == "__main__":
         "--gpu", type=int, default=-1, help="gpu id (0, 1, 2, 3) or cpu (-1)"
     )
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--ssl", action="store_true")
+    parser.add_argument("--harmonize", action="store_true")
+    parser.add_argument("--model", type=str, default="FFN")
     parser.add_argument(
         "--exp_dir",
         type=str,

@@ -12,6 +12,7 @@ from config import EXPERIMENT_DIR
 from utils import *
 from models import *
 from data import *
+from utils.distribution import SiteDistribution
 
 
 def get_experiment_param(
@@ -20,13 +21,14 @@ def get_experiment_param(
     fold=0,
     epochs=1000,
     patience=1000,
-    ssl=True,
+    ssl_group=None,
     test=True,
     save_model=True,
     site="NYU",
     harmonized=False,
     lr=0.0001,
     l2_reg=0.001,
+    n_ssl=None,
     **kwargs
 ):
     """
@@ -36,10 +38,9 @@ def get_experiment_param(
     3. AE model (L1, L2, L3, emb, gamma)
     4. VAE model (L1, L2, L3, emb, gamma1, gamma2)
     5. VGAE model (emb1, emb2, L1, gamma1, gamma2, num_process)
-    6. GNN model (emb1, emb2, L1, gamma, num_process)
-    7. DIVA model (emb, hidden1, hidden2, beta_klzd, beta_klzx, 
+    6. DIVA model (emb, hidden1, hidden2, beta_klzd, beta_klzx, 
                    beta_klzy, beta_d, beta_y, beta_recon)
-    8. VGAETS model (embts, emb1, emb2, L1, gamma1, gamma2, 
+    7. VGAETS model (embts, emb1, emb2, L1, gamma1, gamma2, 
                     num_process)
     """
     param = dict()
@@ -51,7 +52,8 @@ def get_experiment_param(
     param["model"] = model
     param["lr"] = lr
     param["l2_reg"] = l2_reg
-    param["ssl"] = ssl
+    param["ssl_group"] = ssl_group
+    param["n_ssl"] = n_ssl
     param["test"] = test
     param["harmonized"] = harmonized
     param["save_model"] = save_model
@@ -77,6 +79,7 @@ def load_data(param):
     X, Y, X_ts = load_data_fmri(harmonized=param["harmonized"], time_series=True)
     splits = get_splits(site_id=param["site"], test=param["test"])
     ages, genders = get_ages_and_genders()
+    sites = get_sites()
 
     seed = param["seed"]
     fold = param["fold"]
@@ -90,49 +93,72 @@ def load_data(param):
 
     if param["model"] == "GCN":
         (data, labeled_train_indices, all_train_indices, test_indices) = load_GCN_data(
-            X, Y, ages, genders, param["ssl"], labeled_train_indices, test_indices
+            X,
+            Y,
+            ages,
+            genders,
+            param["ssl_group"],
+            labeled_train_indices,
+            test_indices,
+            sites,
+            param.get("n_ssl", None),
         )
     elif param["model"] == "FFN":
         (data, labeled_train_indices, all_train_indices, test_indices) = load_FFN_data(
-            X, Y, ages, genders, param["ssl"], labeled_train_indices, test_indices
+            X,
+            Y,
+            ages,
+            genders,
+            param["ssl_group"],
+            labeled_train_indices,
+            test_indices,
+            sites,
+            param.get("n_ssl", None),
         )
     elif param["model"] == "AE" or param["model"] == "VAE":
         (data, labeled_train_indices, all_train_indices, test_indices) = load_AE_data(
-            X, Y, param["ssl"], labeled_train_indices, test_indices
-        )
-    elif param["model"] == "GNN":
-        (data, labeled_train_indices, all_train_indices, test_indices) = load_GNN_data(
             X,
             Y,
+            param["ssl_group"],
             labeled_train_indices,
             test_indices,
-            num_process=param.get("num_process", 1),
-            verbose=False,
+            sites,
+            param.get("n_ssl", None),
         )
     elif param["model"] == "VGAE":
         (data, labeled_train_indices, all_train_indices, test_indices) = load_GAE_data(
             X,
             Y,
-            param["ssl"],
+            param["ssl_group"],
             labeled_train_indices,
             test_indices,
             num_process=param.get("num_process", 1),
             verbose=False,
+            sites=sites,
+            n_ssl=param.get("n_ssl", None),
         )
     elif param["model"] == "DIVA":
         (data, labeled_train_indices, all_train_indices, test_indices) = load_DIVA_data(
-            X, Y, get_sites(), param["ssl"], labeled_train_indices, test_indices
+            X,
+            Y,
+            sites,
+            param["ssl_group"],
+            labeled_train_indices,
+            test_indices,
+            param.get("n_ssl", None),
         )
     elif param["model"] == "VGAETS":
         (data, labeled_train_indices, all_train_indices, test_indices) = load_GAE_data(
             X,
             Y,
-            param["ssl"],
+            param["ssl_group"],
             labeled_train_indices,
             test_indices,
             X_ts,
             num_process=param.get("num_process", 1),
             verbose=False,
+            sites=sites,
+            n_ssl=param.get("n_ssl", None),
         )
     else:
         raise NotImplementedError(
@@ -182,14 +208,6 @@ def load_model(param, data):
             l2=param["L2"],
             l3=param["L3"],
             emb_size=param["emb"],
-        )
-    elif param["model"] == "GNN":
-        batch = next(iter(data[0]))
-        model = GNN(
-            input_size=batch.x.size(1),
-            emb1=param["emb1"],
-            emb2=param["emb2"],
-            l1=param["L1"],
         )
     elif param["model"] == "VGAE":
         batch = next(iter(data[0]))
@@ -271,10 +289,6 @@ def train_test_step(
             param["gamma2"],
         )
         test_loss, test_acc, test_metrics = test_VAE(device, model, data, test_indices)
-    elif param["model"] == "GNN":
-        train_dl, _, test_dl = data
-        train_loss, train_acc, _ = train_GNN(device, model, train_dl, optimizer)
-        test_loss, test_acc, test_metrics = test_GNN(device, model, test_dl)
     elif param["model"] == "VGAE":
         labeled_dl, unlabeled_dl, test_dl = data
         train_loss, train_acc, _ = train_VGAE(
@@ -445,51 +459,57 @@ def experiment(args, param, model_dir):
     return param, training_curve
 
 
+def get_ssl_groups(harmonized, site, pre_end=None, reverse=False):
+    X, _ = load_data_fmri(harmonized=harmonized)
+    sites = get_sites()
+    sd = SiteDistribution()
+    hm = sd.distribution_heatmap(X, sites, sd.METRIC.HELLINGER, sd.METHOD.KDE)
+    ssl_sites = hm[site]
+    ssl_sites.pop(site)
+    ssl_sites_order = sorted(ssl_sites, key=lambda x: ssl_sites[x], reverse=reverse)
+
+    print(ssl_sites_order)
+
+    if pre_end is None:
+        yield None
+        for i in range(1, len(ssl_sites_order) + 1):
+            yield ssl_sites_order[:i]
+    else:
+        idx = ssl_sites_order.index(pre_end)
+        for i in range(idx + 2, len(ssl_sites_order) + 1):
+            yield ssl_sites_order[:i]
+
+
+def get_n_ssl(site, pre_end=None):
+    sites = get_sites()
+    total = int(np.sum(sites != site))
+    start_n = 0 if pre_end is None else pre_end + 50
+    all_n = list(range(start_n, total, 50)) + [total]
+    print(all_n)
+    for i in all_n:
+        yield i
+
+
 def main(args):
     script_name = os.path.splitext(os.path.basename(__file__))[0]
 
-    sites = np.array(
-        [
-            "CALTECH",
-            "LEUVEN_1",
-            "LEUVEN_2",
-            "MAX_MUN",
-            "NYU",
-            "OHSU",
-            "OLIN",
-            "PITT",
-            "STANFORD",
-            "TRINITY",
-            "UCLA_1",
-            "UCLA_2",
-            "UM_1",
-            "UM_2",
-            "USM",
-            "YALE",
-        ]
-    )
-    sites = np.array(["NYU"])
-    print(sites)
-
-    ssl = True
-    harmonized = True
+    site = "NYU"
+    harmonized = args.harmonize
     SEED = 10
 
-    experiment_name = "{}_{}".format(script_name, int(time.time()))
-    exp_dir = os.path.join(args.exp_dir, experiment_name)
-    model_dir = os.path.join(exp_dir, "models")
-    print("Experiment result: {}".format(exp_dir))
-    res = []
-    curves = []
+    # ssl_group = True
+    # for n_ssl in get_n_ssl(site):
+    n_ssl = None
+    for ssl_group in get_ssl_groups(harmonized, site, reverse=True):
 
-    for seed in range(SEED):
-        # experiment_name = "{}_{}".format(script_name, int(time.time()))
-        # exp_dir = os.path.join(args.exp_dir, experiment_name)
-        # model_dir = os.path.join(exp_dir, "models")
-        # print("Experiment result: {}".format(exp_dir))
-        # res = []
+        experiment_name = "{}_{}".format(script_name, int(time.time()))
+        exp_dir = os.path.join(args.exp_dir, experiment_name)
+        model_dir = os.path.join(exp_dir, "models")
+        print("Experiment result: {}".format(exp_dir))
+        res = []
+        curves = []
 
-        for site in sites:
+        for seed in range(SEED):
 
             for fold in range(5):
 
@@ -498,52 +518,68 @@ def main(args):
                 print("===================")
                 print("SEED: {}".format(seed))
                 print("FOLD: {}".format(fold))
-                print("SSL: {}".format(ssl))
+                print("SSL GROUP: {}".format(ssl_group))
                 print("HARMONIZED: {}".format(harmonized))
                 print("SITE: {}".format(site))
 
                 # param = get_experiment_param(
                 #     model="GCN", hidden=150, emb1=50, emb2=30, K=3,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.00005, l2_reg=0.001,
+                #     seed=seed, fold=fold, ssl_group=ssl_group, save_model=False,
+                #     site=site, lr=0.00005, l2_reg=0.001, n_ssl=n_ssl,
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 # param = get_experiment_param(
                 #     model="FFN", L1=150, L2=50, L3=30, gamma_lap=0,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=True,
-                #     site=site, lr=0.00005, l2_reg=0.001,
+                #     seed=seed, fold=fold, ssl_group=ssl_group, save_model=False,
+                #     site=site, lr=0.00005, l2_reg=0.001, n_ssl=n_ssl,
                 #     test=False, harmonized=harmonized, epochs=1000
                 # )
-                # param = get_experiment_param(
-                #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=True,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
-                param = get_experiment_param(
-                    model="VAE",
-                    L1=300,
-                    L2=50,
-                    emb=150,
-                    L3=30,
-                    gamma1=1e-5,
-                    gamma2=1e-3,
-                    seed=seed,
-                    fold=fold,
-                    ssl=ssl,
-                    save_model=True,
-                    site=site,
-                    lr=0.0001,
-                    l2_reg=0.001,
-                    test=False,
-                    harmonized=harmonized,
-                    epochs=1000,
-                )
+                if args.model == "AE":
+                    param = get_experiment_param(
+                        model="AE",
+                        L1=300,
+                        L2=50,
+                        emb=150,
+                        L3=30,
+                        gamma=1e-3,
+                        seed=seed,
+                        fold=fold,
+                        ssl_group=ssl_group,
+                        save_model=False,
+                        site=site,
+                        lr=0.0001,
+                        l2_reg=0.001,
+                        n_ssl=n_ssl,
+                        test=False,
+                        harmonized=harmonized,
+                        epochs=1000,
+                    )
+                elif args.model == "VAE":
+                    param = get_experiment_param(
+                        model="VAE",
+                        L1=300,
+                        L2=50,
+                        emb=150,
+                        L3=30,
+                        gamma1=1e-5,
+                        gamma2=1e-3,
+                        seed=seed,
+                        fold=fold,
+                        ssl_group=ssl_group,
+                        save_model=False,
+                        site=site,
+                        lr=0.0001,
+                        l2_reg=0.001,
+                        n_ssl=n_ssl,
+                        test=False,
+                        harmonized=harmonized,
+                        epochs=1000,
+                    )
                 # param = get_experiment_param(
                 #     model="VGAE", emb1=300, emb2=100, L1=50,
                 #     gamma1=1e-5, gamma2=5e-6, num_process=10,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
+                #     seed=seed, fold=fold, ssl_group=ssl_group, save_model=False,
+                #     site=site, lr=0.0001, l2_reg=0.001, n_ssl=n_ssl,
                 #     test=False, harmonized=harmonized,
                 #     epochs=1000, patience=300
                 # )
@@ -551,38 +587,18 @@ def main(args):
                 #     model="VGAETS", tsemb=500, emb1=300, emb2=100,
                 #     L1=50, bidirectional=True,
                 #     gamma1=1e-5, gamma2=5e-6, num_process=10,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
+                #     seed=seed, fold=fold, ssl_group=ssl_group, save_model=False,
+                #     site=site, lr=0.0001, l2_reg=0.001, n_ssl=n_ssl,
                 #     test=False, harmonized=harmonized,
                 #     epochs=1000, patience=300
-                # )
-                # param = get_experiment_param(
-                #     model="GNN", emb1=300, emb2=100, L1=50, num_process=10,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 # param = get_experiment_param(
                 #     model="DIVA", hidden1=150, emb=50, hidden2=30,
                 #     beta_klzd=1, beta_klzx=1, beta_klzy=1,
                 #     beta_d=1, beta_y=1, beta_recon=3e-6,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
+                #     seed=seed, fold=fold, ssl_group=ssl_group, save_model=False,
+                #     site=site, lr=0.0001, l2_reg=0.001, n_ssl=n_ssl,
                 #     test=False, harmonized=harmonized, epochs=500
-                # )
-
-                # SSL
-                # param = get_experiment_param(
-                #     model="VAE", L1=300, L2=50, emb=150, L3=30, gamma1=3e-5, gamma2=1e-3,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
-                # param = get_experiment_param(
-                #     model="AE", L1=300, L2=50, emb=150, L3=30, gamma=1e-3,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
                 # )
                 exp_res, training_curve = experiment(args, param, model_dir)
                 res.append(exp_res)
@@ -600,34 +616,6 @@ def main(args):
                     with open(curves_path, "w") as f:
                         json.dump(curves, f, indent=4, sort_keys=True)
 
-    # res = []
-    # experiment_name = "{}_{}".format(script_name, int(time.time()))
-    # exp_dir = os.path.join(args.exp_dir, experiment_name)
-    # model_dir = os.path.join(exp_dir, "models")
-    # print("Experiment result: {}".format(exp_dir))
-
-    # for seed in range(10):
-    #     for harmonized in [False, True]:
-    #         print("===================")
-    #         print("EXPERIMENT SETTINGS")
-    #         print("===================")
-    #         print("HARMONIZED: {}".format(harmonized))
-    #         for fold in range(5):
-    #             param = get_experiment_param(
-    #                 model="FFN", L1=150, L2=50, L3=30, gamma_lap=0,
-    #                 seed=seed, fold=fold, ssl=False, save_model=False,
-    #                 site=None, lr=0.00005, l2_reg=0.001,
-    #                 test=False, harmonized=harmonized, epochs=1000
-    #             )
-    #             exp_res = experiment(args, param, model_dir)
-    #             res.append(exp_res)
-
-    # mkdir(exp_dir)
-    # df = pd.DataFrame(res).dropna(how="all")
-    # if not df.empty:
-    #     res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
-    #     df.to_csv(res_path, index=False)
-
 
 if __name__ == "__main__":
 
@@ -636,6 +624,8 @@ if __name__ == "__main__":
         "--gpu", type=int, default=-1, help="gpu id (0, 1, 2, 3) or cpu (-1)"
     )
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--harmonize", action="store_true")
+    parser.add_argument("--model", type=str, default="AE")
     parser.add_argument(
         "--exp_dir",
         type=str,
