@@ -1,0 +1,639 @@
+ROI,X,Y,Z,crossley_labels
+0,7.244,37.011,9.425,Anterior Cingulate
+1,7.987,46.222,15.609,Medial Frontal G
+2,7.557,33.832,23.511,Anterior Cingulate
+3,9.116,22.455,24.206,Cingulate G
+4,8.902,36.187,-0.317,Anterior Cingulate
+5,-5.214,-12.526,42.119,Cingulate G
+6,-4.891,6.849,36.151,Cingulate G
+7,-5.198,17.824,36.89,Cingulate G
+8,-8.017,-38.017,48.739,Precuneus
+9,-6.115,-34.674,34.644,Cingulate G
+10,-6.593,-24.198,44.269,Cingulate G
+11,-6.03,-38.01,40.95,Cingulate G
+12,-5.017,-5.752,37.667,Cingulate G
+13,6.874,-23.614,33.78,Cingulate G
+14,8.466,-42.29,34.415,Cingulate G
+15,9.452,-27.405,45.444,Cingulate G
+16,8.187,19.862,33.114,Cingulate G
+17,6.344,-17.298,42.891,Cingulate G
+18,6.442,-4.582,39.537,Cingulate G
+19,8.422,26.405,36.422,Cingulate G
+20,6.831,6.189,36.535,Cingulate G
+21,8.667,-37.9,42.478,Cingulate G
+22,-5.992,-45.636,18.696,Posterior Cingulate
+23,-4.257,-42.41,28.8,Cingulate G
+24,7.176,-43.087,20.472,Posterior Cingulate
+25,-8.206,-68.33,26.36,Precuneus
+26,-3.866,-79.027,20.991,Cuneus
+27,-8.211,-90.777,29.142,Cuneus
+28,-7.263,-87.525,17.161,Cuneus
+29,-6.539,-81.336,35.38,Cuneus
+30,-1.794,-87.088,24.147,Cuneus
+31,14.509,-83.571,30.402,Cuneus
+32,9.565,-72.967,28.089,Cuneus
+33,12.579,-83.183,19.698,Cuneus
+34,11.411,-76.476,25.247,Cuneus
+35,16.432,-95.481,10.654,Cuneus
+36,15.746,-78.063,39.768,Cuneus
+37,-46.298,12.0,7.426,Insula
+38,-51.271,12.127,24.997,Inf. Frontal G
+39,-47.705,7.788,14.876,Insula
+40,-47.655,13.412,16.723,Insula
+41,51.437,14.646,4.365,Precentral G
+42,45.068,11.419,32.504,Precentral G
+43,52.421,13.488,17.306,Inf. Frontal G
+44,51.693,11.284,25.2,Inf. Frontal G
+45,44.184,16.879,31.431,Mid Frontal G
+46,55.408,14.0,11.563,Inf. Frontal G
+47,-37.784,39.509,-10.095,Inf. Frontal G
+48,-42.861,28.036,-12.861,Inf. Frontal G
+49,-35.256,37.628,-12.975,Inf. Frontal G
+50,-46.67,22.959,-7.303,Inf. Frontal G
+51,-45.695,36.964,-6.386,Inf. Frontal G
+52,-22.991,19.525,-21.988,Subcallosal G
+53,-31.714,28.733,-16.469,Inf. Frontal G
+54,-23.509,-1.945,-18.455,Parahippocampal G
+55,45.69,33.974,-14.052,Inf. Frontal G
+56,31.084,31.771,-17.458,Inf. Frontal G
+57,38.41,25.333,-16.726,Inf. Frontal G
+58,25.747,20.734,-19.342,Extra-Nuclear
+59,52.088,38.0,-6.749,Inf. Frontal G
+60,51.266,25.339,-8.194,Inf. Frontal G
+61,42.025,41.309,-10.593,Mid Frontal G
+62,-44.743,32.379,18.84,Mid Frontal G
+63,-49.667,21.725,17.95,Mid Frontal G
+64,-48.496,29.274,7.319,Inf. Frontal G
+65,-46.278,25.388,1.788,Inf. Frontal G
+66,-40.703,40.037,10.066,Inf. Frontal G
+67,-45.476,34.124,7.581,Mid Frontal G
+68,-46.777,19.872,7.162,Inf. Frontal G
+69,-45.769,27.015,24.831,Mid Frontal G
+70,-48.377,17.775,26.761,Inf. Frontal G
+71,-43.366,39.419,1.034,Inf. Frontal G
+72,53.268,31.268,1.813,Inf. Frontal G
+73,47.559,31.386,22.465,Mid Frontal G
+74,53.034,28.663,9.756,Inf. Frontal G
+75,48.743,36.403,10.949,Mid Frontal G
+76,50.446,18.946,21.346,Inf. Frontal G
+77,47.45,39.394,1.004,Inf. Frontal G
+78,54.245,22.682,3.655,Inf. Frontal G
+79,50.4,25.982,15.467,Mid Frontal G
+80,46.694,24.645,26.54,Mid Frontal G
+81,-5.711,39.339,-10.455,Anterior Cingulate
+82,-6.517,63.6,-5.85,Medial Frontal G
+83,-4.068,54.751,-10.27,Medial Frontal G
+84,7.965,37.544,-9.558,Anterior Cingulate
+85,9.105,62.86,-7.685,Medial Frontal G
+86,6.428,50.772,-8.309,Anterior Cingulate
+87,-36.05,51.198,14.306,Mid Frontal G
+88,-33.283,40.088,26.916,Sup. Frontal G
+89,-39.789,15.94,42.936,Mid Frontal G
+90,-33.242,26.671,43.964,Mid Frontal G
+91,-30.369,49.811,20.057,Sup. Frontal G
+92,-25.422,15.799,54.851,Sup. Frontal G
+93,-35.574,7.454,51.317,Mid Frontal G
+94,-44.779,17.303,37.146,Mid Frontal G
+95,-36.454,34.052,34.439,Mid Frontal G
+96,-39.547,24.248,40.325,Mid Frontal G
+97,-42.031,33.99,26.267,Mid Frontal G
+98,-39.731,49.799,4.291,Mid Frontal G
+99,-25.664,28.732,47.953,Sup. Frontal G
+100,-28.158,3.527,57.082,Sub-Gyral
+101,-24.024,47.429,28.627,Sup. Frontal G
+102,-29.179,39.863,34.709,Mid Frontal G
+103,-30.291,55.818,8.155,Mid Frontal G
+104,-39.764,42.681,19.502,Mid Frontal G
+105,-31.789,17.26,51.14,Mid Frontal G
+106,-25.127,54.131,-11.493,Sup. Frontal G
+107,-40.791,50.243,-5.304,Sub-Gyral
+108,-24.421,38.675,-16.675,Inf. Frontal G
+109,-33.443,54.07,-10.458,Mid Frontal G
+110,24.467,57.075,-13.55,Sup. Frontal G
+111,40.455,50.091,-11.78,Inf. Frontal G
+112,27.645,43.555,-16.891,Mid Frontal G
+113,38.659,55.203,-6.041,Mid Frontal G
+114,37.66,20.769,46.456,Mid Frontal G
+115,28.193,53.991,20.947,Sup. Frontal G
+116,37.346,36.4,35.477,Mid Frontal G
+117,29.935,28.032,43.948,Mid Frontal G
+118,43.714,7.755,47.037,Mid Frontal G
+119,44.735,45.255,11.608,Mid Frontal G
+120,37.922,51.897,13.491,Mid Frontal G
+121,41.559,40.256,25.066,Mid Frontal G
+122,34.257,55.696,3.203,Mid Frontal G
+123,27.484,46.294,29.627,Mid Frontal G
+124,43.905,37.494,19.502,Mid Frontal G
+125,31.372,14.532,54.41,Mid Frontal G
+126,38.969,0.458,51.048,Mid Frontal G
+127,44.636,48.184,4.075,Mid Frontal G
+128,35.626,47.969,24.962,Mid Frontal G
+129,38.041,8.664,52.705,Mid Frontal G
+130,38.868,-1.487,58.263,Precentral G
+131,44.693,29.193,33.779,Precentral G
+132,29.419,37.52,37.14,Mid Frontal G
+133,44.006,20.434,40.686,Mid Frontal G
+134,-17.695,33.988,47.882,Sup. Frontal G
+135,-24.693,-6.276,64.433,Precentral G
+136,-20.75,55.438,24.547,Sup. Frontal G
+137,-23.109,60.277,2.956,Sup. Frontal G
+138,-22.329,40.054,37.503,Mid Frontal G
+139,-16.8,-8.0,74.853,Precentral G
+140,-21.586,2.891,62.716,Mid Frontal G
+141,-14.533,25.151,52.856,Sup. Frontal G
+142,-14.284,51.052,31.858,Medial Frontal G
+143,-15.429,5.462,63.143,Sup. Frontal G
+144,-14.633,42.662,41.532,Sup. Frontal G
+145,-18.873,17.574,57.718,Medial Frontal G
+146,-19.833,61.933,10.583,Sup. Frontal G
+147,-16.784,60.905,18.534,Sup. Frontal G
+148,27.056,-0.573,-18.806,Parahippocampal G
+149,-4.168,52.752,38.272,Medial Frontal G
+150,-5.698,61.054,18.644,Sup. Frontal G
+151,-6.384,33.163,55.054,Sup. Frontal G
+152,-2.548,28.521,53.0,Sup. Frontal G
+153,-5.009,50.467,19.672,Medial Frontal G
+154,-5.677,26.661,40.315,Cingulate G
+155,-8.621,64.951,5.314,Medial Frontal G
+156,-5.515,44.238,48.017,Sup. Frontal G
+157,-6.872,60.872,27.45,Medial Frontal G
+158,-5.097,57.391,7.405,Medial Frontal G
+159,-1.899,46.708,31.105,Medial Frontal G
+160,-3.725,36.616,36.118,Medial Frontal G
+161,9.935,66.147,6.516,Medial Frontal G
+162,9.398,52.981,3.152,Medial Frontal G
+163,7.176,48.141,38.627,Sup. Frontal G
+164,10.44,53.835,36.495,Sup. Frontal G
+165,7.118,57.449,15.743,Medial Frontal G
+166,10.426,64.33,20.809,Sup. Frontal G
+167,7.426,27.944,48.519,Medial Frontal G
+168,10.009,34.054,56.633,Sup. Frontal G
+169,7.347,38.525,40.669,Medial Frontal G
+170,-13.744,55.31,-14.601,Medial Frontal G
+171,-14.754,25.964,-21.11,Medial Frontal G
+172,-17.581,45.496,-15.872,Anterior Cingulate
+173,-21.029,61.429,-6.384,Medial Frontal G
+174,23.099,62.024,-5.004,Sup. Frontal G
+175,17.668,25.961,-21.328,Inf. Frontal G
+176,14.864,57.263,-15.576,Sup. Frontal G
+177,16.851,42.361,-20.008,Anterior Cingulate
+178,22.667,62.3,2.769,Sup. Frontal G
+179,20.52,63.167,12.01,Sup. Frontal G
+180,23.756,25.349,51.017,Mid Frontal G
+181,28.607,56.906,12.393,Mid Frontal G
+182,17.183,30.16,51.473,Sup. Frontal G
+183,17.66,59.447,19.585,Sup. Frontal G
+184,20.455,15.94,56.222,Sup. Frontal G
+185,18.983,-8.742,70.103,Precentral G
+186,26.26,4.491,60.361,Sub-Gyral
+187,18.0,50.379,32.484,Sup. Frontal G
+188,22.988,37.952,37.438,Mid Frontal G
+189,16.757,41.787,38.911,Medial Frontal G
+190,20.0,53.208,25.401,Sup. Frontal G
+191,19.705,38.143,45.401,Sup. Frontal G
+192,18.748,3.874,63.067,Mid Frontal G
+193,29.248,-6.125,65.041,Precentral G
+194,-26.733,-76.741,-12.578,Declive
+195,-29.295,-56.725,-14.483,Declive
+196,-25.818,-41.712,-14.697,Culmen
+197,-39.551,-51.906,-17.877,Fusiform G
+198,-27.85,-9.573,-37.075,Uncus
+199,-29.634,-27.711,-25.779,Parahippocampal G
+200,-27.982,-0.887,-38.697,Uncus
+201,-36.586,-31.49,-22.882,Parahippocampal G
+202,-37.446,-67.768,-14.382,Declive
+203,29.364,-63.602,-10.161,Declive
+204,32.252,-44.878,-12.065,Fusiform G
+205,32.655,-9.659,-38.287,Uncus
+206,27.798,-52.742,-16.232,Culmen
+207,35.515,-32.606,-23.892,Parahippocampal G
+208,28.056,-77.548,-10.379,Declive
+209,39.425,-21.265,-26.416,Sub-Gyral
+210,31.871,0.521,-39.464,Uncus
+211,40.62,-62.019,-17.602,Declive
+212,40.648,-42.615,-20.672,Fusiform G
+213,-42.347,-20.036,8.676,Insula
+214,45.88,-18.145,9.044,Sup. Temporal G
+215,-19.35,-33.563,-0.583,Parahippocampal G
+216,-29.761,-31.688,-6.771,Parahippocampal G
+217,-20.667,-11.021,-18.996,Parahippocampal G
+218,-30.347,-14.981,-16.596,Parahippocampal G
+219,-38.095,-63.944,42.865,Precuneus
+220,-47.548,-61.81,25.367,Mid Temporal G
+221,-42.803,-62.91,38.803,Precuneus
+222,-49.516,-55.893,31.279,Sup. Temporal G
+223,-44.755,-66.321,31.632,Mid Temporal G
+224,22.268,-31.722,-1.502,Thalamus
+225,33.299,-13.082,-16.254,Parahippocampal G
+226,26.611,-11.992,-18.968,Parahippocampal G
+227,32.71,-30.876,-6.922,Sub-Gyral
+228,-40.362,-5.218,1.026,Claustrum
+229,-35.348,-18.804,10.25,Claustrum
+230,-31.524,23.311,1.385,Claustrum
+231,-31.949,14.886,9.319,Claustrum
+232,-35.609,14.175,-6.35,Claustrum
+233,-36.089,-4.219,13.182,Insula
+234,-37.062,7.832,-10.366,Claustrum
+235,37.202,23.874,0.198,Insula
+236,33.486,16.872,-13.984,Extra-Nuclear
+237,40.333,13.207,0.281,Insula
+238,40.877,7.091,1.02,Insula
+239,42.835,-5.732,-3.571,Insula
+240,39.932,-3.855,10.419,Insula
+241,36.215,-18.397,12.992,Insula
+242,-7.096,-78.463,-3.893,Lingual G
+243,-15.823,-88.068,-14.962,Declive
+244,-19.919,-68.446,-2.804,Lingual G
+245,-20.309,-90.292,-13.391,Declive
+246,-6.151,-68.279,1.955,Culmen of Vermis
+247,-12.85,-49.766,-2.579,Culmen
+248,-17.849,-64.034,-9.233,Culmen
+249,-20.211,-44.385,-5.11,Parahippocampal G
+250,17.613,-49.294,-0.387,Lingual G
+251,10.408,-67.01,1.993,Lingual G
+252,16.131,-77.423,-9.646,Declive
+253,22.269,-82.381,-9.03,*
+254,24.302,-94.535,-13.663,Fusiform G
+255,10.829,-66.87,-6.555,Culmen
+256,10.364,-46.963,-1.187,Culmen
+257,20.512,-47.846,-7.033,Parahippocampal G
+258,14.772,-81.14,-3.272,Lingual G
+259,-46.711,-67.261,-13.204,Fusiform G
+260,-23.02,-93.233,-8.784,Fusiform G
+261,-42.681,-73.841,-6.106,Inf. Occipital G
+262,-35.475,-81.668,-8.903,Fusiform G
+263,44.294,-72.39,-12.456,Fusiform G
+264,29.005,-94.767,-6.046,Inf. Occipital G
+265,34.867,-87.296,-11.133,Fusiform G
+266,41.245,-81.102,-5.992,Mid Occipital G
+267,-24.0,-94.234,8.108,Lingual G
+268,-25.911,-88.967,15.941,Mid Occipital G
+269,-33.767,-86.825,6.728,Mid Occipital G
+270,-38.711,-81.769,10.373,Mid Occipital G
+271,-43.256,-73.886,1.098,Inf. Occipital G
+272,-42.561,-73.65,15.076,Mid Occipital G
+273,-16.75,-100.614,3.341,Cuneus
+274,-21.497,-93.95,-2.289,Inf. Occipital G
+275,-27.323,-78.23,31.463,Precuneus
+276,-37.365,-73.208,28.512,Sup. Occipital G
+277,-32.232,-73.285,34.901,Precuneus
+278,-34.628,-81.832,20.788,Mid Occipital G
+279,-33.089,-85.935,-1.203,Mid Occipital G
+280,38.536,-80.904,19.648,Mid Temporal G
+281,30.23,-91.257,10.342,Mid Occipital G
+282,43.26,-77.401,3.709,Inf. Occipital G
+283,40.752,-79.793,11.959,Mid Occipital G
+284,31.593,-82.64,25.105,Mid Occipital G
+285,34.299,-90.972,2.486,Mid Occipital G
+286,35.755,-76.607,34.252,Sup. Occipital G
+287,43.261,-71.532,26.692,Mid Temporal G
+288,-12.97,-95.392,9.232,Cuneus
+289,-14.915,-87.281,20.888,Cuneus
+290,-16.328,-83.351,31.134,Cuneus
+291,-17.157,-79.093,40.626,Cuneus
+292,-22.411,-84.957,28.743,Cuneus
+293,45.688,-59.272,43.616,Angular G
+294,42.962,-67.423,37.105,Precuneus
+295,48.055,-63.225,32.379,Mid Temporal G
+296,34.684,-67.846,44.923,Precuneus
+297,50.921,-57.543,26.33,Sup. Temporal G
+298,38.718,-62.879,46.992,Inf. Parietal Lobule
+299,53.939,-51.831,31.479,Supramarginal G
+300,21.688,-83.181,22.599,Mid Occipital G
+301,18.692,-84.913,28.558,Cuneus
+302,23.736,-82.314,35.719,Precuneus
+303,28.165,-74.222,42.468,Precuneus
+304,23.755,-90.564,12.032,Mid Occipital G
+305,25.775,-82.802,25.811,Mid Occipital G
+306,-8.264,13.864,-12.686,Caudate
+307,10.125,14.664,-12.561,Caudate
+308,-18.061,-1.358,-1.044,Lentiform Nucleus
+309,20.921,-1.057,-1.086,Lentiform Nucleus
+310,-20.041,-2.041,-26.331,Uncus
+311,-19.602,-6.805,-29.923,Uncus
+312,-20.254,-32.822,-12.619,Parahippocampal G
+313,-26.251,-28.854,-17.891,Parahippocampal G
+314,29.768,-35.556,-10.734,Parahippocampal G
+315,20.688,-28.073,-15.22,Parahippocampal G
+316,25.405,1.103,-31.603,Uncus
+317,20.104,-2.487,-23.93,Parahippocampal G
+318,29.706,-19.004,-25.461,Parahippocampal G
+319,-10.837,-19.809,75.645,Medial Frontal G
+320,-7.314,-20.116,62.881,Medial Frontal G
+321,-5.556,-27.533,64.77,Paracentral Lobule
+322,-9.228,-31.559,76.493,Paracentral Lobule
+323,-6.659,-34.996,63.08,Paracentral Lobule
+324,8.328,-33.898,58.062,Paracentral Lobule
+325,6.784,-26.351,74.612,Postcentral G
+326,5.688,-38.329,71.747,Postcentral G
+327,-48.954,-37.84,46.115,Inf. Parietal Lobule
+328,-37.109,-55.687,52.608,Sup. Parietal Lobule
+329,-50.776,-27.647,41.968,Inf. Parietal Lobule
+330,-41.091,-44.525,52.147,Inf. Parietal Lobule
+331,-44.54,-51.285,46.707,Inf. Parietal Lobule
+332,-45.726,-50.268,39.532,Inf. Parietal Lobule
+333,-49.566,-40.6,39.628,Supramarginal G
+334,-30.61,-64.968,43.314,Precuneus
+335,-8.484,-84.595,4.803,Lingual G
+336,-4.229,-88.434,-8.289,Lingual G
+337,-2.047,-86.779,-0.103,Lingual G
+338,-7.274,-70.911,14.098,Cuneus
+339,-11.049,-59.532,8.759,Posterior Cingulate
+340,-5.34,-97.742,-7.948,Lingual G
+341,-7.822,-100.411,-1.378,Lingual G
+342,1.053,-86.707,9.489,Lingual G
+343,-11.843,-77.311,11.299,Lingual G
+344,49.519,-41.013,47.459,Inf. Parietal Lobule
+345,45.804,-39.413,52.891,Inf. Parietal Lobule
+346,39.97,-53.291,51.818,Inf. Parietal Lobule
+347,47.496,-51.481,46.527,Inf. Parietal Lobule
+348,50.96,-51.226,40.556,Supramarginal G
+349,-27.604,-54.577,65.198,Sup. Parietal Lobule
+350,-24.787,-64.058,56.773,Precuneus
+351,-19.242,-59.447,61.765,Sup. Parietal Lobule
+352,-16.522,-72.247,51.024,Precuneus
+353,-21.245,-72.158,45.411,Precuneus
+354,-30.987,-47.121,63.749,Sup. Parietal Lobule
+355,-18.911,-49.07,69.399,Sup. Parietal Lobule
+356,-30.687,-61.748,53.252,Sup. Parietal Lobule
+357,28.98,-69.123,52.269,Sup. Parietal Lobule
+358,18.546,-73.252,50.504,Precuneus
+359,23.82,-58.041,67.172,Sup. Parietal Lobule
+360,42.12,-46.632,59.581,Inf. Parietal Lobule
+361,15.435,-59.522,68.031,Sup. Parietal Lobule
+362,18.661,-69.96,58.04,Precuneus
+363,20.943,-49.508,68.713,Sup. Parietal Lobule
+364,34.206,-54.389,61.992,Sup. Parietal Lobule
+365,30.37,-62.843,59.843,Sup. Parietal Lobule
+366,-20.487,-39.181,74.497,Postcentral G
+367,-56.426,-3.917,18.071,Precentral G
+368,-44.169,-32.608,51.661,Inf. Parietal Lobule
+369,-41.965,-28.345,57.381,Postcentral G
+370,-49.919,-18.993,44.43,Postcentral G
+371,-45.784,-12.922,46.595,Postcentral G
+372,-42.531,-21.805,52.328,Postcentral G
+373,-50.579,-9.683,36.897,Precentral G
+374,-60.677,-17.386,20.54,Postcentral G
+375,-36.358,-38.117,58.886,Inf. Parietal Lobule
+376,-57.269,-8.751,27.817,Precentral G
+377,-56.12,-17.88,32.255,Postcentral G
+378,-21.125,-33.523,68.171,Postcentral G
+379,-56.104,-12.843,20.313,Postcentral G
+380,-29.894,-31.355,65.078,Postcentral G
+381,-26.597,-40.42,64.244,Sup. Parietal Lobule
+382,21.406,-41.208,72.317,Postcentral G
+383,56.395,-17.369,38.806,Postcentral G
+384,65.077,-11.404,19.99,Postcentral G
+385,54.959,-15.07,33.041,Postcentral G
+386,30.064,-33.61,66.558,Postcentral G
+387,45.868,-27.207,53.568,Inf. Parietal Lobule
+388,14.011,-45.898,71.955,Postcentral G
+389,23.695,-34.49,62.868,Sub-Gyral
+390,13.562,-36.388,73.537,Postcentral G
+391,29.41,-44.231,63.59,Sup. Parietal Lobule
+392,63.394,-3.337,21.519,Precentral G
+393,53.07,-8.303,33.592,Precentral G
+394,51.764,-21.084,48.392,Postcentral G
+395,36.783,-36.356,62.229,Inf. Parietal Lobule
+396,39.622,-32.858,55.378,Inf. Parietal Lobule
+397,-49.176,1.151,40.185,Precentral G
+398,-42.825,6.119,42.401,Mid Frontal G
+399,-51.757,-2.173,32.0,Precentral G
+400,-48.193,7.089,32.309,Precentral G
+401,-34.393,-3.05,53.854,Precentral G
+402,-21.039,-14.438,71.531,Precentral G
+403,-41.591,-7.425,48.016,Precentral G
+404,-35.416,-19.65,59.3,Precentral G
+405,-53.059,2.623,22.955,Inf. Frontal G
+406,-36.863,-13.453,55.496,Precentral G
+407,-41.23,0.143,48.587,Precentral G
+408,-31.457,-25.054,63.729,Postcentral G
+409,-24.424,-21.616,69.69,Precentral G
+410,-30.415,-9.685,60.631,Precentral G
+411,59.524,4.437,22.008,Precentral G
+412,36.865,-11.353,57.88,Precentral G
+413,24.25,-18.844,77.344,Precentral G
+414,51.24,-7.454,41.055,Precentral G
+415,36.742,-23.258,59.758,Precentral G
+416,50.069,7.4,40.29,Mid Frontal G
+417,26.385,-25.615,67.35,Postcentral G
+418,48.903,0.006,44.461,Precentral G
+419,40.169,-11.478,54.956,Precentral G
+420,45.453,-12.892,48.128,Postcentral G
+421,52.66,4.405,31.601,Precentral G
+422,18.789,-26.651,73.314,Postcentral G
+423,30.199,-16.701,65.965,Precentral G
+424,17.487,-20.3,71.262,Precentral G
+425,-4.495,-50.654,59.701,Precuneus
+426,-10.645,-54.656,70.186,Precuneus
+427,-5.976,-57.697,31.434,Cingulate G
+428,-6.972,-63.315,27.857,Precuneus
+429,-5.725,-50.664,65.602,Precuneus
+430,-10.158,-69.912,53.851,Precuneus
+431,-10.734,-51.161,11.327,Posterior Cingulate
+432,-3.863,-68.837,41.414,Precuneus
+433,-7.233,-75.137,44.256,Precuneus
+434,-4.382,-61.878,50.325,Precuneus
+435,-6.797,-45.58,53.979,Precuneus
+436,-10.321,-62.099,62.115,Sup. Parietal Lobule
+437,-10.453,-45.162,73.462,Postcentral G
+438,-7.269,-50.201,41.097,Precuneus
+439,5.741,-48.402,58.987,Precuneus
+440,7.905,-56.54,67.905,Precuneus
+441,8.511,-48.023,68.5,Precuneus
+442,10.776,-69.045,37.314,Cuneus
+443,14.458,-61.185,24.356,Posterior Cingulate
+444,7.627,-63.119,60.051,Precuneus
+445,9.23,-60.689,40.885,Precuneus
+446,9.978,-55.278,27.531,Posterior Cingulate
+447,7.707,-71.171,47.862,Precuneus
+448,7.095,-53.826,45.469,Precuneus
+449,9.263,-45.705,45.93,Precuneus
+450,10.356,-70.865,54.74,Precuneus
+451,13.46,-48.069,11.134,Posterior Cingulate
+452,-24.06,4.777,8.038,Lentiform Nucleus
+453,-26.298,2.015,-4.481,Lentiform Nucleus
+454,-18.976,12.843,-3.055,Lentiform Nucleus
+455,-27.807,-10.667,3.947,Lentiform Nucleus
+456,15.9,-56.903,11.723,Posterior Cingulate
+457,17.75,-96.547,-0.75,Inf. Occipital G
+458,11.196,-85.105,10.273,Cuneus
+459,13.447,-72.248,11.435,Lingual G
+460,16.34,-79.556,3.921,Lingual G
+461,19.482,-63.116,9.811,Posterior Cingulate
+462,31.119,-10.123,1.11,Lentiform Nucleus
+463,30.667,2.866,5.32,Lentiform Nucleus
+464,23.022,14.336,-4.204,Lentiform Nucleus
+465,25.544,5.331,2.287,Lentiform Nucleus
+466,-4.392,49.17,-17.932,Medial Frontal G
+467,-4.783,39.565,-21.763,Medial Frontal G
+468,-6.772,22.102,-19.204,Anterior Cingulate
+469,9.647,24.324,-21.132,Subcallosal G
+470,7.361,31.787,-18.236,Medial Frontal G
+471,6.676,50.905,-18.743,Medial Frontal G
+472,-45.523,-14.17,12.503,Insula
+473,-48.415,-15.822,14.493,Insula
+474,-48.571,0.673,13.133,Insula
+475,-47.275,-0.658,8.054,Insula
+476,53.196,-11.292,16.679,Postcentral G
+477,57.511,-13.709,13.876,Postcentral G
+478,49.804,-6.845,11.608,Insula
+479,48.872,-4.919,15.832,Insula
+480,51.529,4.23,5.437,Precentral G
+481,-5.766,-1.972,50.993,Medial Frontal G
+482,-2.607,12.0,55.274,Sup. Frontal G
+483,-6.98,12.376,66.645,Sup. Frontal G
+484,-5.667,20.914,62.032,Sup. Frontal G
+485,-4.552,17.054,47.849,Sup. Frontal G
+486,-7.984,-7.246,71.325,Medial Frontal G
+487,-5.444,-15.23,56.095,Medial Frontal G
+488,-3.75,-2.147,62.759,Medial Frontal G
+489,-8.338,2.373,69.653,Sup. Frontal G
+490,7.63,-14.313,71.196,Medial Frontal G
+491,7.942,14.05,49.993,Medial Frontal G
+492,12.732,14.205,64.787,Medial Frontal G
+493,7.578,12.05,64.0,Medial Frontal G
+494,6.018,9.36,59.297,Medial Frontal G
+495,6.119,-11.259,60.937,Medial Frontal G
+496,8.007,-2.464,52.099,Medial Frontal G
+497,9.451,-1.145,70.345,Medial Frontal G
+498,8.653,-21.442,54.816,Paracentral Lobule
+499,-54.137,-46.185,30.956,Inf. Parietal Lobule
+500,-58.405,-26.21,22.265,Inf. Parietal Lobule
+501,-55.799,-43.165,25.51,Inf. Parietal Lobule
+502,-55.672,-25.625,34.266,Inf. Parietal Lobule
+503,-56.669,-34.024,32.735,Inf. Parietal Lobule
+504,59.507,-38.843,26.897,Inf. Parietal Lobule
+505,61.659,-24.512,22.911,Postcentral G
+506,61.242,-20.22,28.952,Inf. Parietal Lobule
+507,54.384,-28.031,38.831,Inf. Parietal Lobule
+508,56.669,-44.758,31.361,Supramarginal G
+509,56.042,-40.15,40.458,Supramarginal G
+510,58.201,-32.326,30.351,Inf. Parietal Lobule
+511,51.724,-32.545,43.273,Inf. Parietal Lobule
+512,-45.3,0.391,-38.318,Mid Temporal G
+513,-54.321,-59.572,-10.333,Fusiform G
+514,-56.613,-49.524,-14.976,Inf. Temporal G
+515,-57.944,-41.016,-18.331,Inf. Temporal G
+516,-38.61,-7.542,-37.534,Uncus
+517,-43.03,-26.104,-23.837,Parahippocampal G
+518,-47.095,-15.316,-30.253,Fusiform G
+519,-54.043,-10.299,-30.248,Inf. Temporal G
+520,-57.116,-34.867,-22.858,Fusiform G
+521,-50.947,-53.901,-19.329,Culmen
+522,-42.396,5.069,-36.713,Sup. Temporal G
+523,-45.333,-38.587,-22.014,Fusiform G
+524,-56.061,-22.585,-24.41,Mid Temporal G
+525,-13.685,17.228,10.228,Caudate
+526,-7.402,14.446,-4.518,Caudate
+527,-15.031,-4.4,20.231,Caudate
+528,-11.224,10.095,7.534,Caudate
+529,59.5,-19.75,-25.909,Fusiform G
+530,48.876,-16.945,-29.421,Fusiform G
+531,52.203,-2.749,-36.781,Mid Temporal G
+532,50.761,-63.918,-13.571,Fusiform G
+533,37.743,4.703,-41.878,Mid Temporal G
+534,63.385,-28.615,-21.115,Inf. Temporal G
+535,50.072,4.205,-40.988,Mid Temporal G
+536,54.709,-57.954,-8.25,Mid Temporal G
+537,51.554,-43.648,-24.182,Fusiform G
+538,60.498,-42.855,-14.401,Mid Temporal G
+539,55.02,-49.617,-16.658,Fusiform G
+540,58.088,-8.769,-31.516,Fusiform G
+541,56.62,-37.14,-23.023,Fusiform G
+542,42.634,-4.752,-40.178,Mid Temporal G
+543,-60.92,-26.971,-10.248,Mid Temporal G
+544,-60.837,-42.156,-0.889,Mid Temporal G
+545,-47.202,-57.437,17.981,Sup. Temporal G
+546,-54.678,-5.43,-15.584,Sup. Temporal G
+547,-52.908,-3.044,-26.677,Mid Temporal G
+548,-59.129,-18.116,-11.22,Mid Temporal G
+549,-57.549,-44.422,6.531,Mid Temporal G
+550,-57.412,-46.782,-7.176,Sub-Gyral
+551,-48.18,-65.768,4.472,Mid Temporal G
+552,-59.566,-16.869,-3.738,Sup. Temporal G
+553,-62.168,-29.891,2.672,Sup. Temporal G
+554,-53.527,-51.214,15.58,Sup. Temporal G
+555,-61.744,-33.982,-3.452,Mid Temporal G
+556,-49.939,-59.401,11.178,Mid Temporal G
+557,-54.336,-57.592,-0.944,Inf. Temporal G
+558,-60.692,-37.3,-12.137,Mid Temporal G
+559,-59.3,-15.919,-18.97,Mid Temporal G
+560,-44.478,-66.79,17.015,Mid Temporal G
+561,-51.603,1.797,-24.422,Sup. Temporal G
+562,-52.995,-54.736,6.187,Mid Temporal G
+563,62.58,-34.906,-3.396,Mid Temporal G
+564,59.342,-39.183,4.275,Mid Temporal G
+565,57.509,0.887,-21.352,Mid Temporal G
+566,51.21,-60.593,18.288,Mid Temporal G
+567,54.943,-50.715,14.114,Sup. Temporal G
+568,64.159,-24.268,-8.318,Mid Temporal G
+569,47.655,-68.118,16.573,Mid Temporal G
+570,56.485,-54.343,1.444,Inf. Temporal G
+571,62.17,-13.821,-12.97,Mid Temporal G
+572,56.232,-46.758,5.414,Mid Temporal G
+573,61.049,-39.089,-9.228,Mid Temporal G
+574,62.891,-14.375,-19.516,Inf. Temporal G
+575,53.866,-58.895,9.908,Mid Temporal G
+576,52.009,-62.491,1.446,Mid Temporal G
+577,59.133,-46.433,-4.158,Mid Temporal G
+578,62.825,-27.993,-11.279,Mid Temporal G
+579,56.841,-3.476,-25.172,Mid Temporal G
+580,47.439,-69.771,5.012,Inf. Temporal G
+581,-48.08,12.622,-31.323,Sup. Temporal G
+582,-37.208,17.037,-35.927,Sup. Temporal G
+583,-25.32,10.425,-38.757,Uncus
+584,51.932,12.761,-31.111,Sup. Temporal G
+585,45.455,14.22,-37.374,Sup. Temporal G
+586,28.809,12.298,-38.939,Sup. Temporal G
+587,57.928,9.659,-21.982,Sup. Temporal G
+588,38.18,17.405,-36.973,Sup. Temporal G
+589,-33.7,18.19,-27.739,Inf. Frontal G
+590,-51.653,7.992,-12.672,Insula
+591,-47.7,13.0,-15.169,Inf. Frontal G
+592,-25.049,11.419,-29.102,Inf. Frontal G
+593,-42.744,19.397,-22.785,Inf. Frontal G
+594,44.042,18.767,-23.791,Inf. Frontal G
+595,33.268,14.924,-28.35,Inf. Frontal G
+596,55.506,12.239,-16.988,Sup. Temporal G
+597,53.114,13.859,-11.788,Sup. Temporal G
+598,58.779,5.749,-5.792,Sup. Temporal G
+599,-52.108,-22.44,10.05,Trans. Temporal G
+600,-53.291,-3.362,-4.315,Sup. Temporal G
+601,-55.942,-27.588,8.156,Sup. Temporal G
+602,-53.825,-44.329,16.28,Sup. Temporal G
+603,-53.075,-18.3,3.192,Sup. Temporal G
+604,-55.15,-36.724,19.039,Insula
+605,-50.021,-1.432,-10.281,Sup. Temporal G
+606,-52.239,-10.911,-0.834,Sup. Temporal G
+607,-55.872,-33.915,12.778,Sup. Temporal G
+608,58.879,-6.288,1.333,Sup. Temporal G
+609,55.213,-47.069,18.123,Sup. Temporal G
+610,59.834,-35.708,13.296,Sup. Temporal G
+611,59.861,-32.787,7.73,Mid Temporal G
+612,57.081,-27.184,12.551,Sup. Temporal G
+613,57.991,-4.095,-5.207,Sup. Temporal G
+614,58.307,-37.753,19.101,Inf. Parietal Lobule
+615,57.833,-20.008,9.141,Sup. Temporal G
+616,56.448,-17.381,2.188,Sup. Temporal G
+617,58.869,-15.817,-3.641,Sup. Temporal G
+618,56.567,-5.433,-10.541,Sup. Temporal G
+619,57.533,-25.547,1.178,Sup. Temporal G
+620,-15.4,-25.6,8.486,Thalamus
+621,-7.229,-22.815,4.465,Thalamus
+622,-14.693,-15.653,7.812,Thalamus
+623,-7.269,-11.007,5.597,Thalamus
+624,16.608,-3.242,19.85,Caudate
+625,16.89,12.992,12.488,Caudate
+626,15.161,20.604,-0.667,Caudate
+627,9.249,11.984,1.363,Caudate
+628,11.12,-20.211,11.955,Thalamus
+629,8.902,-11.947,3.744,Thalamus
+630,17.185,-16.06,6.702,Thalamus
+631,13.646,-27.031,4.462,Thalamus
+632,-3.419,39.922,10.171,Anterior Cingulate
+633,-4.04,34.688,23.603,Cingulate G
+634,-3.03,27.49,19.79,Anterior Cingulate
+635,-4.924,15.32,27.736,Cingulate G
+636,-6.273,34.705,-5.093,Anterior Cingulate
+637,-4.539,46.539,3.063,Anterior Cingulate
