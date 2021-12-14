@@ -93,17 +93,28 @@ class PowerCrossleyVisualizer:
             edge_threshold="99.9%",
         )
 
-    def _remove_symmetry(self, matrix):
-        if matrix.shape != (self._K, self._K):
+    def _remove_symmetry(self, score_matrix):
+        if score_matrix.shape != (self._K, self._K):
             raise TypeError(
                 "expected score_matrix of shape {}, but got shape {} instead".format(
-                    (self._K, self._K), matrix.shape
+                    (self._K, self._K), score_matrix.shape
                 )
             )
-        new_matrix = np.zeros_like(matrix)
+        new_matrix = np.zeros_like(score_matrix)
         idx = np.triu_indices(self._K, 1)
-        new_matrix[idx[0], idx[1]] = matrix[idx[0], idx[1]]
+        new_matrix[idx[0], idx[1]] = score_matrix[idx[0], idx[1]]
         return new_matrix
+
+    def _get_nodal_sensitivity(self, score_matrix, axis=0):
+        """
+        score_matrix: np.ndarray (K, K)
+        axis: int
+            0 means column-wise importance, 1 means row-wise importance
+        nodal_sensitivity: np.ndarray (K,)
+        """
+        # score_matrix = self._remove_symmetry(score_matrix)
+        nodal_sensitivity = np.sum(np.abs(score_matrix), axis=axis)
+        return nodal_sensitivity
 
     @staticmethod
     def _get_threshold(data, threshold):
@@ -119,52 +130,51 @@ class PowerCrossleyVisualizer:
         return ijk
 
     @staticmethod
-    def _is_valid_voxel(matrix, v):
-        if np.count_nonzero((v < 0) | (v >= matrix.shape[:3])) > 0:
+    def _is_valid_voxel(matrix_template, v):
+        if np.count_nonzero((v < 0) | (v >= matrix_template.shape[:3])) > 0:
             return False
-        if np.count_nonzero(matrix[tuple(v)]) == 0:
+        if np.count_nonzero(matrix_template[tuple(v)]) == 0:
             return False
         return True
 
     @classmethod
-    def _get_valid_coords_in_box(cls, matrix, ijk_coord, dv_in_box):
+    def _get_valid_coords_in_box(cls, matrix_template, ijk_coord, dv_in_box):
         voxels_coords = dv_in_box + ijk_coord
         valid_coords_in_box = [
-            v for v in voxels_coords if cls._is_valid_voxel(matrix, v)
+            v for v in voxels_coords if cls._is_valid_voxel(matrix_template, v)
         ]
         return np.array(valid_coords_in_box)
 
-    def _power_sphere(self, sensitivity, filename):
+    def _power_sphere(self, nodal_sensitivity, filename):
         if not filename.endswith(".nii"):
             filename = filename + ".nii"
 
         img = nib.load(self._img_file)
         affine = img.affine
-        matrix = img.get_data()
+        matrix_template = img.get_data()
 
         var_range = [-1, 0, 1]
         dv_in_box = np.stack(
             np.meshgrid(var_range, var_range, var_range), axis=3
         ).reshape(-1, 3)[:, [1, 0, 2]]
 
-        sensitivity_matrix = np.zeros(matrix.shape[0:3])
+        sensitivity_matrix = np.zeros(matrix_template.shape[:3])
         power_coords_ijk = self._convert_mni_to_ijk(affine, self._node_coords)
         for k in range(self._K):
             voxel_coords = self._get_valid_coords_in_box(
-                matrix, power_coords_ijk[k], dv_in_box
+                matrix_template, power_coords_ijk[k], dv_in_box
             )
             for v1, v2, v3 in voxel_coords:
                 try:
-                    sensitivity_matrix[v1, v2, v3] = sensitivity[k]
+                    sensitivity_matrix[v1, v2, v3] = nodal_sensitivity[k]
                 except:
                     continue
 
         array_img = nib.Nifti1Image(sensitivity_matrix, affine)
         nib.save(array_img, filename)
 
-    def _prepare_sensitivity_matrix(self, matrix, sen_file_path, threshold=0.1):
-        matrix = self._remove_symmetry(matrix)
-        nodal_sensitivity = np.sum(np.abs(matrix), axis=0)
+    def _prepare_sensitivity_matrix(self, score_matrix, sen_file_path, threshold=0.1):
+        nodal_sensitivity = self._get_nodal_sensitivity(score_matrix, axis=0)
         t = self._get_threshold(nodal_sensitivity, threshold)
         final_sensitivity = nodal_sensitivity * (nodal_sensitivity > t)
         self._power_sphere(final_sensitivity, sen_file_path)
@@ -258,9 +268,7 @@ class PowerCrossleyVisualizer:
         num_modules_to_plot = int(
             round(percentage_modules_to_plot * len(self._module_labels))
         )
-
-        sensitivity_matrix = self._remove_symmetry(score_matrix)
-        nodal_sen = np.sum(np.abs(sensitivity_matrix), axis=1)
+        nodal_sen = self._get_nodal_sensitivity(score_matrix, axis=1)
 
         module_sen = dict()
         module_average = np.zeros(num_modules)
@@ -301,8 +309,8 @@ class PowerCrossleyVisualizer:
         self._mpl_savefig(f, output_file)
         return f
 
-    def _get_module_sensitivity_map(self, matrix):
-        matrix = np.abs(matrix.astype(float))
+    def _get_module_sensitivity_map(self, score_matrix):
+        score_matrix = np.abs(score_matrix.astype(float))
         num_clusters = len(self._module_labels)
         msm = np.zeros((num_clusters, num_clusters))
         for i in range(num_clusters):
@@ -310,7 +318,7 @@ class PowerCrossleyVisualizer:
                 module_i, module_j = self._module_labels[i], self._module_labels[j]
                 nodes_i = np.argwhere(self._node_labels == module_i).flatten()
                 nodes_j = np.argwhere(self._node_labels == module_j).flatten()
-                connections = matrix[nodes_i, :][:, nodes_j]
+                connections = score_matrix[nodes_i, :][:, nodes_j]
                 msm[i, j] = msm[j, i] = np.mean(connections)
         return msm
 
@@ -348,7 +356,7 @@ class ADHDBiomarkersVisualizer(PowerCrossleyVisualizer):
 
 if __name__ == "__main__":
     matrix = np.load(
-        "/data/yeww0006/FYP-SSL/ref/biomarkers/src/group_mean_score_matrix.npy",
+        "/data/yeww0006/FYP-SSL/ref/biomarkers/group_mean_score_matrix.npy",
         allow_pickle=True,
     )
     viz = ADHDBiomarkersVisualizer()
