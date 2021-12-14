@@ -3,7 +3,6 @@ import sys
 import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GraphConv
-from captum.attr import IntegratedGradients
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)

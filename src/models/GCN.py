@@ -1,12 +1,9 @@
 import os
 import sys
 import torch
-import numpy as np
 import torch.nn.functional as F
 from torch_geometric.nn import ChebConv
 from torch_sparse import SparseTensor
-from scipy.spatial.distance import squareform
-from captum.attr import IntegratedGradients
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
