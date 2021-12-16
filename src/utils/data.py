@@ -51,10 +51,10 @@ def get_pop_A(X, ages, genders):
     gender_sim = np.where(gender_sim == 0, 1, 0)
     gender_sim = distance.squareform(gender_sim)
 
-    dist = distance.pdist(X, metric='correlation') 
-    dist = distance.squareform(dist)  
+    dist = distance.pdist(X, metric="correlation")
+    dist = distance.squareform(dist)
     sigma = np.mean(dist)
-    dist = np.exp(- dist ** 2 / (2 * sigma ** 2))
+    dist = np.exp(-(dist ** 2) / (2 * sigma ** 2))
     A = dist * (gender_sim + age_sim)
     np.fill_diagonal(A, 0)
     return A
@@ -65,7 +65,7 @@ def distance_to_similarity(adj, edge_thres=None):
     adj = adj - adj.min()
     adj = np.exp(-(adj ** 2))
     if edge_thres is not None:
-        adj [adj < edge_thres] = 0
+        adj[adj < edge_thres] = 0
     return adj
 
 
@@ -76,12 +76,9 @@ def make_population_graph(X, A, y, min_weight=0, **kwargs):
     """
     node_features = torch.tensor(X).type(torch.get_default_dtype())
     adj_t = SparseTensor.from_dense(
-        torch.tensor(A).type(torch.get_default_dtype()), 
-        has_value=True
+        torch.tensor(A).type(torch.get_default_dtype()), has_value=True
     )
-    d = Data(
-        x=node_features, adj_t=adj_t, y=torch.tensor(y)
-    )
+    d = Data(x=node_features, adj_t=adj_t, y=torch.tensor(y))
     for k, v in kwargs.items():
         setattr(d, k, v)
     return d
@@ -93,9 +90,7 @@ def make_dataset(X, y, d=None, **kwargs):
     y.shape == (num_samples,)
     """
     node_features = torch.tensor(X).type(torch.get_default_dtype())
-    graph = Data(
-        x=node_features, y=torch.tensor(y)
-    )
+    graph = Data(x=node_features, y=torch.tensor(y))
     if d is not None:
         le = LabelEncoder()
         d = le.fit_transform(d)
@@ -110,19 +105,16 @@ def make_graph_dataset(X, y, X_ts=None, num_process=1, verbose=False):
     X.shape == (num_samples, num_nodes, num_nodes)
     y.shape == (num_samples,)
     """
+
     def task(x, y, x_ts=None):
         if x_ts is None:
             node_features = torch.tensor(x).type(torch.get_default_dtype())
         else:
             node_features = torch.tensor(x_ts).type(torch.get_default_dtype())
         adj = SparseTensor.from_dense(
-            torch.tensor(x).type(torch.get_default_dtype()), 
-            has_value=True
+            torch.tensor(x).type(torch.get_default_dtype()), has_value=True
         )
-        d = Data(
-            x=node_features, y=torch.tensor([y]),
-            adj_t = adj
-        )
+        d = Data(x=node_features, y=torch.tensor([y]), adj_t=adj)
         return d
 
     if verbose:
@@ -132,8 +124,7 @@ def make_graph_dataset(X, y, X_ts=None, num_process=1, verbose=False):
     if X_ts is None:
         X_ts = [None] * y.shape[0]
     dataset = Parallel(n_jobs=num_process)(
-        delayed(task)(X[i], y[i], X_ts[i])
-        for i in pbar
+        delayed(task)(X[i], y[i], X_ts[i]) for i in pbar
     )
 
     """
@@ -153,6 +144,6 @@ def make_graph_dataloader(data, labeled_idx, all_idx, test_idx):
         unlabeled_dl = [data[i] for i in unlabeled_idx]
     else:
         unlabeled_dl = None
-    
+
     test_dl = [data[i] for i in test_idx]
     return labeled_dl, unlabeled_dl, test_dl
