@@ -11,6 +11,9 @@ from ADHD import *
 from utils.data import *
 from biomarker.visualize import ADHDBiomarkersVisualizer
 
+score_matrix_filename = "model_mean_score.npy"
+score_matrix_meta = "model_mean_score_meta.csv"
+
 
 def load_model(param, data):  # use this instead
     if param["model"] == "FFN":
@@ -114,9 +117,9 @@ def generate_score_matrices(input_path, output_dir, n_jobs):
 
     all_scores, all_params = zip(*results)
     all_scores = np.array(all_scores)
-    output_npy_path = os.path.join(output_dir, "model_mean_score.npy")
+    output_npy_path = os.path.join(output_dir, score_matrix_filename)
     np.save(output_npy_path, all_scores)
-    output_csv_path = os.path.join(output_dir, "model_mean_score_meta.csv")
+    output_csv_path = os.path.join(output_dir, score_matrix_meta)
     params_df = pd.DataFrame(all_params)
     params_df.to_csv(output_csv_path, index=False)
     return model_path_csv, all_scores
@@ -182,7 +185,18 @@ def main(args):
         os.makedirs(output_dir)
 
     n_jobs = args.worker
-    df, score_matrices = generate_score_matrices(input_path, output_dir, n_jobs)
+    if (
+        args.force
+        or not os.path.exists(os.path.join(output_dir, score_matrix_filename))
+        or not os.path.exists(os.path.join(output_dir, score_matrix_meta))
+    ):
+        df, score_matrices = generate_score_matrices(input_path, output_dir, n_jobs)
+    else:
+        df = pd.read_csv(input_path)
+        df = df.dropna(subset=["model_path"]).reset_index()
+        score_matrices = np.load(
+            os.path.join(output_dir, score_matrix_filename), allow_pickle=True
+        )
     visualize_biomarkers(df, score_matrices, output_dir, n_jobs)
 
 
@@ -193,6 +207,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--worker", type=int, default=1, help="number of workers to run in parallel"
+    )
+    parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="regenerate score matrix even if existed",
     )
     args = parser.parse_args()
     main(args)
