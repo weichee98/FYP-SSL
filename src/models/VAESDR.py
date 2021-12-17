@@ -2,7 +2,6 @@ import os
 import sys
 import torch
 import torch.nn.functional as F
-from collections import OrderedDict
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
@@ -13,7 +12,7 @@ from models.base import SaliencyScoreForward
 
 
 class VAESDR(torch.nn.Module, SaliencyScoreForward):
-    def __init__(self, input_size, l1, l2, emb_size, num_site):
+    def __init__(self, input_size, l1, emb_size, num_site):
         super().__init__()
         self.encoder1 = torch.nn.Linear(input_size, l1)
         self.encoder_mu = torch.nn.Linear(l1, emb_size)
@@ -27,8 +26,7 @@ class VAESDR(torch.nn.Module, SaliencyScoreForward):
         self.log_std = torch.nn.Parameter(torch.tensor([[0.0]]))
 
         self.site_cls = torch.nn.Linear(emb_size, num_site)
-        self.disease_cls1 = torch.nn.Linear(emb_size, l2)
-        self.disease_cls2 = torch.nn.Linear(l2, 2)
+        self.disease_cls = torch.nn.Linear(emb_size, 2)
 
         self.site_dis = torch.nn.Linear(emb_size, num_site)
         self.disease_dis = torch.nn.Linear(emb_size, 2)
@@ -37,17 +35,23 @@ class VAESDR(torch.nn.Module, SaliencyScoreForward):
         z, z_mu, z_std, z_res, z_site = self.encode(x)
         x_mu, x_std, x_res, x_site = self.decode(z_res, z_site)
         y = self.classify_disease(z_res)
+        d = self.classify_site(z_site)
+        dis_y = self.discriminate_disease(z_site)
+        dis_d = self.discriminate_site(z_res)
         return (
             y,
+            d,
+            dis_y,
+            dis_d,
             (x_mu, x_std, x_res, x_site),
             (z, z_mu, z_std, z_res, z_site),
         )
 
     def classify_disease(self, z_res):
-        y = self.disease_cls1(z_res)
-        y = F.relu(y)
-        y = F.dropout(y, p=0.5, training=self.training)
-        y = self.disease_cls2(y)
+        y = self.disease_cls(z_res)
+        # y = F.relu(y)
+        # y = F.dropout(y, p=0.5, training=self.training)
+        # y = self.disease_cls2(y)
         y = F.softmax(y, dim=1)
         return y
 
@@ -111,10 +115,10 @@ class VAESDR(torch.nn.Module, SaliencyScoreForward):
 
 
 def _entropy_loss(pred_y):
-    uni_dist = torch.ones_like(pred_y) / pred_y.size(1)
-    max_entropy = -uni_dist * uni_dist.log()
-    entropy = -pred_y * pred_y.log()
-    return torch.mean(torch.sum(max_entropy - entropy, dim=1))
+    uni_dist = torch.ones(pred_y.size(0), device=pred_y.device) / pred_y.size(1)
+    max_entropy = -uni_dist.log()
+    entropy = torch.sum(-pred_y * pred_y.log(), dim=1)
+    return torch.mean(max_entropy - entropy)
 
 
 def train_VAESDR(
@@ -135,14 +139,20 @@ def train_VAESDR(
     all_idx: the indices of labeled and unlabeled data (exclude test indices)
     gamma1: float, the weightage of reconstruction loss
     gamma2: float, the weightage of regularizer (kl divergence)
-    gamma3: float, the weightage of regularizer (z vs z_site + z_res)
-    gamma4: float, the weightage of d cross entropy loss
+    gamma3: float, the weightage of regularizer (z = z_site + z_res)
+    gamma4: float, the weightage of discriminator loss
     gamma5: float, the weightage of second pass loss, using x_res
     """
     model.to(device)
     model.train()
 
-    model_optim, disease_optim, site_optim = optimizer
+    (
+        model_optim,
+        disease_cls_optim,
+        site_cls_optim,
+        disease_dis_optim,
+        site_dis_optim,
+    ) = optimizer
 
     real_y = data.y[labeled_idx].to(device)
     real_d = data.d.to(device)
@@ -161,26 +171,50 @@ def train_VAESDR(
     z_regularizer = torch.nn.GaussianNLLLoss(full=True)
     x = data.x.to(device)
 
-    site_optim.zero_grad()
-    disease_optim.zero_grad()
-    (_, _, _, z_res, z_site) = model.encode(x)
-    z_res = z_res.detach()
-    z_site = z_site.detach()
-    disc_d = model.discriminate_site(z_res)
-    disc_y = model.discriminate_disease(z_site)
-    site_loss = d_criterion(disc_d[all_idx], real_d[all_idx])
-    disease_loss = cls_criterion(disc_y[labeled_idx], real_y)
-    site_loss.backward()
-    disease_loss.backward()
-    site_optim.step()
-    disease_optim.step()
-
-    model_optim.zero_grad()
-
-    (pred_y, (x_mu, x_std, x_res, _), (z, z_mu, z_std, z_res, z_site),) = model(x)
+    site_cls_optim.zero_grad()
+    disease_cls_optim.zero_grad()
+    site_dis_optim.zero_grad()
+    disease_dis_optim.zero_grad()
+    _, _, _, z_res, z_site = model.encode(x)
+    z_res, z_site = z_res.detach(), z_site.detach()
     disc_d = model.discriminate_site(z_res)
     disc_y = model.discriminate_disease(z_site)
     pred_d = model.classify_site(z_site)
+    pred_y = model.classify_disease(z_res)
+    site_dis_loss = d_criterion(disc_d[all_idx], real_d[all_idx])
+    disease_dis_loss = cls_criterion(disc_y[labeled_idx], real_y)
+    site_cls_loss = d_criterion(pred_d[all_idx], real_d[all_idx])
+    disease_cls_loss = cls_criterion(pred_y[labeled_idx], real_y)
+    if gamma5 > 0:
+        _, _, x_res, _ = model.decode(z_res, z_site)
+        _, _, _, z_res, z_site = model.encode(x_res)
+        z_res, z_site = z_res.detach(), z_site.detach()
+        disc_d = model.discriminate_site(z_res)
+        disc_y = model.discriminate_disease(z_site)
+        pred_d = model.classify_site(z_site)
+        pred_y = model.classify_disease(z_res)
+        site_dis_loss += gamma5 * d_criterion(disc_d[all_idx], real_d[all_idx])
+        disease_dis_loss += gamma5 * cls_criterion(disc_y[labeled_idx], real_y)
+        site_cls_loss += gamma5 * d_criterion(pred_d[all_idx], real_d[all_idx])
+        disease_cls_loss += gamma5 * cls_criterion(pred_y[labeled_idx], real_y)
+    site_dis_loss.backward()
+    disease_dis_loss.backward()
+    site_cls_loss.backward()
+    disease_cls_loss.backward()
+    site_dis_optim.step()
+    disease_dis_optim.step()
+    site_cls_optim.step()
+    disease_cls_optim.step()
+
+    model_optim.zero_grad()
+    (
+        pred_y,
+        pred_d,
+        disc_y,
+        disc_d,
+        (x_mu, x_std, x_res, _),
+        (z, z_mu, z_std, z_res, z_site),
+    ) = model(x)
     loss = cls_criterion(pred_y[labeled_idx], real_y)
     x_std = x_std.expand(x_mu[all_idx].size())
     rc_loss = gauss_criterion(x[all_idx], x_mu[all_idx], x_std ** 2)
@@ -193,13 +227,15 @@ def train_VAESDR(
     z_loss = z_regularizer(
         z_res[all_idx] + z_site[all_idx], z_mu[all_idx], z_std[all_idx] ** 2
     )
-    d_loss = (
-        d_criterion(pred_d[all_idx], real_d[all_idx])
-        + _entropy_loss(disc_d[all_idx])
-        + _entropy_loss(disc_y[all_idx])
-    ) / 3
+    d_loss = d_criterion(pred_d[all_idx], real_d[all_idx])
+    dis_loss = (_entropy_loss(disc_d[all_idx]) + _entropy_loss(disc_y[labeled_idx])) / 2
     total_loss = (
-        loss + gamma1 * rc_loss + gamma2 * kl + gamma3 * z_loss + gamma4 * d_loss
+        loss
+        + d_loss
+        + gamma1 * rc_loss
+        + gamma2 * kl
+        + gamma3 * z_loss
+        + gamma4 * dis_loss
     )
 
     accuracy = CM.accuracy(real_y, pred_y[labeled_idx])
@@ -215,9 +251,14 @@ def train_VAESDR(
     }
 
     if gamma5 > 0:
-        (pred_y, (x_mu, x_std, x_res_2, _), (z, z_mu, z_std, z_res, z_site)) = model(
-            x_res
-        )
+        (
+            pred_y,
+            pred_d,
+            disc_y,
+            disc_d,
+            (x_mu, x_std, x_res_2, _),
+            (z, z_mu, z_std, z_res, z_site),
+        ) = model(x_res)
         disc_y = model.discriminate_disease(z_site)
         disc_d = model.discriminate_site(z_res)
         pred_d = model.classify_site(z_site)
@@ -241,13 +282,17 @@ def train_VAESDR(
                 z_site[all_idx], torch.zeros_like(z_mu[all_idx]), z_std[all_idx] ** 2
             )
         ) / 2
-        d_loss = (
-            _entropy_loss(pred_d[all_idx])
-            + _entropy_loss(disc_d[all_idx])
-            + _entropy_loss(disc_y[all_idx])
-        ) / 3
+        d_loss = _entropy_loss(pred_d[all_idx])
+        dis_loss = (
+            _entropy_loss(disc_d[all_idx]) + _entropy_loss(disc_y[labeled_idx])
+        ) / 2
         total_loss += gamma5 * (
-            loss + gamma1 * rc_loss + gamma2 * kl + gamma3 * z_loss + gamma4 * d_loss
+            loss
+            + d_loss
+            + gamma1 * rc_loss
+            + gamma2 * kl
+            + gamma3 * z_loss
+            + gamma4 * dis_loss
         )
 
     loss_val = total_loss.item()
