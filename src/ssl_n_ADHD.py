@@ -430,7 +430,7 @@ def experiment(args, param, model_dir):
     if param["save_model"] and best_model is not None:
         mkdir(model_dir)
         model_name = "{}.pt".format(model_time)
-        model_path = os.path.join(model_dir, model_name)
+        model_path = os.path.abspath(os.path.join(model_dir, model_name))
         torch.save(best_model, model_path)
     else:
         model_path = None
@@ -497,11 +497,11 @@ def main(args):
     SEED = 10
 
     for site in ["NYU", "PKU"]:
-        # ssl_group = True
-        # for n_ssl in get_n_ssl(site):
+        ssl_group = True
+        for n_ssl in get_n_ssl(site):
 
-        n_ssl = None
-        for ssl_group in get_ssl_groups(harmonized, site, reverse=False):
+            # n_ssl = None
+            # for ssl_group in get_ssl_groups(harmonized, site, reverse=True):
 
             experiment_name = "{}_{}".format(script_name, int(time.time()))
             exp_dir = os.path.join(args.exp_dir, experiment_name)

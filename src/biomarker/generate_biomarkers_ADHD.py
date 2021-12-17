@@ -47,6 +47,13 @@ def load_model(param, data):  # use this instead
             l3=int(param["L3"]),
             emb_size=int(param["emb"]),
         )
+    elif "VAESDR" in param["model"]:
+        model = VAESDR(
+            input_size=data.x.size(1),
+            l1=int(param["L1"]),
+            emb_size=int(param["emb"]),
+            num_site=data.d.unique().size(0),
+        )
     elif param["model"] == "GNN":
         batch = data[0]
         model = GNN(
@@ -80,6 +87,15 @@ def load_data(param, X, X_harmonized, Y, ages, genders, sites):
     elif param["model"] in ["FFN", "VAE", "AE"]:
         X_flattened = corr_mx_flatten(X_)
         data = make_dataset(X_flattened, Y)
+    elif param["model"] in ["DIVA"] or "VAESDR" in param["model"]:
+        X_flattened = corr_mx_flatten(X_)
+        data = make_dataset(
+            X_flattened,
+            Y,
+            sites,
+            age=torch.tensor(ages).type(torch.get_default_dtype()),
+            gender=torch.tensor(genders).long(),
+        )
     elif param["model"] in ["GNN", "VGAE"]:
         data = make_graph_dataset(X_, Y, X_ts=None, num_process=10, verbose=False)
     else:

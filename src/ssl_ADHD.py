@@ -41,6 +41,7 @@ def get_experiment_param(
                    beta_klzy, beta_d, beta_y, beta_recon)
     8. VGAETS model (embts, emb1, emb2, L1, gamma1, gamma2, 
                     num_process)
+    9. VAESDR model (L1, emb, gamma1, gamma2, gamma3, gamma4, gamma5)
     """
     param = dict()
     param["site"] = site
@@ -120,6 +121,22 @@ def load_data(param):
         (data, labeled_train_indices, all_train_indices, test_indices) = load_DIVA_data(
             X, Y, get_sites(), param["ssl"], labeled_train_indices, test_indices
         )
+    elif "VAESDR" in param["model"]:
+        (
+            data,
+            labeled_train_indices,
+            all_train_indices,
+            test_indices,
+        ) = load_VAESDR_data(
+            X,
+            Y,
+            get_sites(),
+            ages,
+            genders,
+            param["ssl"],
+            labeled_train_indices,
+            test_indices,
+        )
     # elif param["model"] == "VGAETS":
     #     (data, labeled_train_indices,
     #     all_train_indices, test_indices) = load_GAE_data(
@@ -177,6 +194,13 @@ def load_model(param, data):
             l3=param["L3"],
             emb_size=param["emb"],
         )
+    elif "VAESDR" in param["model"]:
+        model = VAESDR(
+            input_size=data.x.size(1),
+            l1=param["L1"],
+            emb_size=param["emb"],
+            num_site=data.d.unique().size(0),
+        )
     elif param["model"] == "GNN":
         batch = next(iter(data[0]))
         model = GNN(
@@ -213,7 +237,79 @@ def load_model(param, data):
         raise TypeError("Invalid model of type {}".format(param["model"]))
     param["model_size"] = count_parameters(model)
     print("MODEL_SIZE: {}".format(param["model_size"]))
-    return model
+
+    if "VAESDR" in param["model"]:
+        model_optim = torch.optim.Adam(
+            map(
+                lambda p: p[1],
+                filter(
+                    lambda p: p[1].requires_grad
+                    and "dis" not in p[0]
+                    and "cls" not in p[0],
+                    model.named_parameters(),
+                ),
+            ),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+        disease_dis_optim = torch.optim.Adam(
+            map(
+                lambda p: p[1],
+                filter(
+                    lambda p: p[1].requires_grad and "disease_dis" in p[0],
+                    model.named_parameters(),
+                ),
+            ),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+        site_dis_optim = torch.optim.Adam(
+            map(
+                lambda p: p[1],
+                filter(
+                    lambda p: p[1].requires_grad and "site_dis" in p[0],
+                    model.named_parameters(),
+                ),
+            ),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+        disease_cls_optim = torch.optim.Adam(
+            map(
+                lambda p: p[1],
+                filter(
+                    lambda p: p[1].requires_grad and "disease_cls" in p[0],
+                    model.named_parameters(),
+                ),
+            ),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+        site_cls_optim = torch.optim.Adam(
+            map(
+                lambda p: p[1],
+                filter(
+                    lambda p: p[1].requires_grad and "site_cls" in p[0],
+                    model.named_parameters(),
+                ),
+            ),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+        optimizer = (
+            model_optim,
+            disease_cls_optim,
+            site_cls_optim,
+            disease_dis_optim,
+            site_dis_optim,
+        )
+    else:
+        optimizer = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+    return model, optimizer
 
 
 def train_test_step(
@@ -268,6 +364,23 @@ def train_test_step(
             weight=False,
         )
         test_loss, test_acc, test_metrics = test_VAE(device, model, data, test_indices)
+    elif "VAESDR" in param["model"]:
+        train_loss, train_acc, train_metrics = train_VAESDR(
+            device,
+            model,
+            data,
+            optimizer,
+            labeled_train_indices,
+            all_train_indices,
+            param["gamma1"],
+            param["gamma2"],
+            param["gamma3"],
+            param["gamma4"],
+            param["gamma5"],
+        )
+        test_loss, test_acc, test_metrics = test_VAESDR(
+            device, model, data, test_indices
+        )
     elif param["model"] == "GNN":
         train_dl, _, test_dl = data
         train_loss, train_acc, train_metrics = train_GNN(
@@ -337,12 +450,7 @@ def experiment(args, param, model_dir):
 
     start = time.time()
     (data, labeled_train_indices, all_train_indices, test_indices) = load_data(param)
-    model = load_model(param, data)
-    optimizer = torch.optim.Adam(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=param["lr"],
-        weight_decay=param["l2_reg"],
-    )
+    model, optimizer = load_model(param, data)
 
     best_epoch = 0
     best_loss = np.inf
@@ -430,7 +538,7 @@ def experiment(args, param, model_dir):
     if param["save_model"] and best_model is not None:
         mkdir(model_dir)
         model_name = "{}.pt".format(model_time)
-        model_path = os.path.join(model_dir, model_name)
+        model_path = os.path.abspath(os.path.join(model_dir, model_name))
         torch.save(best_model, model_path)
     else:
         model_path = None
@@ -461,176 +569,283 @@ def experiment(args, param, model_dir):
 
 
 def main(args):
+    from itertools import product
+
     script_name = os.path.splitext(os.path.basename(__file__))[0]
 
-    sites = np.array(["NI", "NYU", "OHSU", "PKU"])
-    print(sites)
+    if "all" in args.site:
+        sites = ["NI", "NYU", "OHSU", "PKU"]
+    else:
+        sites = [(x.upper() if x != "None" else None) for x in args.site]
+    print("SITES:", sites)
+
+    models = args.model
+    print("MODELS:", models)
 
     ssl = args.ssl
     harmonized = args.harmonize
     SEED = 10
 
-    for site in sites:
+    for site, model in product(sites, models):
         experiment_name = "{}_{}".format(script_name, int(time.time()))
         exp_dir = os.path.join(args.exp_dir, experiment_name)
         model_dir = os.path.join(exp_dir, "models")
         print("Experiment result: {}".format(exp_dir))
         res = []
         curves = []
+        save_model = True if site in ["NYU", "PKU", None] else False
 
-        save_model = True if site in ["NYU", "PKU"] else False
+        for seed, fold in product(range(SEED), range(5)):
 
-        for seed in range(SEED):
+            print("===================")
+            print("EXPERIMENT SETTINGS")
+            print("===================")
+            print("SEED: {}".format(seed))
+            print("FOLD: {}".format(fold))
+            print("SSL: {}".format(ssl))
+            print("HARMONIZED: {}".format(harmonized))
+            print("SITE: {}".format(site))
 
-            for fold in range(5):
+            if model == "GCN":
+                param = get_experiment_param(
+                    model="GCN",
+                    hidden=150,
+                    emb1=50,
+                    emb2=30,
+                    K=3,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "FFN":
+                param = get_experiment_param(
+                    model="FFN",
+                    L1=150,
+                    L2=50,
+                    L3=30,
+                    gamma_lap=0,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "AE":
+                param = get_experiment_param(
+                    model="AE",
+                    L1=300,
+                    L2=50,
+                    emb=150,
+                    L3=30,
+                    gamma=1e-3,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "VAE":
+                param = get_experiment_param(
+                    model="VAE",
+                    L1=300,
+                    L2=50,
+                    emb=150,
+                    L3=30,
+                    gamma1=1e-5,
+                    gamma2=1e-3,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "VAESDR":
+                param = get_experiment_param(
+                    model="VAESDR",
+                    L1=300,
+                    emb=150,
+                    gamma1=1e-5,
+                    gamma2=1e-3,
+                    gamma3=1e-3,
+                    gamma4=0.3,
+                    gamma5=0,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "VAESDR0":
+                param = get_experiment_param(
+                    model="VAESDR0",
+                    L1=300,
+                    emb=150,
+                    gamma1=1e-5,
+                    gamma2=1e-3,
+                    gamma3=1e-3,
+                    gamma4=0,
+                    gamma5=0,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "VAESDR1":
+                param = get_experiment_param(
+                    model="VAESDR1",
+                    L1=300,
+                    emb=150,
+                    gamma1=1e-5,
+                    gamma2=1e-3,
+                    gamma3=1e-3,
+                    gamma4=0.3,
+                    gamma5=1,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "VGAE":
+                param = get_experiment_param(
+                    model="VGAE",
+                    emb1=300,
+                    emb2=100,
+                    L1=50,
+                    gamma1=1e-5,
+                    gamma2=5e-6,
+                    num_process=10,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                    patience=300,
+                )
+            # elif model == "VGAETS":
+            #     param = get_experiment_param(
+            #         model="VGAETS",
+            #         tsemb=500,
+            #         emb1=300,
+            #         emb2=100,
+            #         L1=50,
+            #         bidirectional=True,
+            #         gamma1=1e-5,
+            #         gamma2=5e-6,
+            #         num_process=10,
+            #         seed=seed,
+            #         fold=fold,
+            #         ssl=ssl,
+            #         save_model=save_model,
+            #         site=site,
+            #         lr=0.0001,
+            #         l2_reg=0.001,
+            #         test=False,
+            #         harmonized=harmonized,
+            #         epochs=1000,
+            #         patience=300,
+            #     )
+            elif model == "GNN":
+                param = get_experiment_param(
+                    model="GNN",
+                    emb1=300,
+                    emb2=100,
+                    L1=50,
+                    num_process=10,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "DIVA":
+                param = get_experiment_param(
+                    model="DIVA",
+                    hidden1=150,
+                    emb=50,
+                    hidden2=30,
+                    beta_klzd=1,
+                    beta_klzx=1,
+                    beta_klzy=1,
+                    beta_d=1,
+                    beta_y=1,
+                    beta_recon=3e-6,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=500,
+                )
+            else:
+                raise NotImplementedError("{} not implemented".format(args.model))
 
-                print("===================")
-                print("EXPERIMENT SETTINGS")
-                print("===================")
-                print("SEED: {}".format(seed))
-                print("FOLD: {}".format(fold))
-                print("SSL: {}".format(ssl))
-                print("HARMONIZED: {}".format(harmonized))
-                print("SITE: {}".format(site))
+            exp_res, training_curve = experiment(args, param, model_dir)
+            res.append(exp_res)
+            curves.append(training_curve)
 
-                # param = get_experiment_param(
-                #     model="GCN", hidden=150, emb1=50, emb2=30, K=3,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.00005, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
-                if args.model == "FFN":
-                    param = get_experiment_param(
-                        model="FFN",
-                        L1=150,
-                        L2=50,
-                        L3=30,
-                        gamma_lap=0,
-                        seed=seed,
-                        fold=fold,
-                        ssl=ssl,
-                        save_model=save_model,
-                        site=site,
-                        lr=0.00005,
-                        l2_reg=0.001,
-                        test=False,
-                        harmonized=harmonized,
-                        epochs=1000,
-                    )
-                if args.model == "AE":
-                    param = get_experiment_param(
-                        model="AE",
-                        L1=300,
-                        L2=50,
-                        emb=150,
-                        L3=30,
-                        gamma=1e-3,
-                        seed=seed,
-                        fold=fold,
-                        ssl=ssl,
-                        save_model=save_model,
-                        site=site,
-                        lr=0.0001,
-                        l2_reg=0.001,
-                        test=False,
-                        harmonized=harmonized,
-                        epochs=1000,
-                    )
-                if args.model == "VAE":
-                    param = get_experiment_param(
-                        model="VAE",
-                        L1=300,
-                        L2=50,
-                        emb=150,
-                        L3=30,
-                        gamma1=1e-5,
-                        gamma2=1e-3,
-                        seed=seed,
-                        fold=fold,
-                        ssl=ssl,
-                        save_model=save_model,
-                        site=site,
-                        lr=0.0001,
-                        l2_reg=0.001,
-                        test=False,
-                        harmonized=harmonized,
-                        epochs=1000,
-                    )
-                # param = get_experiment_param(
-                #     model="VGAE", emb1=300, emb2=100, L1=50,
-                #     gamma1=1e-5, gamma2=5e-6, num_process=10,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized,
-                #     epochs=1000, patience=300
-                # )
-                # param = get_experiment_param(
-                #     model="VGAETS", tsemb=500, emb1=300, emb2=100,
-                #     L1=50, bidirectional=True,
-                #     gamma1=1e-5, gamma2=5e-6, num_process=10,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized,
-                #     epochs=1000, patience=300
-                # )
-                # param = get_experiment_param(
-                #     model="GNN", emb1=300, emb2=100, L1=50, num_process=10,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=1000
-                # )
-                # param = get_experiment_param(
-                #     model="DIVA", hidden1=150, emb=50, hidden2=30,
-                #     beta_klzd=1, beta_klzx=1, beta_klzy=1,
-                #     beta_d=1, beta_y=1, beta_recon=3e-6,
-                #     seed=seed, fold=fold, ssl=ssl, save_model=False,
-                #     site=site, lr=0.0001, l2_reg=0.001,
-                #     test=False, harmonized=harmonized, epochs=500
-                # )
+            df = pd.DataFrame(res).dropna(how="all")
+            if df.empty:
+                continue
+            mkdir(exp_dir)
+            res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
+            df.to_csv(res_path, index=False)
 
-                exp_res, training_curve = experiment(args, param, model_dir)
-                res.append(exp_res)
-                curves.append(training_curve)
-
-                df = pd.DataFrame(res).dropna(how="all")
-                if not df.empty:
-                    mkdir(exp_dir)
-                    res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
-                    df.to_csv(res_path, index=False)
-
-                    curves_path = os.path.join(
-                        exp_dir, "{}.json".format(experiment_name)
-                    )
-                    with open(curves_path, "w") as f:
-                        json.dump(curves, f, indent=4, sort_keys=True)
-
-    # res = []
-    # experiment_name = "{}_{}".format(script_name, int(time.time()))
-    # exp_dir = os.path.join(args.exp_dir, experiment_name)
-    # model_dir = os.path.join(exp_dir, "models")
-    # print("Experiment result: {}".format(exp_dir))
-
-    # for seed in range(10):
-    #     for harmonized in [False, True]:
-    #         print("===================")
-    #         print("EXPERIMENT SETTINGS")
-    #         print("===================")
-    #         print("HARMONIZED: {}".format(harmonized))
-    #         for fold in range(5):
-    #             param = get_experiment_param(
-    #                 model="FFN", L1=150, L2=50, L3=30, gamma_lap=0,
-    #                 seed=seed, fold=fold, ssl=False, save_model=False,
-    #                 site=None, lr=0.00005, l2_reg=0.001,
-    #                 test=False, harmonized=harmonized, epochs=1000
-    #             )
-    #             exp_res = experiment(args, param, model_dir)
-    #             res.append(exp_res)
-
-    # mkdir(exp_dir)
-    # df = pd.DataFrame(res).dropna(how="all")
-    # if not df.empty:
-    #     res_path = os.path.join(exp_dir, "{}.csv".format(experiment_name))
-    #     df.to_csv(res_path, index=False)
+            curves_path = os.path.join(exp_dir, "{}.json".format(experiment_name))
+            with open(curves_path, "w") as f:
+                json.dump(curves, f, indent=4, sort_keys=True)
 
 
 if __name__ == "__main__":
@@ -642,7 +857,8 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--ssl", action="store_true")
     parser.add_argument("--harmonize", action="store_true")
-    parser.add_argument("--model", type=str, default="FFN")
+    parser.add_argument("--model", default=["FFN"], nargs="+")
+    parser.add_argument("--site", default=["None"], nargs="+")
     parser.add_argument(
         "--exp_dir",
         type=str,

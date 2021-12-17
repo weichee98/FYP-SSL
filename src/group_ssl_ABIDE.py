@@ -439,7 +439,7 @@ def experiment(args, param, groups, target_group, model_dir):
     if param["save_model"] and best_model is not None:
         mkdir(model_dir)
         model_name = "{}.pt".format(model_time)
-        model_path = os.path.join(model_dir, model_name)
+        model_path = os.path.abspath(os.path.join(model_dir, model_name))
         torch.save(best_model, model_path)
     else:
         model_path = None
