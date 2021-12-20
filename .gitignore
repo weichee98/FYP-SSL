@@ -132,6 +132,7 @@ dmypy.json
 .vscode
 
 # additional
+run.sh
 .archive
 ref
 data
