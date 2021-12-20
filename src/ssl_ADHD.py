@@ -42,6 +42,7 @@ def get_experiment_param(
     8. VGAETS model (embts, emb1, emb2, L1, gamma1, gamma2, 
                     num_process)
     9. VAESDR model (L1, emb, gamma1, gamma2, gamma3, gamma4, gamma5)
+    10. VAECH model (L1, L2, L3, emb, gamma1, gamma2)
     """
     param = dict()
     param["site"] = site
@@ -71,19 +72,31 @@ def set_experiment_param(param, model_path, time, device, best_epoch, loss, **kw
     param["device"] = device
 
 
-def load_data(param):
-    X, Y = load_data_fmri(harmonized=param["harmonized"])
-    splits = get_splits(site_id=param["site"], test=param["test"])
-    ages, genders = get_ages_and_genders()
-
+def get_split(site, param):
     seed = param["seed"]
     fold = param["fold"]
+    splits = get_splits(site_id=site, test=param["test"])
     if param["test"]:
         test_indices = splits[seed][0]
         train_indices, val_indices = splits[seed][1][fold]
         labeled_train_indices = np.concatenate([train_indices, val_indices], axis=0)
     else:
         labeled_train_indices, test_indices = splits[seed][1][fold]
+    return labeled_train_indices, test_indices
+
+
+def load_data(param):
+    X, Y = load_data_fmri(harmonized=param["harmonized"])
+
+    ages, genders = get_ages_and_genders()
+    if param["site"] is None:
+        sites = ["KKI", "NI", "NYU", "OHSU", "PKU"]
+    else:
+        sites = [param["site"]]
+    indices = Parallel(len(sites))(delayed(get_split)(site, param) for site in sites)
+    labeled_train_indices, test_indices = zip(*indices)
+    labeled_train_indices = np.concatenate(labeled_train_indices, axis=0)
+    test_indices = np.concatenate(test_indices, axis=0)
     param["baseline_accuracy"] = np.mean(Y[test_indices], axis=0).max()
 
     if param["model"] == "GCN":
@@ -117,17 +130,17 @@ def load_data(param):
             num_process=param.get("num_process", 1),
             verbose=False,
         )
-    elif param["model"] == "DIVA":
+    elif param["model"] == "DIVA" or "VAESDR" in param["model"]:
         (data, labeled_train_indices, all_train_indices, test_indices) = load_DIVA_data(
             X, Y, get_sites(), param["ssl"], labeled_train_indices, test_indices
         )
-    elif "VAESDR" in param["model"]:
+    elif param["model"] in ["VAECH"]:
         (
             data,
             labeled_train_indices,
             all_train_indices,
             test_indices,
-        ) = load_VAESDR_data(
+        ) = load_VAECH_data(
             X,
             Y,
             get_sites(),
@@ -200,6 +213,15 @@ def load_model(param, data):
             l1=param["L1"],
             emb_size=param["emb"],
             num_site=data.d.unique().size(0),
+        )
+    elif param["model"] == "VAECH":
+        model = VAECH(
+            input_size=data.x.size(1),
+            l1=param["L1"],
+            l2=param["L2"],
+            l3=param["L3"],
+            emb_size=param["emb"],
+            num_sites=data.d.size(1),
         )
     elif param["model"] == "GNN":
         batch = next(iter(data[0]))
@@ -379,6 +401,20 @@ def train_test_step(
             param["gamma5"],
         )
         test_loss, test_acc, test_metrics = test_VAESDR(
+            device, model, data, test_indices
+        )
+    elif param["model"] == "VAECH":
+        train_loss, train_acc, train_metrics = train_VAECH(
+            device,
+            model,
+            data,
+            optimizer,
+            labeled_train_indices,
+            all_train_indices,
+            param["gamma1"],
+            param["gamma2"],
+        )
+        test_loss, test_acc, test_metrics = test_VAECH(
             device, model, data, test_indices
         )
     elif param["model"] == "GNN":
@@ -664,6 +700,26 @@ def main(args):
             elif model == "VAE":
                 param = get_experiment_param(
                     model="VAE",
+                    L1=300,
+                    L2=50,
+                    emb=150,
+                    L3=30,
+                    gamma1=1e-5,
+                    gamma2=1e-3,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "VAECH":
+                param = get_experiment_param(
+                    model="VAECH",
                     L1=300,
                     L2=50,
                     emb=150,

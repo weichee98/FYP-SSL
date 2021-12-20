@@ -55,6 +55,15 @@ def load_model(param, data):  # use this instead
             emb_size=int(param["emb"]),
             num_site=data.d.unique().size(0),
         )
+    elif param["model"] == "VAECH":
+        model = VAECH(
+            input_size=data.x.size(1),
+            l1=int(param["L1"]),
+            l2=int(param["L2"]),
+            l3=int(param["L3"]),
+            emb_size=int(param["emb"]),
+            num_sites=data.d.size(1),
+        )
     elif param["model"] == "GNN":
         batch = data[0]
         model = GNN(
@@ -90,12 +99,20 @@ def load_data(param, X, X_harmonized, Y, ages, genders, sites):
         data = make_dataset(X_flattened, Y)
     elif param["model"] in ["DIVA"] or "VAESDR" in param["model"]:
         X_flattened = corr_mx_flatten(X_)
+        data = make_dataset(X_flattened, Y, sites)
+    elif param["model"] in ["VAECH"]:
+        X_flattened = corr_mx_flatten(X_)
+        age = np.expand_dims(ages, axis=1)
+        gender = np.eye(2)[genders]
         data = make_dataset(
             X_flattened,
             Y,
             sites,
-            age=torch.tensor(ages).type(torch.get_default_dtype()),
-            gender=torch.tensor(genders).long(),
+            age=torch.tensor(age).type(torch.get_default_dtype()),
+            gender=torch.tensor(gender).type(torch.get_default_dtype()),
+        )
+        data.d = torch.eye(data.d.unique().size(0))[data.d].type(
+            torch.get_default_dtype()
         )
     elif param["model"] in ["GNN", "VGAE"]:
         data = make_graph_dataset(X_, Y, X_ts=None, num_process=10, verbose=False)

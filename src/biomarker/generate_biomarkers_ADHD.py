@@ -54,6 +54,15 @@ def load_model(param, data):  # use this instead
             emb_size=int(param["emb"]),
             num_site=data.d.unique().size(0),
         )
+    elif param["model"] == "VAECH":
+        model = VAECH(
+            input_size=data.x.size(1),
+            l1=int(param["L1"]),
+            l2=int(param["L2"]),
+            l3=int(param["L3"]),
+            emb_size=int(param["emb"]),
+            num_sites=data.d.size(1),
+        )
     elif param["model"] == "GNN":
         batch = data[0]
         model = GNN(
@@ -89,12 +98,29 @@ def load_data(param, X, X_harmonized, Y, ages, genders, sites):
         data = make_dataset(X_flattened, Y)
     elif param["model"] in ["DIVA"] or "VAESDR" in param["model"]:
         X_flattened = corr_mx_flatten(X_)
+        data = make_dataset(X_flattened, Y, sites)
+    elif param["model"] in ["VAECH"]:
+        X_flattened = corr_mx_flatten(X_)
+        mean_age = np.nanmean(ages)
+        age = np.where(np.isnan(ages), mean_age, ages)
+        age = np.expand_dims(age, axis=1)
+
+        assert np.all(np.isnan(genders) | (genders >= 0) | (genders <= 1))
+        gender1 = np.where(np.isnan(genders), 0, genders)
+        gender0 = np.where(np.isnan(genders), 0, 1 - genders)
+        gender = np.zeros((genders.shape[0], 2))
+        gender[:, 0] = gender0
+        gender[:, 1] = gender1
+
         data = make_dataset(
             X_flattened,
             Y,
             sites,
-            age=torch.tensor(ages).type(torch.get_default_dtype()),
-            gender=torch.tensor(genders).long(),
+            age=torch.tensor(age).type(torch.get_default_dtype()),
+            gender=torch.tensor(gender).type(torch.get_default_dtype()),
+        )
+        data.d = torch.eye(data.d.unique().size(0))[data.d].type(
+            torch.get_default_dtype()
         )
     elif param["model"] in ["GNN", "VGAE"]:
         data = make_graph_dataset(X_, Y, X_ts=None, num_process=10, verbose=False)
@@ -170,11 +196,11 @@ def plot_biomarkers(param, score_matrices, viz, gcol, output_dir):
     prefix = get_name(param, gcol)
     output_dir = os.path.join(output_dir, prefix)
     viz.plot_connectome(matrix, os.path.join(output_dir, "connectome.png"))
-    viz.plot_stat_map(matrix, output_dir, threshold=0.1, vmax=0.037)
+    viz.plot_stat_map(matrix, output_dir, threshold=0.1, vmax=0.015)
     viz.plot_module_importance_boxplot(matrix, os.path.join(output_dir, "boxplot.png"))
     viz.plot_complete_score_matrix(matrix, os.path.join(output_dir, "conn_mat.png"))
     viz.plot_module_sensitivity_map(
-        matrix, os.path.join(output_dir, "msm.png"), vmax=0.0002
+        matrix, os.path.join(output_dir, "msm.png"), vmax=0.0001
     )
 
 
