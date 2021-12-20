@@ -12,6 +12,7 @@ from VGAE import *
 from DIVA import *
 from VGAETS import *
 from VAESDR import *
+from VAECH import *
 
 
 def count_parameters(model):

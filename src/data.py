@@ -119,18 +119,29 @@ def load_DIVA_data(X, Y, sites, ssl, labeled_train_indices, test_indices, n_ssl=
     return data, labeled_train_indices, all_train_indices, test_indices
 
 
-def load_VAESDR_data(
+def load_VAECH_data(
     X, Y, sites, age, gender, ssl, labeled_train_indices, test_indices, n_ssl=None
 ):
     X_flattened = corr_mx_flatten(X)
+
+    mean_age = np.nanmean(age)
+    age = np.where(np.isnan(age), mean_age, age)
     age = np.expand_dims(age, axis=1)
+
+    assert np.all(np.isnan(gender) | (gender >= 0) | (gender <= 1))
+    gender1 = np.where(np.isnan(gender), 0, gender)
+    gender0 = np.where(np.isnan(gender), 0, 1 - gender)
+    gender = np.zeros((gender.shape[0], 2))
+    gender[:, 0] = gender0
+    gender[:, 1] = gender1
+
     if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
         data = make_dataset(
             X_flattened,
             Y.argmax(axis=1),
             sites,
             age=torch.tensor(age).type(torch.get_default_dtype()),
-            gender=torch.tensor(gender).long(),
+            gender=torch.tensor(gender).type(torch.get_default_dtype()),
         )
         if isinstance(ssl, (list, tuple)):
             unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
@@ -156,13 +167,14 @@ def load_VAESDR_data(
             Y[all_indices].argmax(axis=1),
             sites[all_indices],
             age=torch.tensor(age[all_indices]).type(torch.get_default_dtype()),
-            gender=torch.tensor(gender[all_indices]).long(),
+            gender=torch.tensor(gender[all_indices]).type(torch.get_default_dtype()),
         )
         n_train = len(labeled_train_indices)
         n_test = len(test_indices)
         labeled_train_indices = np.array(range(n_train))
         test_indices = np.array(range(n_train, n_train + n_test))
         all_train_indices = None
+    data.d = torch.eye(data.d.unique().size(0))[data.d].type(torch.get_default_dtype())
     return data, labeled_train_indices, all_train_indices, test_indices
 
 
