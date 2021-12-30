@@ -175,6 +175,8 @@ class PowerCrossleyVisualizer:
 
     def _prepare_sensitivity_matrix(self, score_matrix, sen_file_path, threshold=0.1):
         nodal_sensitivity = self._get_nodal_sensitivity(score_matrix, axis=0)
+        std = np.std(nodal_sensitivity)
+        nodal_sensitivity = nodal_sensitivity / std
         t = self._get_threshold(nodal_sensitivity, threshold)
         final_sensitivity = nodal_sensitivity * (nodal_sensitivity > t)
         self._power_sphere(final_sensitivity, sen_file_path)
@@ -324,6 +326,8 @@ class PowerCrossleyVisualizer:
 
     def plot_module_sensitivity_map(self, score_matrix, output_file, vmax=None):
         msm = self._get_module_sensitivity_map(score_matrix)
+        std = np.std(msm)
+        msm = msm / std
         f = plt.figure()
         plt.imshow(msm.astype(float), cmap="hot", interpolation="nearest", vmax=vmax)
         plt.colorbar()
