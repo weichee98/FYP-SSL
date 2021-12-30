@@ -2,6 +2,7 @@ import os
 import time
 import random
 import traceback
+import subprocess
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -18,6 +19,7 @@ def on_error(value, print_error_stack=True):
     and returns a default value on error
     value: the default value to be returned when error occured
     """
+
     def decorator(function):
         def wrapper(*args, **kwargs):
             try:
@@ -26,7 +28,9 @@ def on_error(value, print_error_stack=True):
                 if print_error_stack:
                     traceback.print_exc()
                 return value
+
         return wrapper
+
     return decorator
 
 
@@ -35,11 +39,9 @@ def log_time(function):
         start = time.time()
         res = function(*args, **kwargs)
         end = time.time()
-        print(
-            "[{}] takes {:.5f} s"
-            .format(function.__name__, end - start)
-        )
+        print("[{}] takes {:.5f} s".format(function.__name__, end - start))
         return res
+
     return wrapper
 
 
@@ -55,7 +57,7 @@ def get_device(id):
 
 def seed_torch(seed=42):
     random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -79,3 +81,13 @@ def get_pbar(max_epoch, verbose):
         return tqdm(epoch_gen(max_epoch))
     else:
         return epoch_gen(max_epoch)
+
+
+def get_gpu():
+    command = "nvidia-smi --query-gpu=memory.free --format=csv"
+    memory_free_info = (
+        subprocess.check_output(command.split()).decode("ascii").split("\n")[:-1][1:]
+    )
+    memory_free_values = [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
+    gpu = np.argmax(memory_free_values)
+    return get_device(gpu)
