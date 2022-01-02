@@ -113,6 +113,73 @@ class VAESDR(torch.nn.Module, SaliencyScoreForward):
         y = self.classify_disease(z_res)
         return y
 
+    def get_optimizer(model, param):
+        model_optim = torch.optim.Adam(
+            map(
+                lambda p: p[1],
+                filter(
+                    lambda p: p[1].requires_grad
+                    and "dis" not in p[0]
+                    and "cls" not in p[0],
+                    model.named_parameters(),
+                ),
+            ),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+        disease_dis_optim = torch.optim.Adam(
+            map(
+                lambda p: p[1],
+                filter(
+                    lambda p: p[1].requires_grad and "disease_dis" in p[0],
+                    model.named_parameters(),
+                ),
+            ),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+        site_dis_optim = torch.optim.Adam(
+            map(
+                lambda p: p[1],
+                filter(
+                    lambda p: p[1].requires_grad and "site_dis" in p[0],
+                    model.named_parameters(),
+                ),
+            ),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+        disease_cls_optim = torch.optim.Adam(
+            map(
+                lambda p: p[1],
+                filter(
+                    lambda p: p[1].requires_grad and "disease_cls" in p[0],
+                    model.named_parameters(),
+                ),
+            ),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+        site_cls_optim = torch.optim.Adam(
+            map(
+                lambda p: p[1],
+                filter(
+                    lambda p: p[1].requires_grad and "site_cls" in p[0],
+                    model.named_parameters(),
+                ),
+            ),
+            lr=param["lr"],
+            weight_decay=param["l2_reg"],
+        )
+        optimizer = (
+            model_optim,
+            disease_cls_optim,
+            site_cls_optim,
+            disease_dis_optim,
+            site_dis_optim,
+        )
+        return optimizer
+
 
 def _entropy_loss(pred_y):
     uni_dist = torch.ones(pred_y.size(0), device=pred_y.device) / pred_y.size(1)

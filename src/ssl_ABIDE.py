@@ -264,70 +264,7 @@ def load_model(param, data):
     print("MODEL_SIZE: {}".format(param["model_size"]))
 
     if "VAESDR" in param["model"]:
-        model_optim = torch.optim.Adam(
-            map(
-                lambda p: p[1],
-                filter(
-                    lambda p: p[1].requires_grad
-                    and "dis" not in p[0]
-                    and "cls" not in p[0],
-                    model.named_parameters(),
-                ),
-            ),
-            lr=param["lr"],
-            weight_decay=param["l2_reg"],
-        )
-        disease_dis_optim = torch.optim.Adam(
-            map(
-                lambda p: p[1],
-                filter(
-                    lambda p: p[1].requires_grad and "disease_dis" in p[0],
-                    model.named_parameters(),
-                ),
-            ),
-            lr=param["lr"],
-            weight_decay=param["l2_reg"],
-        )
-        site_dis_optim = torch.optim.Adam(
-            map(
-                lambda p: p[1],
-                filter(
-                    lambda p: p[1].requires_grad and "site_dis" in p[0],
-                    model.named_parameters(),
-                ),
-            ),
-            lr=param["lr"],
-            weight_decay=param["l2_reg"],
-        )
-        disease_cls_optim = torch.optim.Adam(
-            map(
-                lambda p: p[1],
-                filter(
-                    lambda p: p[1].requires_grad and "disease_cls" in p[0],
-                    model.named_parameters(),
-                ),
-            ),
-            lr=param["lr"],
-            weight_decay=param["l2_reg"],
-        )
-        site_cls_optim = torch.optim.Adam(
-            map(
-                lambda p: p[1],
-                filter(
-                    lambda p: p[1].requires_grad and "site_cls" in p[0],
-                    model.named_parameters(),
-                ),
-            ),
-            lr=param["lr"],
-            weight_decay=param["l2_reg"],
-        )
-        optimizer = (
-            model_optim,
-            disease_cls_optim,
-            site_cls_optim,
-            disease_dis_optim,
-            site_dis_optim,
-        )
+        optimizer = model.get_optimizer(param)
     else:
         optimizer = torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),
