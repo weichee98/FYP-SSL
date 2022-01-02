@@ -210,8 +210,6 @@ def generate_score_matrices(input_path, output_dir, n_jobs, force):
 
     all_scores, all_params = zip(*results)
     all_scores = np.array(all_scores)
-    output_npy_path = os.path.join(output_dir, score_matrix_filename)
-    np.save(output_npy_path, all_scores)
     output_csv_path = os.path.join(output_dir, score_matrix_meta)
     params_df = pd.DataFrame(all_params)
     params_df.to_csv(output_csv_path, index=False)
