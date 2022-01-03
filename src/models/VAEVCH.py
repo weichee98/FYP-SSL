@@ -45,7 +45,7 @@ class VCH(torch.nn.Module):
             q_batch_mul = torch.distributions.Normal(
                 batch_mul, torch.exp(self.batch_mul_log_std)
             )
-            batch_add = q_batch_mul.rsample()
+            batch_mul = q_batch_mul.rsample()
 
         batch_mul = torch.exp(batch_mul)
         error = (x - self.alpha - age_x - gender_x - batch_add) / batch_mul
@@ -68,6 +68,10 @@ class VCH(torch.nn.Module):
                 batch_add, torch.exp(self.batch_add_log_std)
             )
             batch_add = q_batch_add.rsample()
+            q_batch_mul = torch.distributions.Normal(
+                batch_mul, torch.exp(self.batch_mul_log_std)
+            )
+            batch_mul = q_batch_mul.rsample()
 
         batch_mul = torch.exp(batch_mul)
         x = self.alpha + age_x + gender_x + batch_add + batch_mul * error
