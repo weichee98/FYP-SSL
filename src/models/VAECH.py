@@ -14,6 +14,11 @@ from utils.metrics import ClassificationMetrics as CM
 from models.base import SaliencyScoreForward
 
 
+def init_zero(linear_layer):
+    linear_layer.weight.data.fill_(0.0)
+    linear_layer.bias.data.fill_(0.0)
+
+
 class CH(torch.nn.Module):
     def __init__(self, input_size, num_sites):
         super().__init__()
@@ -23,6 +28,10 @@ class CH(torch.nn.Module):
         self.gender = torch.nn.Linear(2, input_size)
         self.batch_add = torch.nn.Linear(num_sites, input_size)
         self.batch_mul = torch.nn.Linear(num_sites, input_size)
+        init_zero(self.age)
+        init_zero(self.gender)
+        init_zero(self.batch_add)
+        init_zero(self.batch_mul)
 
     def forward(self, x, age, gender, site):
         age_x = self.age(self.age_norm(age))
@@ -90,7 +99,7 @@ class VAECH(torch.nn.Module, SaliencyScoreForward):
 
         y = self.cls3(y)
         y = F.softmax(y, dim=1)  # output for disease classification
-        return y, x_mu, x_std, z, z_mu, z_std, error
+        return y, x_mu, x_std, z, z_mu, z_std, (error, error_mu, self.ch.alpha)
 
     def _encode(self, x):
         x = self.encoder1(x)
@@ -162,7 +171,9 @@ def train_VAECH(
     gender = data.gender.to(device)
     site = data.d.to(device)
 
-    pred_y, x_mu, x_std, z, z_mu, z_std, error = model(x, age, gender, site)
+    pred_y, x_mu, x_std, z, z_mu, z_std, (error, error_mu, alpha) = model(
+        x, age, gender, site
+    )
     real_y = data.y[labeled_idx].to(device)
     if weight:
         _, counts = torch.unique(real_y, sorted=True, return_counts=True)
@@ -186,7 +197,8 @@ def train_VAECH(
         torch.zeros_like(z_mu[all_idx]),
         torch.ones_like(z_std[all_idx]),
     )
-    ch_loss = ch_criterion(error[all_idx], torch.zeros_like(error[all_idx]))
+    error_loss = ch_criterion(error[all_idx], torch.zeros_like(error[all_idx]))
+    ch_loss = error_loss
     loss += gamma1 * rc_loss + gamma2 * kl + ch_loss
 
     loss_val = loss.item()

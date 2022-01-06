@@ -8,6 +8,11 @@ sys.path.append(__dir__)
 from models.VAECH import VAECH
 
 
+def init_zero(linear_layer):
+    linear_layer.weight.data.fill_(0.0)
+    linear_layer.bias.data.fill_(0.0)
+
+
 class VCH(torch.nn.Module):
     def __init__(self, input_size, num_sites):
         super().__init__()
@@ -24,6 +29,11 @@ class VCH(torch.nn.Module):
         self.batch_mul = torch.nn.Linear(num_sites, input_size)
         self.batch_add_log_std = torch.nn.Parameter(torch.tensor([[-1.0]]))
         self.batch_mul_log_std = torch.nn.Parameter(torch.tensor([[-1.0]]))
+
+        init_zero(self.age)
+        init_zero(self.gender)
+        init_zero(self.batch_add)
+        init_zero(self.batch_mul)
 
     def forward(self, x, age, gender, site):
         age_x = self.age(self.age_norm(age))
