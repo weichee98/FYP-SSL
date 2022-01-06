@@ -41,7 +41,7 @@ def get_experiment_param(
                    beta_klzy, beta_d, beta_y, beta_recon)
     8. VGAETS model (embts, emb1, emb2, L1, gamma1, gamma2, 
                     num_process)
-    9. VAESDR model (L1, emb, gamma1, gamma2, gamma3, gamma4, gamma5)
+    9. VAESDR/VAESDRII model (L1, emb, gamma1, gamma2, gamma3, gamma4, gamma5)
     10. VAECH/VAEVCH model (L1, L2, L3, emb, gamma1, gamma2)
     """
     param = dict()
@@ -200,6 +200,13 @@ def load_model(param, data):
             l2=param["L2"],
             l3=param["L3"],
             emb_size=param["emb"],
+        )
+    elif "VAESDRII" in param["model"]:
+        model = VAESDRII(
+            input_size=data.x.size(1),
+            l1=param["L1"],
+            emb_size=param["emb"],
+            num_site=data.d.unique().size(0),
         )
     elif "VAESDR" in param["model"]:
         model = VAESDR(
@@ -738,6 +745,69 @@ def main(args):
             elif model == "VAESDR1":
                 param = get_experiment_param(
                     model="VAESDR1",
+                    L1=300,
+                    emb=150,
+                    gamma1=1e-5,
+                    gamma2=1e-3,
+                    gamma3=1e-3,
+                    gamma4=0.3,
+                    gamma5=1,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "VAESDRII":
+                param = get_experiment_param(
+                    model="VAESDRII",
+                    L1=300,
+                    emb=150,
+                    gamma1=1e-5,
+                    gamma2=1e-3,
+                    gamma3=1e-3,
+                    gamma4=0.3,
+                    gamma5=0,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "VAESDRII0":
+                param = get_experiment_param(
+                    model="VAESDRII0",
+                    L1=300,
+                    emb=150,
+                    gamma1=1e-5,
+                    gamma2=1e-3,
+                    gamma3=1e-3,
+                    gamma4=0,
+                    gamma5=0,
+                    seed=seed,
+                    fold=fold,
+                    ssl=ssl,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.001,
+                    test=False,
+                    harmonized=harmonized,
+                    epochs=1000,
+                )
+            elif model == "VAESDRII1":
+                param = get_experiment_param(
+                    model="VAESDRII1",
                     L1=300,
                     emb=150,
                     gamma1=1e-5,

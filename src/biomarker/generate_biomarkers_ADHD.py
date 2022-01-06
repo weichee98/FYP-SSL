@@ -49,6 +49,13 @@ def load_model(param, data):  # use this instead
             l3=int(param["L3"]),
             emb_size=int(param["emb"]),
         )
+    elif "VAESDRII" in param["model"]:
+        model = VAESDRII(
+            input_size=data.x.size(1),
+            l1=int(param["L1"]),
+            emb_size=int(param["emb"]),
+            num_site=data.d.unique().size(0),
+        )
     elif "VAESDR" in param["model"]:
         model = VAESDR(
             input_size=data.x.size(1),
