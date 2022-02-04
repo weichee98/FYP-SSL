@@ -33,6 +33,37 @@ class SAE(torch.nn.Module):
         )
 
 
+class MaskedSAE(SAE):
+    def __init__(self, input_size=19000, emb=4975, mask_ratio=0.5):
+        self.num_features = int(round(input_size * mask_ratio))
+        super().__init__(self.num_features, emb)
+        self.mask_fitted = False
+        self.mask = torch.zeros(input_size, dtype=torch.bool, requires_grad=False)
+
+    def forward(self, x):
+        if not self.mask_fitted:
+            raise Exception("call train_mask first")
+        x = x[:, self.mask]
+        z = self.encoder(x)
+        z = F.relu(z)
+        x_hat = self.decoder(z)
+        x_hat = torch.tanh(x_hat)
+        return z, x, x_hat
+
+    def train_mask(self, x):
+        n_smallest = int(self.num_features / 2)
+        n_largest = self.num_features - n_smallest
+
+        mean = torch.mean(x, dim=0)
+        n_largest_idx = torch.topk(mean, n_largest)[1]
+        n_smallest_idx = torch.topk(mean, n_smallest, largest=False)[1]
+        self.mask[n_largest_idx] = True
+        self.mask[n_smallest_idx] = True
+
+        self.mask_fitted = True
+        return self
+
+
 class FCNN(torch.nn.Module):
     def __init__(self, input_size=4975, l1=2487, l2=500):
         super().__init__()
@@ -67,9 +98,9 @@ class ASDSAENet(torch.nn.Module):
         self.cls = cls
 
     def forward(self, x):
-        z, x_hat = self.sae(x)
+        z, *x_hat = self.sae(x)
         y = self.cls(z)
-        return y, z, x_hat
+        return y, z, *x_hat
 
 
 def train_SAE(device, model: SAE, data, optimizer, train_idx, beta=2, p=0.05):
@@ -81,6 +112,36 @@ def train_SAE(device, model: SAE, data, optimizer, train_idx, beta=2, p=0.05):
     z, pred_x = model(x)
 
     rc_loss = (x - pred_x) ** 2
+    rc_loss = rc_loss.sum(dim=1).mean()
+
+    if beta > 0:
+        p_hat = (z ** 2).mean()
+        sparsity = torch.sum(
+            p * torch.log(p / p_hat) + (1 - p) * torch.log((1 - p) / (1 - p_hat))
+        )
+        loss = rc_loss + beta * sparsity
+    else:
+        loss = rc_loss
+    loss_val = loss.item()
+    loss.backward()
+    optimizer.step()
+
+    return loss_val
+
+
+def train_MaskedSAE(
+    device, model: MaskedSAE, data, optimizer, train_idx, beta=2, p=0.05
+):
+    model.to(device)
+    model.train()
+    optimizer.zero_grad()
+
+    x = data.x[train_idx].to(device)
+    if not model.mask_fitted:
+        model.train_mask(x)
+    z, masked_x, pred_x = model(x)
+
+    rc_loss = (masked_x - pred_x) ** 2
     rc_loss = rc_loss.sum(dim=1).mean()
 
     if beta > 0:
@@ -110,6 +171,18 @@ def test_SAE(device, model: SAE, data, test_idx):
     return rc_loss.item()
 
 
+def test_MaskedSAE(device, model: MaskedSAE, data, test_idx):
+    model.to(device)
+    model.eval()
+
+    x = data.x[test_idx].to(device)
+    _, masked_x, pred_x = model(x)
+    rc_loss = (masked_x - pred_x) ** 2
+    rc_loss = rc_loss.sum(dim=1).mean()
+
+    return rc_loss.item()
+
+
 def train_FCNN(device, model: FCNN, sae: SAE, data, optimizer, train_idx):
     sae.to(device)
     sae.eval()
@@ -122,7 +195,7 @@ def train_FCNN(device, model: FCNN, sae: SAE, data, optimizer, train_idx):
     x = data.x[train_idx].to(device)
     real_y = data.y[train_idx].to(device)
 
-    z, _ = sae(x)
+    z, *_ = sae(x)
     z = z.detach()
     pred_y = model(z)
     loss = cls_criterion(pred_y, real_y)
@@ -152,7 +225,7 @@ def test_FCNN(device, model: FCNN, sae: SAE, data, test_idx):
 
     x = data.x[test_idx].to(device)
     real_y = data.y[test_idx].to(device)
-    z, _ = sae(x)
+    z, *_ = sae(x)
     pred_y = model(z)
 
     criterion = torch.nn.CrossEntropyLoss()

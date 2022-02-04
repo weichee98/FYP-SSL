@@ -12,7 +12,7 @@ from VGAE import *
 from DIVA import *
 from VGAETS import *
 from VAESDR import *
-from models.VAESDRII import *
+from VAESDRII import *
 from VAECH import *
 from VAEVCH import *
 

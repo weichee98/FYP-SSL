@@ -183,6 +183,8 @@ def train_DIVA(
         weight = counts[[1, 0]] / counts.sum()
     else:
         weight = None
+    if all_idx is None:
+        all_idx = labeled_idx
 
     ce_y = F.cross_entropy(pred_y[labeled_idx], real_y[labeled_idx], weight=weight)
     ce_d = F.cross_entropy(pred_d[all_idx], real_d[all_idx])
