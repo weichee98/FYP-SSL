@@ -9,7 +9,7 @@ import pandas as pd
 
 from config import EXPERIMENT_DIR
 from utils import *
-from models import ASDSAENet, count_parameters
+from models import ASDSAENet, GAEFCNN, count_parameters
 from data import *
 
 
@@ -30,6 +30,10 @@ def get_experiment_param(
     """
     kwargs:
     1. ASDSAENet model (emb, L1, L2, beta, p)
+    2. ASDSAENet1 model (emb, L1, L2, beta, p, mask_ratio)
+    3. GAE-FCNN model (emb1, emb2, tau, l1, l2, l3)
+    3. VGAE-FCNN model (emb1, emb2, tau, l1, l2, l3)
+    3. GCN-FCNN model (emb1, emb2, tau, l1, l2, l3)
     """
     param = dict()
     param["dataset"] = dataset
@@ -88,9 +92,19 @@ def load_data(param):
         labeled_train_indices, test_indices = splits[seed][1][fold]
     param["baseline_accuracy"] = np.mean(Y[test_indices], axis=0).max()
 
-    if param["model"] == "ASDSAENet":
+    if param["model"] in ["ASDSAENet", "ASDSAENet1"]:
         (data, labeled_train_indices, all_train_indices, test_indices) = load_AE_data(
             X, Y, param["ssl"], labeled_train_indices, test_indices
+        )
+    elif param["model"] in ["GAE-FCNN", "VGAE-FCNN", "GCN-FCNN"]:
+        (data, labeled_train_indices, all_train_indices, test_indices) = load_GAE_data(
+            X,
+            Y,
+            param["ssl"],
+            labeled_train_indices,
+            test_indices,
+            num_process=param.get("num_process", 1),
+            verbose=False,
         )
     else:
         raise NotImplementedError(
@@ -119,6 +133,67 @@ def load_model(param, data):
             input_size=param.get("emb", 4975),
             l1=param.get("L1", 2487),
             l2=param.get("L2", 500),
+        )
+    elif param["model"] == "ASDSAENet1":
+        ae = ASDSAENet.MaskedSAE(
+            input_size=data.x.size(1),
+            emb=param.get("emb", 4975),
+            mask_ratio=param.get("masked_ratio", 0.5),
+        )
+        param["num_input_features"] = ae.num_features
+        print("NUM_INPUT_FEATURES: {}".format(ae.num_features))
+        clf = ASDSAENet.FCNN(
+            input_size=param.get("emb", 4975),
+            l1=param.get("L1", 2487),
+            l2=param.get("L2", 500),
+        )
+    elif param["model"] == "GAE-FCNN":
+        batch = next(iter(data[0]))
+        ae = GAEFCNN.GCNAE(
+            input_size=batch.x.size(1),
+            emb1=param.get("emb1", 64),
+            emb2=param.get("emb2", 16),
+            tau=param.get("tau", 0.25),
+        )
+        input_size = param.get("emb2") or param.get("emb1") or 16
+        clf = GAEFCNN.GFCNN(
+            input_size=input_size,
+            num_nodes=batch.x.size(0),
+            l1=param.get("L1", 256),
+            l2=param.get("L2", 256),
+            l3=param.get("L3", 128),
+        )
+    elif param["model"] == "VGAE-FCNN":
+        batch = next(iter(data[0]))
+        ae = GAEFCNN.VGCNAE(
+            input_size=batch.x.size(1),
+            emb1=param.get("emb1", 64),
+            emb2=param.get("emb2", 16),
+            tau=param.get("tau", 0.25),
+        )
+        input_size = param.get("emb2") or param.get("emb1") or 16
+        clf = GAEFCNN.GFCNN(
+            input_size=input_size,
+            num_nodes=batch.x.size(0),
+            l1=param.get("L1", 256),
+            l2=param.get("L2", 256),
+            l3=param.get("L3", 128),
+        )
+    elif param["model"] == "GCN-FCNN":
+        batch = next(iter(data[0]))
+        ae = GAEFCNN.GCN(
+            input_size=batch.x.size(1),
+            emb1=param.get("emb1", 64),
+            emb2=param.get("emb2", 16),
+            tau=param.get("tau", 0.25),
+        )
+        input_size = param.get("emb2") or param.get("emb1") or 16
+        clf = GAEFCNN.GFCNN(
+            input_size=input_size,
+            num_nodes=batch.x.size(0),
+            l1=param.get("L1", 256),
+            l2=param.get("L2", 256),
+            l3=param.get("L3", 128),
         )
     else:
         raise TypeError("Invalid model of type {}".format(param["model"]))
@@ -149,6 +224,21 @@ def ae_train_test_step(
             p=param.get("p", 0.05),
         )
         test_loss = ASDSAENet.test_SAE(device, ae, data, test_indices)
+    elif param["model"] == "ASDSAENet1":
+        train_loss = ASDSAENet.train_MaskedSAE(
+            device,
+            ae,
+            data,
+            ae_optimizer,
+            labeled_train_indices,
+            beta=param.get("beta", 2),
+            p=param.get("p", 0.05),
+        )
+        test_loss = ASDSAENet.test_MaskedSAE(device, ae, data, test_indices)
+    elif param["model"] in ["GAE-FCNN", "VGAE-FCNN"]:
+        train_dl, _, test_dl = data
+        train_loss = GAEFCNN.train_GCNAE(device, ae, train_dl, ae_optimizer)
+        test_loss = GAEFCNN.test_GCNAE(device, ae, test_dl)
     else:
         raise TypeError("Invalid model of type {}".format(param["model"]))
     return train_loss, test_loss
@@ -157,12 +247,27 @@ def ae_train_test_step(
 def clf_train_test_step(
     param, device, clf, ae, data, clf_optimizer, labeled_train_indices, test_indices,
 ):
-    if param["model"] == "ASDSAENet":
+    if param["model"] in ["ASDSAENet", "ASDSAENet1"]:
         train_loss, train_acc, _ = ASDSAENet.train_FCNN(
             device, clf, ae, data, clf_optimizer, labeled_train_indices
         )
         test_loss, test_acc, test_metrics = ASDSAENet.test_FCNN(
             device, clf, ae, data, test_indices
+        )
+    elif param["model"] in ["GAE-FCNN", "VGAE-FCNN"]:
+        train_dl, _, test_dl = data
+        train_loss, train_acc, _ = GAEFCNN.train_GFCNN(
+            device, clf, ae, train_dl, clf_optimizer
+        )
+        test_loss, test_acc, test_metrics = GAEFCNN.test_GFCNN(device, clf, ae, test_dl)
+    elif param["model"] == "GCN-FCNN":
+        train_dl, _, test_dl = data
+        gcn_optimizer, clf_optimizer = clf_optimizer
+        train_loss, train_acc, _ = GAEFCNN.train_GCNFCNN(
+            device, ae, clf, train_dl, gcn_optimizer, clf_optimizer
+        )
+        test_loss, test_acc, test_metrics = GAEFCNN.test_GCNFCNN(
+            device, ae, clf, test_dl
         )
     else:
         raise TypeError("Invalid model of type {}".format(param["model"]))
@@ -236,7 +341,13 @@ def clf_training_loop(
             best_acc = test_acc
             acc_loss = test_loss
             best_metrics = test_metrics
-            best_model = copy.deepcopy(clf.state_dict())
+            if param["model"] == "GCN-FCNN":
+                best_model = (
+                    copy.deepcopy(ae.state_dict()),
+                    copy.deepcopy(clf.state_dict()),
+                )
+            else:
+                best_model = copy.deepcopy(clf.state_dict())
             cur_patience = 0
         else:
             cur_patience += 1
@@ -256,10 +367,16 @@ def clf_training_loop(
         if cur_patience == patience:
             break
 
-    clf.load_state_dict(best_model)
+    if param["model"] == "GCN-FCNN":
+        ae.load_state_dict(best_model[0])
+        clf.load_state_dict(best_model[1])
+        best_model = (ae, clf)
+    else:
+        clf.load_state_dict(best_model)
+        best_model = clf
     return dict(
         best_clf_epoch=best_epoch,
-        best_clf=clf,
+        best_clf=best_model,
         best_acc=best_acc,
         best_clf_loss=best_loss,
         acc_loss=acc_loss,
@@ -333,32 +450,48 @@ def experiment(args, param, model_dir):
     (data, labeled_train_indices, _, test_indices) = load_data(param)
     (ae, clf), (ae_optimizer, clf_optimizer) = load_model(param, data)
 
-    ae_res = ae_training_loop(
-        param,
-        verbose,
-        device,
-        ae,
-        data,
-        ae_optimizer,
-        labeled_train_indices,
-        test_indices,
-    )
-    ae = ae_res["best_ae"]
+    if param["model"] != "GCN-FCNN":
+        ae_res = ae_training_loop(
+            param,
+            verbose,
+            device,
+            ae,
+            data,
+            ae_optimizer,
+            labeled_train_indices,
+            test_indices,
+        )
+        ae = ae_res["best_ae"]
+        clf_res = clf_training_loop(
+            param,
+            verbose,
+            device,
+            (ae, clf),
+            data,
+            clf_optimizer,
+            labeled_train_indices,
+            test_indices,
+        )
+        clf = clf_res["best_clf"]
+    else:
+        ae_res = dict()
+        clf_res = clf_training_loop(
+            param,
+            verbose,
+            device,
+            (ae, clf),
+            data,
+            (ae_optimizer, clf_optimizer),
+            labeled_train_indices,
+            test_indices,
+        )
+        ae, clf = clf_res["best_clf"]
 
-    clf_res = clf_training_loop(
-        param,
-        verbose,
-        device,
-        (ae, clf),
-        data,
-        clf_optimizer,
-        labeled_train_indices,
-        test_indices,
-    )
-    clf = clf_res["best_clf"]
-
-    if param["model"] == "ASDSAENet":
+    if param["model"] in ["ASDSAENet", "ASDSAENet1"]:
         best_model = ASDSAENet.ASDSAENet(ae, clf)
+        best_model = best_model.state_dict()
+    elif param["model"] in ["GAE-FCNN", "VGAE-FCNN", "GCN-FCNN"]:
+        best_model = GAEFCNN.GAEFCNN(ae, clf)
         best_model = best_model.state_dict()
     else:
         raise TypeError("Invalid model of type {}".format(param["model"]))
@@ -377,11 +510,11 @@ def experiment(args, param, model_dir):
         time=end - start,
         device=args.gpu,
         model_path=model_path,
-        best_ae_epoch=ae_res["best_ae_epoch"],
+        best_ae_epoch=ae_res.get("best_ae_epoch"),
         best_clf_epoch=clf_res["best_clf_epoch"],
         acc=clf_res["best_acc"],
         clf_loss=clf_res["best_clf_loss"],
-        ae_loss=ae_res["best_ae_loss"],
+        ae_loss=ae_res.get("best_ae_loss"),
         acc_loss=clf_res["acc_loss"],
         **clf_res["best_metrics"]
     )
@@ -392,8 +525,8 @@ def experiment(args, param, model_dir):
         "test_accuracies": clf_res["test_accuracies"],
         "train_clf_losses": clf_res["train_clf_losses"],
         "test_clf_losses": clf_res["test_clf_losses"],
-        "train_ae_losses": ae_res["train_ae_losses"],
-        "test_ae_losses": ae_res["test_ae_losses"],
+        "train_ae_losses": ae_res.get("train_ae_losses"),
+        "test_ae_losses": ae_res.get("test_ae_losses"),
     }
     training_curve.update(param)
     return param, training_curve
@@ -465,7 +598,7 @@ def main(args):
                     args.dataset,
                     model="ASDSAENet",
                     emb=4975,
-                    l1=2487,
+                    l1=2486,
                     l2=500,
                     p=0.05,
                     beta=2,
@@ -476,7 +609,86 @@ def main(args):
                     lr=0.0001,
                     l2_reg=0.0001,
                     test=False,
-                    epochs=1000,
+                    epochs=5000,
+                )
+            elif model == "ASDSAENet1":
+                param = get_experiment_param(
+                    args.dataset,
+                    model="ASDSAENet1",
+                    emb=4975,
+                    l1=2486,
+                    l2=500,
+                    p=0.05,
+                    beta=2,
+                    masked_ratio=0.5,
+                    seed=seed,
+                    fold=fold,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.0001,
+                    test=False,
+                    epochs=5000,
+                )
+            elif model == "GCN-FCNN":
+                param = get_experiment_param(
+                    args.dataset,
+                    model="GCN-FCNN",
+                    emb1=94,
+                    emb2=0,
+                    l1=128,
+                    l2=264,
+                    l3=0,
+                    tau=0.25,
+                    seed=seed,
+                    fold=fold,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.0001,
+                    test=False,
+                    epochs=400,
+                    num_process=10,
+                )
+            elif model == "GAE-FCNN":
+                param = get_experiment_param(
+                    args.dataset,
+                    model="GAE-FCNN",
+                    emb1=64,
+                    emb2=16,
+                    l1=256,
+                    l2=256,
+                    l3=128,
+                    tau=0.25,
+                    seed=seed,
+                    fold=fold,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.0001,
+                    test=False,
+                    epochs=400,
+                    num_process=10,
+                )
+            elif model == "VGAE-FCNN":
+                param = get_experiment_param(
+                    args.dataset,
+                    model="VGAE-FCNN",
+                    emb1=64,
+                    emb2=16,
+                    l1=256,
+                    l2=256,
+                    l3=128,
+                    tau=0.25,
+                    seed=seed,
+                    fold=fold,
+                    save_model=save_model,
+                    site=site,
+                    lr=0.0001,
+                    l2_reg=0.0001,
+                    test=False,
+                    epochs=400,
+                    num_process=10,
                 )
             else:
                 raise NotImplementedError("{} not implemented".format(args.model))
