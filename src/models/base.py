@@ -1,25 +1,112 @@
-import torch
+from __future__ import annotations
+from typing import OrderedDict, Sequence, Optional, Tuple, Dict, Any
+from abc import ABC, abstractmethod, abstractstaticmethod
+
 import numpy as np
-from abc import ABC, abstractmethod
 from captum.attr import IntegratedGradients
 from scipy.spatial.distance import squareform
+
+import torch
+from torch_geometric.data import Data
+from torch.optim import Optimizer, Adam
+from torch.nn import Module, Sequential, Parameter, Linear, ReLU, Dropout, Tanh
+
+
+class LinearLayer(Sequential):
+    def __init__(self, input_size: int, output_size: int, dropout: float = 0):
+        super().__init__(
+            Linear(input_size, output_size), ReLU(), Dropout(dropout)
+        )
+
+
+class FeedForward(Sequential):
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: Sequence[int],
+        output_size: int,
+        output_activation: Optional[Module] = None,
+        dropout: float = 0,
+    ):
+        layers_dim = [input_size] + list(hidden_size) + [output_size]
+        layers: list = [
+            LinearLayer(layers_dim[i], layers_dim[i + 1], dropout)
+            for i in range(len(layers_dim) - 2)
+        ] + [
+            Linear(layers_dim[-2], layers_dim[-1]),
+        ]
+        if output_activation is not None:
+            layers.append(output_activation)
+        super().__init__(*layers)
+
+
+class VariationalEncoder(Module):
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: Sequence[int],
+        emb_size: int,
+        dropout: float = 0,
+    ):
+        super().__init__()
+        layers_dim = [input_size] + list(hidden_size) + [emb_size]
+        layers = [
+            LinearLayer(layers_dim[i], layers_dim[i + 1], dropout)
+            for i in range(len(layers_dim) - 2)
+        ]
+        self.hidden = Sequential(*layers,)
+        self.mu = Linear(layers_dim[-2], layers_dim[-1])
+        self.log_std = Linear(layers_dim[-2], layers_dim[-1])
+
+    def forward(self, x: torch.Tensor):
+        hidden = self.hidden(x)
+        mu = self.mu(hidden)
+        log_std: torch.Tensor = self.log_std(hidden)
+        std = log_std.exp()
+        return mu, std
+
+
+class VariationalDecoder(Module):
+    def __init__(
+        self,
+        emb_size: int,
+        hidden_size: Sequence[int],
+        output_size: int,
+        output_activation: Module = Tanh(),
+        dropout: float = 0,
+    ):
+        super().__init__()
+        self.decoder = FeedForward(
+            emb_size, hidden_size, output_size, output_activation, dropout
+        )
+        self.log_std = Parameter(torch.zeros(1, output_size))
+
+    def forward(self, z: torch.Tensor):
+        mu = self.decoder(z)
+        std = self.log_std.expand(z.size(0), self.log_std.size(1)).exp()
+        return mu, std
 
 
 class SaliencyScoreForward(ABC):
     @abstractmethod
-    def ss_forward(self, *args):
+    def ss_forward(self, *args) -> torch.Tensor:
         raise NotImplementedError
 
-    def get_baselines_inputs(self, data):
-        x, y = data.x, data.y
+    def get_baselines_inputs(
+        self, data: Data
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        x: torch.Tensor = data.x
+        y: torch.Tensor = data.y
         baselines = x[y == 0].mean(dim=0).view(1, -1)
         inputs = x[y == 1]
         return baselines, inputs
 
-    def saliency_score(self, data):
+    def saliency_score(self, data: Data) -> torch.Tensor:
         baselines, inputs = self.get_baselines_inputs(data)
         ig = IntegratedGradients(self.ss_forward, True)
-        scores = ig.attribute(inputs=inputs, baselines=baselines, target=1)
+        scores: torch.Tensor = ig.attribute(
+            inputs=inputs, baselines=baselines, target=1
+        )
 
         scores = scores.detach().cpu().numpy()
         scores = np.array([squareform(score) for score in scores])
@@ -27,7 +114,9 @@ class SaliencyScoreForward(ABC):
 
 
 class GraphSaliencyScoreForward(SaliencyScoreForward):
-    def get_baselines_inputs(self, data):
+    def get_baselines_inputs(
+        self, data: Sequence[Data]
+    ) -> Tuple[Tuple[torch.Tensor, torch.Tensor], Sequence[Data]]:
         baselines = [(d.x, d.adj_t) for d in data if torch.all(d.y == 0)]
         baselines_x, baselines_adj = zip(*baselines)
         baselines_x = torch.stack(baselines_x, dim=0).mean(dim=0)
@@ -36,15 +125,110 @@ class GraphSaliencyScoreForward(SaliencyScoreForward):
         inputs = [d for d in data if torch.all(d.y == 1)]
         return (baselines_x, baselines_adj), inputs
 
-    def get_saliency_score(self, data, baselines):
+    def get_saliency_score(
+        self, data: Data, baselines: Tuple[torch.Tensor, torch.Tensor]
+    ) -> torch.Tensor:
         x, adj = data.x, data.adj_t
         ig = IntegratedGradients(self.ss_forward, True)
         _, score = ig.attribute(inputs=(x, adj), baselines=baselines, target=1,)
         return score
 
-    def saliency_score(self, data):
+    def saliency_score(self, data: Sequence[Data]) -> torch.Tensor:
         baselines, inputs = self.get_baselines_inputs(data)
         scores = [self.get_saliency_score(d, baselines) for d in inputs]
         scores = torch.stack(scores, dim=0)
         scores = scores.detach().cpu().numpy()
         return scores
+
+
+class ModelBase(Module, SaliencyScoreForward):
+    def __init__(self):
+        super().__init__()
+
+    def get_optimizer(self, param: dict) -> Optimizer:
+        optim = Adam(
+            filter(lambda p: p.requires_grad, self.parameters()),
+            lr=param.get("lr", 0.0001),
+            weight_decay=param.get("l2_reg", 0.0),
+        )
+        return optim
+
+    @abstractstaticmethod
+    def state_dict_mapping() -> dict:
+        raise NotImplementedError
+
+    @classmethod
+    def update_old_parameters(
+        cls,
+        old_state_dict: OrderedDict[str, torch.Tensor],
+        model_params: Dict[str, Any],
+    ) -> OrderedDict[str, torch.Tensor]:
+        return old_state_dict
+
+    @classmethod
+    def _load_from_old_state_dict(
+        cls,
+        old_state_dict: OrderedDict[str, torch.Tensor],
+        model_params: Dict[str, Any],
+    ) -> ModelBase:
+        mapping = cls.state_dict_mapping()
+        state_dict = {mapping.get(k, k): v for k, v in old_state_dict.items()}
+        state_dict = cls.update_old_parameters(state_dict, model_params)
+        model = cls(**model_params)
+        model.load_state_dict(state_dict)
+        return model
+
+    @classmethod
+    def load_from_state_dict(
+        cls,
+        path: str,
+        model_params: Dict[str, Any],
+        device: torch.device = torch.device("cpu"),
+    ) -> ModelBase:
+        state_dict: OrderedDict[str, torch.Tensor] = torch.load(
+            path, map_location=device
+        )
+        try:
+            model = cls(**model_params)
+            model.load_state_dict(state_dict)
+            return model
+        except Exception as e1:
+            if "Missing key(s) in state_dict" in str(e1):
+                return cls._load_from_old_state_dict(state_dict, model_params)
+            raise e1
+
+    @abstractmethod
+    def train_step(
+        self,
+        device: torch.device,
+        labeled_data: Data,
+        unlabeled_data: Optional[Data],
+        optimizer: Optimizer,
+        hyperparameters: Dict[str, Any],
+    ) -> Dict[str, float]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def test_step(
+        self, device: torch.device, test_data: Data
+    ) -> Dict[str, float]:
+        raise NotImplementedError
+
+
+class GraphModelBase(ModelBase):
+    @abstractmethod
+    def train_step(
+        self,
+        device: torch.device,
+        labeled_data: Sequence[Data],
+        unlabeled_data: Optional[Sequence[Data]],
+        optimizer: Optimizer,
+        hyperparameters: Dict[str, Any],
+    ) -> Dict[str, float]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def test_step(
+        self, device: torch.device, test_data: Sequence[Data]
+    ) -> Dict[str, float]:
+        raise NotImplementedError

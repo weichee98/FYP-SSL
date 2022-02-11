@@ -1,21 +1,19 @@
+__all__ = ["FFN" "AE_FFN", "VAE_FFN", "VAECH", "VAECH_I", "VAECH_II", "VAESDR"]
+
 import os
 import sys
+from torch.nn import Module
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from GCN import *
-from GNN import *
-from FFN import *
-from AE import *
-from VAE import *
-from VGAE import *
-from DIVA import *
-from VGAETS import *
-from VAESDR import *
-from VAESDRII import *
-from VAECH import *
-from VAEVCH import *
+from .FFN import FFN
+from .AE_FFN import AE_FFN
+from .VAE_FFN import VAE_FFN
+from .VAECH import VAECH
+from .VAECH_I import VAECH_I
+from .VAECH_II import VAECH_II
+from .VAESDR import VAESDR
 
 
-def count_parameters(model):
+def count_parameters(model: Module):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)

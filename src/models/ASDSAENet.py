@@ -1,246 +1,325 @@
 import os
 import sys
+from typing import Any, Dict, Optional
 import torch
 import torch.nn.functional as F
+from torch.nn import Module, Sequential, Tanh, Parameter, Linear, ReLU, Softmax
+from torch.optim import Adam, Optimizer
+from torch_geometric.data import Data
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
 
+from models.base import FeedForward, ModelBase
 from utils.metrics import ClassificationMetrics as CM
 
 
-class SAE(torch.nn.Module):
-    def __init__(self, input_size=9500, emb=4975):
+class SAE(ModelBase):
+    def __init__(self, input_size: int = 9500, emb_size: int = 4975):
         super().__init__()
-        self.encoder = torch.nn.Linear(input_size, emb)
-        self.decoder = torch.nn.Linear(emb, input_size)
+        self.encoder = FeedForward(input_size, [], emb_size)
+        self.decoder = FeedForward(emb_size, [], input_size, Tanh())
 
-    def forward(self, x):
+    @staticmethod
+    def state_dict_mapping() -> dict:
+        return dict()
+
+    def ss_forward(self, *args) -> torch.Tensor:
+        raise NotImplementedError
+
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
+        return self.encoder(x)
+
+    def decode(self, z: torch.Tensor) -> torch.Tensor:
+        return self.decoder(z)
+
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         z = self.encoder(x)
-        z = F.relu(z)
-        x_hat = self.decoder(z)
-        x_hat = torch.tanh(x_hat)
-        return z, x_hat
+        x_hat = self.decoder(F.relu(z))
+        return {"z": z, "x_hat": x_hat}
 
-    def get_optimizer(model, lr=0.0001, lmbda=0.0001):
-        return torch.optim.Adam(
-            map(
-                lambda p: p[1],
-                filter(lambda p: p[1].requires_grad, model.named_parameters(),),
-            ),
-            lr=lr,
-            weight_decay=lmbda,
+    def get_optimizer(self, param: dict) -> Optimizer:
+        optim = Adam(
+            filter(lambda p: p.requires_grad, self.parameters()),
+            lr=param.get("lr", 0.0001),
+            weight_decay=param.get("l2_reg", 0.0001),
         )
+        return optim
+
+    def train_step(
+        self,
+        device: torch.device,
+        labeled_data: Data,
+        unlabeled_data: Optional[Data],
+        optimizer: Optimizer,
+        hyperparameters: Dict[str, Any],
+    ) -> Dict[str, float]:
+        self.to(device)
+        self.train()
+
+        with torch.enable_grad():
+            optimizer.zero_grad()
+
+            x: torch.Tensor = labeled_data.x
+            x = x.to(device)
+
+            result = self(x)
+            pred_x = result["x_hat"]
+            z: torch.Tensor = result["z"]
+
+            beta = hyperparameters.get("beta", 2)
+            p = hyperparameters.get("p", 0.05)
+            eps = hyperparameters.get("eps", 1e-4)
+
+            rc_loss = F.mse_loss(x, pred_x, reduction="sum")
+            rc_loss = rc_loss.sum(dim=1).mean()
+
+            p_hat = torch.maximum((z ** 2).mean(), eps)
+            sparsity = torch.sum(
+                p * torch.log(p / p_hat)
+                + (1 - p) * torch.log((1 - p) / (1 - p_hat))
+            )
+            total_loss = rc_loss + beta * sparsity
+            total_loss.backward()
+            optimizer.step()
+
+        return {"rc_loss": rc_loss.item(), "sparsity": sparsity.item()}
+
+    def test_step(
+        self, device: torch.device, test_data: Data
+    ) -> Dict[str, float]:
+        self.to(device)
+        self.eval()
+
+        with torch.enable_grad():
+            x: torch.Tensor = test_data.x
+            x = x.to(device)
+
+            result = self(x)
+            pred_x = result["x_hat"]
+
+            rc_loss = F.mse_loss(x, pred_x, reduction="sum")
+            rc_loss = rc_loss.sum(dim=1).mean()
+
+        return {"rc_loss": rc_loss.item()}
 
 
 class MaskedSAE(SAE):
-    def __init__(self, input_size=19000, emb=4975, mask_ratio=0.5):
+    def __init__(
+        self,
+        input_size: int = 19000,
+        emb_size: int = 4975,
+        mask_ratio: float = 0.5,
+        mask_fitted: bool = False,
+    ):
         self.num_features = int(round(input_size * mask_ratio))
-        super().__init__(self.num_features, emb)
-        self.mask_fitted = False
-        self.mask = torch.zeros(input_size, dtype=torch.bool, requires_grad=False)
+        super().__init__(self.num_features, emb_size)
+        self.mask_fitted = mask_fitted
+        self.mask = Parameter(
+            torch.zeros(input_size, dtype=torch.bool), requires_grad=False
+        )
 
-    def forward(self, x):
-        if not self.mask_fitted:
-            raise Exception("call train_mask first")
-        x = x[:, self.mask]
-        z = self.encoder(x)
-        z = F.relu(z)
-        x_hat = self.decoder(z)
-        x_hat = torch.tanh(x_hat)
-        return z, x, x_hat
-
-    def train_mask(self, x):
+    def fit_mask(self, x: torch.Tensor):
         n_smallest = int(self.num_features / 2)
         n_largest = self.num_features - n_smallest
+        mask = torch.zeros(x.size(0), dtype=torch.bool)
 
-        mean = torch.mean(x, dim=0)
+        mean = x.mean(dim=0)
         n_largest_idx = torch.topk(mean, n_largest)[1]
         n_smallest_idx = torch.topk(mean, n_smallest, largest=False)[1]
-        self.mask[n_largest_idx] = True
-        self.mask[n_smallest_idx] = True
+        mask[n_largest_idx] = True
+        mask[n_smallest_idx] = True
 
+        self.mask = Parameter(mask, requires_grad=False)
         self.mask_fitted = True
         return self
 
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        if not self.mask_fitted:
+            raise Exception("call train_mask first")
+        x = x[:, self.mask]
+        res = super().forward(x)
+        res["masked_x"] = x
+        return res
 
-class FCNN(torch.nn.Module):
-    def __init__(self, input_size=4975, l1=2487, l2=500):
+    def train_step(
+        self,
+        device: torch.device,
+        labeled_data: Data,
+        unlabeled_data: Optional[Data],
+        optimizer: Optimizer,
+        hyperparameters: Dict[str, Any],
+    ) -> Dict[str, float]:
+        self.to(device)
+        self.train()
+        x: torch.Tensor = labeled_data.x
+        x = x.to(device)
+
+        if not self.mask_fitted:
+            self.fit_mask(x)
+
+        with torch.enable_grad():
+            optimizer.zero_grad()
+
+            result = self(x)
+            pred_x = result["x_hat"]
+            masked_x = result["masked_x"]
+            z: torch.Tensor = result["z"]
+
+            beta = hyperparameters.get("beta", 2)
+            p = hyperparameters.get("p", 0.05)
+            eps = hyperparameters.get("eps", 1e-4)
+
+            rc_loss = F.mse_loss(masked_x, pred_x, reduction="sum")
+            rc_loss = rc_loss.sum(dim=1).mean()
+
+            p_hat = torch.maximum((z ** 2).mean(), eps)
+            sparsity = torch.sum(
+                p * torch.log(p / p_hat)
+                + (1 - p) * torch.log((1 - p) / (1 - p_hat))
+            )
+            total_loss = rc_loss + beta * sparsity
+            total_loss.backward()
+            optimizer.step()
+
+        return {"rc_loss": rc_loss.item(), "sparsity": sparsity.item()}
+
+    def test_step(
+        self, device: torch.device, test_data: Data
+    ) -> Dict[str, float]:
+        self.to(device)
+        self.eval()
+
+        with torch.enable_grad():
+            x: torch.Tensor = test_data.x
+            x = x.to(device)
+
+            result = self(x)
+            pred_x = result["x_hat"]
+            masked_x = result["masked_x"]
+
+            rc_loss = F.mse_loss(masked_x, pred_x, reduction="sum")
+            rc_loss = rc_loss.sum(dim=1).mean()
+
+        return {"rc_loss": rc_loss.item()}
+
+
+class FCNN(ModelBase):
+    def __init__(self, input_size: int = 4975, hidden_1: int = 2487, hidden_2: int = 500, output_size: int = 2):
         super().__init__()
-        self.clf = torch.nn.Sequential(
-            torch.nn.Linear(input_size, l1),
-            torch.nn.ReLU(),
-            torch.nn.Linear(l1, l2),
-            torch.nn.ReLU(),
-            torch.nn.Linear(l2, 2),
+        self.clf = Sequential(
+            Linear(input_size, hidden_1),
+            ReLU(),
+            Linear(hidden_1, hidden_2),
+            ReLU(),
+            Linear(hidden_2, output_size),
+            Softmax()
         )
 
-    def forward(self, x):
-        y = self.clf(x)
-        y = F.softmax(y, dim=1)
+    @staticmethod
+    def state_dict_mapping() -> dict:
+        return dict()
+
+    def ss_forward(self, *args) -> torch.Tensor:
+        raise NotImplementedError
+
+    def forward(self, z: torch.Tensor) -> torch.Tensor:
+        y = self.clf(z)
         return y
 
-    def get_optimizer(model, lr=0.0001, lmbda=0.0001):
-        return torch.optim.Adam(
-            map(
-                lambda p: p[1],
-                filter(lambda p: p[1].requires_grad, model.named_parameters(),),
-            ),
-            lr=lr,
-            weight_decay=lmbda,
+    def get_optimizer(self, param: dict) -> Optimizer:
+        optim = Adam(
+            filter(lambda p: p.requires_grad, self.parameters()),
+            lr=param.get("lr", 0.0001),
+            weight_decay=param.get("l2_reg", 0.0001),
         )
+        return optim
+
+    def train_step(
+        self,
+        device: torch.device,
+        labeled_data: Data,
+        unlabeled_data: Optional[Data],
+        optimizer: Optimizer,
+        hyperparameters: Dict[str, Any],
+    ) -> Dict[str, float]:
+        self.to(device)
+        self.train()
+        with torch.enable_grad():
+            optimizer.zero_grad()
+
+            z: torch.Tensor = labeled_data.z
+            real_y: torch.Tensor = labeled_data.y
+            z, real_y = z.to(device), real_y.to(device)
+            z = z.detach()
+
+            pred_y = self(z)
+            ce_loss = F.cross_entropy(pred_y, real_y)
+            ce_loss.backward()
+            optimizer.step()
+
+            accuracy = CM.accuracy(real_y, pred_y)
+            sensitivity = CM.tpr(real_y, pred_y)
+            specificity = CM.tnr(real_y, pred_y)
+            precision = CM.ppv(real_y, pred_y)
+            f1_score = CM.f1_score(real_y, pred_y)
+            metrics = {
+                "ce_loss": ce_loss.item(),
+                "accuracy": accuracy.item(),
+                "sensitivity": sensitivity.item(),
+                "specificity": specificity.item(),
+                "f1": f1_score.item(),
+                "precision": precision.item(),
+            }
+        return metrics
+
+    def test_step(
+        self, device: torch.device, test_data: Data
+    ) -> Dict[str, float]:
+        self.to(device)
+        self.eval()
+
+        with torch.no_grad():
+            z: torch.Tensor = test_data.z
+            real_y: torch.Tensor = test_data.y
+            z, real_y = z.to(device), real_y.to(device)
+
+            pred_y = self(z)
+            ce_loss = F.cross_entropy(pred_y, real_y)
+
+            accuracy = CM.accuracy(real_y, pred_y)
+            sensitivity = CM.tpr(real_y, pred_y)
+            specificity = CM.tnr(real_y, pred_y)
+            precision = CM.ppv(real_y, pred_y)
+            f1_score = CM.f1_score(real_y, pred_y)
+
+            metrics = {
+                "ce_loss": ce_loss.item(),
+                "accuracy": accuracy.item(),
+                "sensitivity": sensitivity.item(),
+                "specificity": specificity.item(),
+                "f1": f1_score.item(),
+                "precision": precision.item(),
+            }
+        return metrics
 
 
-class ASDSAENet(torch.nn.Module):
+class ASDSAENet(Module):
     def __init__(self, sae: SAE, cls: FCNN):
         super().__init__()
         self.sae = sae
         self.cls = cls
 
-    def forward(self, x):
-        z, *x_hat = self.sae(x)
-        y = self.cls(z)
-        return y, z, *x_hat
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
+        return self.sae(x)["z"]
 
+    def decode(self, z: torch.Tensor) -> torch.Tensor:
+        return self.sae.decode(z)
 
-def train_SAE(device, model: SAE, data, optimizer, train_idx, beta=2, p=0.05):
-    model.to(device)
-    model.train()
-    optimizer.zero_grad()
+    def classify(self, z: torch.Tensor) -> torch.Tensor:
+        return self.cls(F.relu(z))
 
-    x = data.x[train_idx].to(device)
-    z, pred_x = model(x)
-
-    rc_loss = (x - pred_x) ** 2
-    rc_loss = rc_loss.sum(dim=1).mean()
-
-    if beta > 0:
-        p_hat = (z ** 2).mean()
-        sparsity = torch.sum(
-            p * torch.log(p / p_hat) + (1 - p) * torch.log((1 - p) / (1 - p_hat))
-        )
-        loss = rc_loss + beta * sparsity
-    else:
-        loss = rc_loss
-    loss_val = loss.item()
-    loss.backward()
-    optimizer.step()
-
-    return loss_val
-
-
-def train_MaskedSAE(
-    device, model: MaskedSAE, data, optimizer, train_idx, beta=2, p=0.05
-):
-    model.to(device)
-    model.train()
-    optimizer.zero_grad()
-
-    x = data.x[train_idx].to(device)
-    if not model.mask_fitted:
-        model.train_mask(x)
-    z, masked_x, pred_x = model(x)
-
-    rc_loss = (masked_x - pred_x) ** 2
-    rc_loss = rc_loss.sum(dim=1).mean()
-
-    if beta > 0:
-        p_hat = z.mean(dim=0) ** 2
-        sparsity = torch.sum(
-            p * torch.log(p / p_hat) + (1 - p) * torch.log((1 - p) / (1 - p_hat))
-        )
-        loss = rc_loss + beta * sparsity
-    else:
-        loss = rc_loss
-    loss_val = loss.item()
-    loss.backward()
-    optimizer.step()
-
-    return loss_val
-
-
-def test_SAE(device, model: SAE, data, test_idx):
-    model.to(device)
-    model.eval()
-
-    x = data.x[test_idx].to(device)
-    _, pred_x = model(x)
-    rc_loss = (x - pred_x) ** 2
-    rc_loss = rc_loss.sum(dim=1).mean()
-
-    return rc_loss.item()
-
-
-def test_MaskedSAE(device, model: MaskedSAE, data, test_idx):
-    model.to(device)
-    model.eval()
-
-    x = data.x[test_idx].to(device)
-    _, masked_x, pred_x = model(x)
-    rc_loss = (masked_x - pred_x) ** 2
-    rc_loss = rc_loss.sum(dim=1).mean()
-
-    return rc_loss.item()
-
-
-def train_FCNN(device, model: FCNN, sae: SAE, data, optimizer, train_idx):
-    sae.to(device)
-    sae.eval()
-    model.to(device)
-    model.train()
-    optimizer.zero_grad()
-
-    cls_criterion = torch.nn.CrossEntropyLoss()
-
-    x = data.x[train_idx].to(device)
-    real_y = data.y[train_idx].to(device)
-
-    z, *_ = sae(x)
-    z = z.detach()
-    pred_y = model(z)
-    loss = cls_criterion(pred_y, real_y)
-    loss_val = loss.item()
-    loss.backward()
-    optimizer.step()
-
-    accuracy = CM.accuracy(real_y, pred_y)
-    sensitivity = CM.tpr(real_y, pred_y)
-    specificity = CM.tnr(real_y, pred_y)
-    precision = CM.ppv(real_y, pred_y)
-    f1_score = CM.f1_score(real_y, pred_y)
-    metrics = {
-        "sensitivity": sensitivity.item(),
-        "specificity": specificity.item(),
-        "f1": f1_score.item(),
-        "precision": precision.item(),
-    }
-    return loss_val, accuracy.item(), metrics
-
-
-def test_FCNN(device, model: FCNN, sae: SAE, data, test_idx):
-    sae.to(device)
-    sae.eval()
-    model.to(device)
-    model.eval()
-
-    x = data.x[test_idx].to(device)
-    real_y = data.y[test_idx].to(device)
-    z, *_ = sae(x)
-    pred_y = model(z)
-
-    criterion = torch.nn.CrossEntropyLoss()
-    loss = criterion(pred_y, real_y)
-
-    pred_y = pred_y.argmax(dim=1)
-    accuracy = CM.accuracy(real_y, pred_y)
-    sensitivity = CM.tpr(real_y, pred_y)
-    specificity = CM.tnr(real_y, pred_y)
-    precision = CM.ppv(real_y, pred_y)
-    f1_score = CM.f1_score(real_y, pred_y)
-    metrics = {
-        "sensitivity": sensitivity.item(),
-        "specificity": specificity.item(),
-        "f1": f1_score.item(),
-        "precision": precision.item(),
-    }
-    return loss.item(), accuracy.item(), metrics
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        ae_res: dict = self.sae(x)
+        y = self.cls(F.relu(ae_res["z"]))
+        return {**ae_res, "y": y}

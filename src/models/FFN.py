@@ -2,121 +2,136 @@ import os
 import sys
 import torch
 import torch.nn.functional as F
-from torch_geometric.utils import subgraph
+from typing import Any, Optional, Dict
+from torch.nn import Softmax
+from torch.optim import Optimizer
+from torch_geometric.data import Data
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
 
-from utils.loss import LaplacianRegularization
 from utils.metrics import ClassificationMetrics as CM
-from models.base import SaliencyScoreForward
+from models.base import ModelBase, FeedForward
 
 
-class FFN(torch.nn.Module, SaliencyScoreForward):
-    def __init__(self, input_size, l1, l2, l3):
+class FFN(ModelBase):
+    def __init__(
+        self,
+        input_size: int,
+        hidden_1: int,
+        hidden_2: int,
+        hidden_3: int,
+        output_size: int = 2,
+        dropout: float = 0.5,
+    ):
         super().__init__()
-        self.linear1 = torch.nn.Linear(input_size, l1)
-        self.linear2 = torch.nn.Linear(l1, l2)
-        self.linear3 = torch.nn.Linear(l2, l3)
-        self.linear4 = torch.nn.Linear(l3, 2)  # this is the head for disease class
+        self.classifier = FeedForward(
+            input_size,
+            [h for h in [hidden_1, hidden_2, hidden_3] if h > 0],
+            output_size,
+            Softmax(),
+            dropout=dropout,
+        )
 
-    def forward(self, x):  # full batch
-        x = self.linear1(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+    @staticmethod
+    def state_dict_mapping() -> dict:
+        return {
+            "linear1.weight": "classifier.0.0.weight",
+            "linear1.bias": "classifier.0.0.bias",
+            "linear2.weight": "classifier.1.0.weight",
+            "linear2.bias": "classifier.1.0.bias",
+            "linear3.weight": "classifier.2.0.weight",
+            "linear3.bias": "classifier.2.0.bias",
+            "linear4.weight": "classifier.3.weight",
+            "linear4.bias": "classifier.3.bias",
+        }
 
-        x = self.linear2(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        y = self.classifier(x)
+        return {"y": y}
 
-        x = self.linear3(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+    def ss_forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.forward(x)["y"]
 
-        x = self.linear4(x)
-        x = F.softmax(x, dim=1)  # output for disease classification
-        return x
+    def train_step(
+        self,
+        device: torch.device,
+        labeled_data: Data,
+        unlabeled_data: Optional[Data],
+        optimizer: Optimizer,
+        hyperparameters: Dict[str, Any],
+    ) -> Dict[str, float]:
+        self.to(device)
+        self.train()
 
-    def ss_forward(self, x):
-        return self.forward(x)
+        x: torch.Tensor = labeled_data.x
+        real_y: torch.Tensor = labeled_data.y
+        x, real_y = (
+            x.to(device),
+            real_y.to(device),
+        )
+
+        with torch.enable_grad():
+            optimizer.zero_grad()
+            pred_y = self.ss_forward(x)
+            ce_loss = F.cross_entropy(pred_y, real_y)
+            ce_loss.backward()
+            optimizer.step()
+
+        accuracy = CM.accuracy(real_y, pred_y)
+        sensitivity = CM.tpr(real_y, pred_y)
+        specificity = CM.tnr(real_y, pred_y)
+        precision = CM.ppv(real_y, pred_y)
+        f1_score = CM.f1_score(real_y, pred_y)
+        metrics = {
+            "ce_loss": ce_loss.item(),
+            "accuracy": accuracy.item(),
+            "sensitivity": sensitivity.item(),
+            "specificity": specificity.item(),
+            "f1": f1_score.item(),
+            "precision": precision.item(),
+        }
+        return metrics
+
+    def test_step(
+        self, device: torch.device, test_data: Data
+    ) -> Dict[str, float]:
+        self.to(device)
+        self.eval()
+
+        with torch.no_grad():
+            x: torch.Tensor = test_data.x
+            real_y: torch.Tensor = test_data.y
+            x, real_y = x.to(device), real_y.to(device)
+
+            pred_y = self.ss_forward(x)
+            ce_loss = F.cross_entropy(pred_y, real_y)
+
+            accuracy = CM.accuracy(real_y, pred_y)
+            sensitivity = CM.tpr(real_y, pred_y)
+            specificity = CM.tnr(real_y, pred_y)
+            precision = CM.ppv(real_y, pred_y)
+            f1_score = CM.f1_score(real_y, pred_y)
+
+            metrics = {
+                "ce_loss": ce_loss.item(),
+                "accuracy": accuracy.item(),
+                "sensitivity": sensitivity.item(),
+                "specificity": specificity.item(),
+                "f1": f1_score.item(),
+                "precision": precision.item(),
+            }
+        return metrics
 
 
-def get_laplacian_regularization(device, data, laplacian_idx, y):
-    laplacian_idx = torch.tensor(laplacian_idx).long()
-    edge_index, edge_weights = subgraph(
-        subset=laplacian_idx,
-        edge_index=data.edge_index,
-        edge_attr=data.edge_attr,
-        relabel_nodes=True,
+if __name__ == "__main__":
+    model = FFN.load_from_state_dict(
+        "/data/yeww0006/FYP-SSL/.archive/exp20_ABIDE_WHOLE/ssl_ABIDE_1639612566/models/1639612623.pt",
+        dict(input_size=34716, hidden_1=150, hidden_2=50, hidden_3=30,),
     )
-    criterion = LaplacianRegularization(normalization="sym", p=2)
-    loss = criterion(edge_index.to(device), edge_weights.to(device), y[laplacian_idx])
-    return loss
+    print(model)
 
-
-def train_FFN(
-    device, model, data, optimizer, labeled_idx, all_idx=None, gamma_lap=0, weight=False
-):
-    """
-    all_idx: the indices of labeled and unlabeled data
-                   (exclude test indices)
-    gamma_lap: float, the weightage of laplacian regularization
-    """
-    model.to(device)
-    model.train()
-    optimizer.zero_grad()  # Clear gradients
-
-    pred_y = model(data.x.to(device))
-    real_y = data.y[labeled_idx].to(device)
-    if weight:
-        _, counts = torch.unique(real_y, sorted=True, return_counts=True)
-        weight = counts[[1, 0]] / counts.sum()
-    else:
-        weight = None
-    criterion = torch.nn.CrossEntropyLoss(weight=weight)
-    loss = criterion(pred_y[labeled_idx], real_y)
-
-    if all_idx is not None and gamma_lap > 0:
-        loss += gamma_lap * get_laplacian_regularization(device, data, all_idx, pred_y)
-
-    loss_val = loss.item()
-    loss.backward()  # Derive gradients.
-    optimizer.step()  # Update parameters based on gradients.
-
-    accuracy = CM.accuracy(real_y, pred_y[labeled_idx])
-    sensitivity = CM.tpr(real_y, pred_y[labeled_idx])
-    specificity = CM.tnr(real_y, pred_y[labeled_idx])
-    precision = CM.ppv(real_y, pred_y[labeled_idx])
-    f1_score = CM.f1_score(real_y, pred_y[labeled_idx])
-    metrics = {
-        "sensitivity": sensitivity.item(),
-        "specificity": specificity.item(),
-        "f1": f1_score.item(),
-        "precision": precision.item(),
-    }
-    return loss_val, accuracy.item(), metrics
-
-
-def test_FFN(device, model, data, test_idx):
-    model.to(device)
-    model.eval()
-
-    pred_y = model(data.x.to(device))
-    real_y = data.y[test_idx].to(device)
-    criterion = torch.nn.CrossEntropyLoss()
-    loss = criterion(pred_y[test_idx], real_y)
-
-    pred_y = pred_y.argmax(dim=1)[test_idx]
-    accuracy = CM.accuracy(real_y, pred_y)
-    sensitivity = CM.tpr(real_y, pred_y)
-    specificity = CM.tnr(real_y, pred_y)
-    precision = CM.ppv(real_y, pred_y)
-    f1_score = CM.f1_score(real_y, pred_y)
-    metrics = {
-        "sensitivity": sensitivity.item(),
-        "specificity": specificity.item(),
-        "f1": f1_score.item(),
-        "precision": precision.item(),
-    }
-
-    return loss.item(), accuracy.item(), metrics
+    x = torch.randn((10, 34716))
+    res = model(x)
+    for k, v in res.items():
+        print("{}: {}".format(k, v.size()))

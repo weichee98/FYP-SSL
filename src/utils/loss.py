@@ -15,7 +15,6 @@ def reduce(x, reduction="none"):
 
 
 class LaplacianRegularization(nn.Module):
-
     def __init__(self, normalization=None, p=2):
         """
         normalization: str or None
@@ -60,7 +59,7 @@ class LaplacianRegularization(nn.Module):
         edge_index == (2, num_edges)
         edge_weights == (num_edges,)
         y: predicted labels == (num_nodes, num_classes)
-        """        
+        """
         lap = self._laplacian(edge_index, edge_weights, y)
         reg = torch.matmul(torch.matmul(y.T, lap), y)
         reg = torch.diagonal(reg).mean()
@@ -73,7 +72,9 @@ class LaplacianRegularization(nn.Module):
             )
             num_nodes = y.size(0)
             row, col = edge_index
-            lap = torch.zeros((num_nodes, num_nodes), dtype=edge_weight.dtype).to(y.device)
+            lap = torch.zeros(
+                (num_nodes, num_nodes), dtype=edge_weight.dtype
+            ).to(y.device)
             lap[row, col] = edge_weight
             return lap
 
@@ -94,8 +95,29 @@ class GaussianKLDivLoss(nn.Module):
         p2 ~ N(mu2, var2)
         """
         kl = 0.5 * (
-            var2.log() - var1.log() + \
-            (var1 + (mu1 - mu2) ** 2) / var2 - 1
+            var2.log() - var1.log() + (var1 + (mu1 - mu2) ** 2) / var2 - 1
         )
         kl = kl.sum(dim=1)
         return reduce(kl, self.reduction)
+
+
+def kl_divergence_loss(
+    mu1: torch.Tensor,
+    var1: torch.Tensor,
+    mu2: torch.Tensor,
+    var2: torch.Tensor,
+    reduction: str = "mean",
+) -> torch.Tensor:
+    kl = 0.5 * (var2.log() - var1.log() + (var1 + (mu1 - mu2) ** 2) / var2 - 1)
+    kl = kl.sum(dim=1)
+    return reduce(kl, reduction)
+
+
+def entropy_loss(
+    pred_y: torch.Tensor, reduction: str = "mean",
+) -> torch.Tensor:
+    uni_dist = torch.ones(pred_y.size(0), device=pred_y.device) / pred_y.size(1)
+    max_entropy = -uni_dist.log()
+    entropy = -pred_y * pred_y.log()
+    entropy = entropy.sum(dim=1)
+    return reduce(max_entropy - entropy, reduction=reduction)
