@@ -23,6 +23,7 @@ class FFN(ModelBase):
         hidden_3: int,
         output_size: int = 2,
         dropout: float = 0.5,
+        **kwargs
     ):
         super().__init__()
         self.classifier = FeedForward(

@@ -15,5 +15,5 @@ from .VAECH_II import VAECH_II
 from .VAESDR import VAESDR
 
 
-def count_parameters(model: Module):
+def count_parameters(model: Module) -> int:
     return sum(p.numel() for p in model.parameters() if p.requires_grad)

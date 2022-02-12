@@ -31,6 +31,7 @@ class VAE_FFN(ModelBase):
         clf_hidden_2: int,
         clf_output_size: int = 2,
         dropout: float = 0.5,
+        **kwargs
     ):
         super().__init__()
         self.encoder = VariationalEncoder(

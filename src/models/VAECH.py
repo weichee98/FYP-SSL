@@ -100,6 +100,7 @@ class VAECH(ModelBase):
         clf_hidden_2: int,
         clf_output_size: int = 2,
         dropout: float = 0.25,
+        **kwargs
     ):
         super().__init__()
         self.ch = CH(input_size, num_sites)

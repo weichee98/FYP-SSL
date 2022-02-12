@@ -72,6 +72,7 @@ class GAE(GraphModelBase):
         emb1: int = 64,
         emb2: int = 16,
         tau: int = 0.25,
+        **kwargs
     ):
         super().__init__()
         self.encoder = GCN(input_size, emb1, emb2, tau)
@@ -202,6 +203,7 @@ class GVAE(GAE):
         emb1: int = 64,
         emb2: int = 16,
         tau: float = 0.25,
+        **kwargs
     ):
         super().__init__(input_size, emb1, emb2, tau)
         self.log_std_encoder = GCN(input_size, emb1, emb2)
@@ -259,6 +261,7 @@ class GFCNN(ModelBase):
         num_nodes: int = 116,
         clf_hidden_size: Sequence[int] = (256, 256, 128),
         clf_output_size: int = 2,
+        **kwargs
     ):
         super().__init__()
         dimensions = (

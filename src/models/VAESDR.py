@@ -32,6 +32,7 @@ class VAESDR(ModelBase):
         clf_output_size: int = 2,
         dropout: float = 0.5,
         share_decoder: bool = False,
+        **kwargs
     ):
         super().__init__()
         self.encoder = VariationalEncoder(

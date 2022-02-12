@@ -15,7 +15,7 @@ from utils.metrics import ClassificationMetrics as CM
 
 
 class SAE(ModelBase):
-    def __init__(self, input_size: int = 9500, emb_size: int = 4975):
+    def __init__(self, input_size: int = 9500, emb_size: int = 4975, **kwargs):
         super().__init__()
         self.encoder = FeedForward(input_size, [], emb_size)
         self.decoder = FeedForward(emb_size, [], input_size, Tanh())
@@ -111,6 +111,7 @@ class MaskedSAE(SAE):
         emb_size: int = 4975,
         mask_ratio: float = 0.5,
         mask_fitted: bool = False,
+        **kwargs
     ):
         self.num_features = int(round(input_size * mask_ratio))
         super().__init__(self.num_features, emb_size)
@@ -205,7 +206,14 @@ class MaskedSAE(SAE):
 
 
 class FCNN(ModelBase):
-    def __init__(self, input_size: int = 4975, hidden_1: int = 2487, hidden_2: int = 500, output_size: int = 2):
+    def __init__(
+        self,
+        input_size: int = 4975,
+        hidden_1: int = 2487,
+        hidden_2: int = 500,
+        output_size: int = 2,
+        **kwargs
+    ):
         super().__init__()
         self.clf = Sequential(
             Linear(input_size, hidden_1),
@@ -213,7 +221,7 @@ class FCNN(ModelBase):
             Linear(hidden_1, hidden_2),
             ReLU(),
             Linear(hidden_2, output_size),
-            Softmax()
+            Softmax(),
         )
 
     @staticmethod
