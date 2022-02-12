@@ -24,6 +24,7 @@ def init_zero(linear_layer: Linear):
 class CH(Module):
     def __init__(self, input_size: int, num_sites: int):
         super().__init__()
+        self.num_sites = num_sites
         self.alpha = Parameter(torch.zeros(input_size))
         self.age_norm = BatchNorm1d(1)
         self.age = Linear(1, input_size)
@@ -42,6 +43,12 @@ class CH(Module):
         gender: torch.Tensor,
         site: torch.Tensor,
     ) -> Dict[str, torch.Tensor]:
+        if site.ndim == 2:
+            pass
+        elif site.ndim == 1:
+            site = F.one_hot(site, num_classes=self.num_sites)
+        else:
+            raise ValueError("invalid shape for site: {}".format(site.size()))
 
         age_x = self.age(self.age_norm(age))
         gender_x = self.gender(gender)
