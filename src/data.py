@@ -1,300 +1,283 @@
+from enum import Enum
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from typing import Dict, Optional, Sequence, Tuple, Union
+
 import numpy as np
-from utils.data import *
+from joblib import Parallel, delayed
+from sklearn.preprocessing import LabelEncoder
+
+import torch
+from torch_geometric.data import Data
+from torch_sparse import SparseTensor
+
+from utils.data import corr_mx_flatten
 
 
-def load_GCN_data(
-    X,
-    Y,
-    ages,
-    genders,
-    ssl,
-    labeled_train_indices,
-    test_indices,
-    sites=None,
-    n_ssl=None,
-):
-    X_flattened = corr_mx_flatten(X)
-    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
-        # if SSL is used, all subjects from all sites are used to create graph
-        A = get_pop_A(X_flattened, ages, genders)
-        data = make_population_graph(X_flattened, A, Y.argmax(axis=1))
-        if isinstance(ssl, (list, tuple)):
-            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
-            )
+class Dataset(Enum):
+    ABIDE = "ABIDE I"
+    ADHD = "ADHD 200"
+
+
+class DataloaderBase(ABC):
+    def __init__(self, dataset: Dataset, harmonized: bool = False):
+        self.dataset = dataset
+        self.harmonized = harmonized
+        self._init_dataset_()
+
+    def _init_dataset_(self) -> Data:
+        if self.dataset == Dataset.ABIDE:
+            from ABIDE import load_data_fmri, get_ages_and_genders, get_sites
+        elif self.dataset == Dataset.ADHD:
+            from ADHD import load_data_fmri, get_ages_and_genders, get_sites
         else:
-            all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
-        if n_ssl is not None:
-            unlabeled_train_indices = np.setdiff1d(
-                all_train_indices, labeled_train_indices
-            )
-            unlabeled_train_indices = np.random.choice(
-                unlabeled_train_indices, size=n_ssl, replace=False
-            )
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
-            )
-    else:
-        # if SSL is not used, only subjects from largest site is used to create graph
-        # adjust the indices accordingly to match the subject used in the graph
-        all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
-        A = get_pop_A(X_flattened[all_indices], ages[all_indices], genders[all_indices])
-        data = make_population_graph(
-            X_flattened[all_indices], A, Y[all_indices].argmax(axis=1)
+            raise NotImplementedError
+
+        data: Tuple[np.ndarray] = load_data_fmri(harmonized=self.harmonized)
+        self.X: np.ndarray = data[0]
+        self.Y: np.ndarray = data[1].argmax(axis=1)
+        self.X_flattened: np.ndarray = corr_mx_flatten(self.X)
+
+        age_gender: Tuple[np.ndarray, np.ndarray] = get_ages_and_genders()
+        age, gender = age_gender
+
+        mean_age = np.nanmean(age)
+        age = np.where(np.isnan(age), mean_age, age)
+        age = np.expand_dims(age, axis=1)
+
+        assert np.all(np.isnan(gender) | (gender >= 0) | (gender <= 1))
+        gender1 = np.where(np.isnan(gender), 0, gender)
+        gender0 = np.where(np.isnan(gender), 0, 1 - gender)
+        gender = np.zeros((gender.shape[0], 2))
+        gender[:, 0] = gender0
+        gender[:, 1] = gender1
+
+        self.age: np.ndarray = age
+        self.gender: np.ndarray = gender
+        self.sites: np.ndarray = get_sites()
+
+    def _get_indices(
+        self,
+        seed: int = 0,
+        fold: int = 0,
+        ssl: bool = False,
+        validation: bool = False,
+        labeled_sites: Optional[Union[str, Sequence[str]]] = None,
+        unlabeled_sites: Optional[Union[str, Sequence[str]]] = None,
+    ) -> Dict[str, np.ndarray]:
+        if self.dataset == Dataset.ABIDE:
+            from ABIDE import get_splits
+        elif self.dataset == Dataset.ADHD:
+            from ADHD import get_splits
+        else:
+            raise NotImplementedError
+
+        indices_list = defaultdict(list)
+        if labeled_sites is None or isinstance(labeled_sites, str):
+            labeled_sites = [labeled_sites]
+        for site_id in labeled_sites:
+            splits = get_splits(site_id, test=validation)
+            if validation:
+                test_indices = splits[seed][0]
+                labeled_train_indices, val_indices = splits[seed][1][fold]
+                indices_list["labeled_train"].append(labeled_train_indices)
+                indices_list["valid"].append(val_indices)
+                indices_list["test"].append(test_indices)
+            else:
+                labeled_train_indices, test_indices = splits[seed][1][fold]
+                indices_list["labeled_train"].append(labeled_train_indices)
+                indices_list["test"].append(test_indices)
+
+        indices = dict()
+        for k, v in indices_list.items():
+            if len(v) == 1:
+                indices[k] = v
+            else:
+                indices[k] = np.concatenate(v, axis=0)
+
+        if ssl:
+            if isinstance(unlabeled_sites, str):
+                unlabeled_sites = [unlabeled_sites]
+            unlabeled_indices = np.arange(len(self.X))
+            if unlabeled_sites is not None:
+                unlabeled_indices = unlabeled_indices[
+                    np.isin(self.sites, unlabeled_sites)
+                ]
+            for idx in indices.values():
+                unlabeled_indices = np.setdiff1d(unlabeled_indices, idx)
+            indices["unlabeled_train"] = unlabeled_indices
+
+        keys = list(indices.keys())
+        for i in range(len(keys)):
+            for j in range(i + 1, len(keys)):
+                assert (
+                    np.intersect1d(indices[keys[i]], indices[keys[j]]).size == 0
+                )
+
+        return indices
+
+    @abstractmethod
+    def load_split_data(self, *args, **kwargs):
+        raise NotImplementedError
+
+    @abstractmethod
+    def load_all_data(self, *args, **kwargs):
+        raise NotImplementedError
+
+
+class ModelBaseDataloader(DataloaderBase):
+    @staticmethod
+    def make_dataset(
+        x: np.ndarray,
+        y: np.ndarray,
+        d: np.ndarray,
+        age: np.ndarray,
+        gender: np.ndarray,
+    ) -> Data:
+        graph = Data()
+        graph.x = torch.tensor(x)
+        graph.y = torch.tensor(y)
+        graph.d = torch.tensor(d)
+        graph.age = torch.tensor(age)
+        graph.gender = torch.tensor(gender)
+        return graph
+
+    def load_split_data(
+        self,
+        seed: int = 0,
+        fold: int = 0,
+        ssl: bool = False,
+        validation: bool = False,
+        labeled_sites: Optional[Union[str, Sequence[str]]] = None,
+        unlabeled_sites: Optional[Union[str, Sequence[str]]] = None,
+    ) -> Dict[str, Data]:
+        indices = self._get_indices(
+            seed, fold, ssl, validation, labeled_sites, unlabeled_sites
         )
-        n_train = len(labeled_train_indices)
-        n_test = len(test_indices)
-        labeled_train_indices = np.array(range(n_train))
-        test_indices = np.array(range(n_train, n_train + n_test))
-        all_train_indices = None
-    return data, labeled_train_indices, all_train_indices, test_indices
 
-
-def load_AE_data(
-    X, Y, ssl, labeled_train_indices, test_indices, sites=None, n_ssl=None
-):
-    X_flattened = corr_mx_flatten(X)
-    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
-        data = make_dataset(X_flattened, Y.argmax(axis=1))
-        if isinstance(ssl, (list, tuple)):
-            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
+        if ssl:
+            all_train_indices = np.concatenate(
+                (indices["labeled_train"], indices["unlabeled_train"])
             )
         else:
-            all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
-        if n_ssl is not None:
-            unlabeled_train_indices = np.setdiff1d(
-                all_train_indices, labeled_train_indices
-            )
-            unlabeled_train_indices = np.random.choice(
-                unlabeled_train_indices, size=n_ssl, replace=False
-            )
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
-            )
-    else:
-        all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
-        data = make_dataset(X_flattened[all_indices], Y[all_indices].argmax(axis=1))
-        n_train = len(labeled_train_indices)
-        n_test = len(test_indices)
-        labeled_train_indices = np.array(range(n_train))
-        test_indices = np.array(range(n_train, n_train + n_test))
-        all_train_indices = None
-    return data, labeled_train_indices, all_train_indices, test_indices
+            all_train_indices = indices["labeled_train"]
+        le = LabelEncoder()
+        le.fit(self.sites[all_train_indices])
 
+        all_data = dict()
+        for name, idx in indices.items():
+            all_data[name] = self.make_dataset(
+                x=self.X_flattened[idx],
+                y=self.Y[idx],
+                d=le.transform(self.sites[idx]),
+                age=self.age[idx],
+                gender=self.gender[idx],
+            )
+        return all_data
 
-def load_DIVA_data(X, Y, sites, ssl, labeled_train_indices, test_indices, n_ssl=None):
-    X_flattened = corr_mx_flatten(X)
-    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
-        data = make_dataset(X_flattened, Y.argmax(axis=1), sites)
-        if isinstance(ssl, (list, tuple)):
-            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
-            )
-        else:
-            all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
-        if n_ssl is not None:
-            unlabeled_train_indices = np.setdiff1d(
-                all_train_indices, labeled_train_indices
-            )
-            unlabeled_train_indices = np.random.choice(
-                unlabeled_train_indices, size=n_ssl, replace=False
-            )
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
-            )
-    else:
-        all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
-        data = make_dataset(
-            X_flattened[all_indices], Y[all_indices].argmax(axis=1), sites[all_indices]
+    def load_all_data(
+        self, sites: Optional[Union[str, Sequence[str]]] = None
+    ) -> Data:
+        if isinstance(sites, str):
+            sites = [sites]
+        all_indices = np.arange(len(self.X))
+        if sites is not None:
+            all_indices = all_indices[np.isin(self.sites, sites)]
+
+        le = LabelEncoder()
+        le.fit(self.sites[all_indices])
+
+        return self.make_dataset(
+            x=self.X_flattened[all_indices],
+            y=self.Y[all_indices],
+            d=le.transform(self.sites[all_indices]),
+            age=self.age[all_indices],
+            gender=self.gender[all_indices],
         )
-        n_train = len(labeled_train_indices)
-        n_test = len(test_indices)
-        labeled_train_indices = np.array(range(n_train))
-        test_indices = np.array(range(n_train, n_train + n_test))
-        all_train_indices = None
-    return data, labeled_train_indices, all_train_indices, test_indices
 
 
-def load_VAECH_data(
-    X, Y, sites, age, gender, ssl, labeled_train_indices, test_indices, n_ssl=None
-):
-    X_flattened = corr_mx_flatten(X)
+class GraphModelBaseDataloader(DataloaderBase):
+    @staticmethod
+    def _task(x, y, d, age, gender):
+        data = Data()
+        data.x = torch.tensor(x)
+        data.adj_t = SparseTensor.from_dense(torch.tensor(x), has_value=True)
+        data.y = torch.tensor([y])
+        data.age = torch.tensor([age])
+        data.gender = torch.tensor(np.expand_dims(gender, axis=0))
+        return d
 
-    mean_age = np.nanmean(age)
-    age = np.where(np.isnan(age), mean_age, age)
-    age = np.expand_dims(age, axis=1)
-
-    assert np.all(np.isnan(gender) | (gender >= 0) | (gender <= 1))
-    gender1 = np.where(np.isnan(gender), 0, gender)
-    gender0 = np.where(np.isnan(gender), 0, 1 - gender)
-    gender = np.zeros((gender.shape[0], 2))
-    gender[:, 0] = gender0
-    gender[:, 1] = gender1
-
-    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
-        data = make_dataset(
-            X_flattened,
-            Y.argmax(axis=1),
-            sites,
-            age=torch.tensor(age).type(torch.get_default_dtype()),
-            gender=torch.tensor(gender).type(torch.get_default_dtype()),
+    @classmethod
+    def make_dataset(
+        cls,
+        x: np.ndarray,
+        y: np.ndarray,
+        d: np.ndarray,
+        age: np.ndarray,
+        gender: np.ndarray,
+        num_process: int = 1,
+    ) -> Data:
+        dataset = Parallel(n_jobs=num_process)(
+            delayed(cls._task)(x[i], y[i], d[i], age[i], gender[i])
+            for i in range(y.shape[0])
         )
-        if isinstance(ssl, (list, tuple)):
-            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
+        return dataset
+
+    def load_split_data(
+        self,
+        seed: int = 0,
+        fold: int = 0,
+        ssl: bool = False,
+        validation: bool = False,
+        labeled_sites: Optional[Union[str, Sequence[str]]] = None,
+        unlabeled_sites: Optional[Union[str, Sequence[str]]] = None,
+        num_process: int = 1,
+    ) -> Dict[str, Data]:
+        indices = self._get_indices(
+            seed, fold, ssl, validation, labeled_sites, unlabeled_sites
+        )
+
+        if ssl:
+            all_train_indices = np.concatenate(
+                (indices["labeled_train"], indices["unlabeled_train"])
             )
         else:
-            all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
-        if n_ssl is not None:
-            unlabeled_train_indices = np.setdiff1d(
-                all_train_indices, labeled_train_indices
-            )
-            unlabeled_train_indices = np.random.choice(
-                unlabeled_train_indices, size=n_ssl, replace=False
-            )
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
-            )
-    else:
-        all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
-        data = make_dataset(
-            X_flattened[all_indices],
-            Y[all_indices].argmax(axis=1),
-            sites[all_indices],
-            age=torch.tensor(age[all_indices]).type(torch.get_default_dtype()),
-            gender=torch.tensor(gender[all_indices]).type(torch.get_default_dtype()),
-        )
-        n_train = len(labeled_train_indices)
-        n_test = len(test_indices)
-        labeled_train_indices = np.array(range(n_train))
-        test_indices = np.array(range(n_train, n_train + n_test))
-        all_train_indices = None
-    data.d = torch.eye(data.d.unique().size(0))[data.d].type(torch.get_default_dtype())
-    return data, labeled_train_indices, all_train_indices, test_indices
+            all_train_indices = indices["labeled_train"]
+        le = LabelEncoder()
+        le.fit(self.sites[all_train_indices])
 
+        all_data = dict()
+        for name, idx in indices.items():
+            all_data[name] = self.make_dataset(
+                x=self.X[idx],
+                y=self.Y[idx],
+                d=le.transform(self.sites[idx]),
+                age=self.age[idx],
+                gender=self.gender[idx],
+                num_process=num_process,
+            )
+        return all_data
 
-def load_FFN_data(
-    X,
-    Y,
-    ages,
-    genders,
-    ssl,
-    labeled_train_indices,
-    test_indices,
-    sites=None,
-    n_ssl=None,
-):
-    X_flattened = corr_mx_flatten(X)
-    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
-        # if SSL is used, all subjects from all sites are used to create graph
-        A = get_pop_A(X_flattened, ages, genders)
-        data = make_population_graph(X_flattened, A, Y.argmax(axis=1))
-        if isinstance(ssl, (list, tuple)):
-            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
-            )
-        else:
-            all_train_indices = np.setdiff1d(np.arange(len(X_flattened)), test_indices)
-        if n_ssl is not None:
-            unlabeled_train_indices = np.setdiff1d(
-                all_train_indices, labeled_train_indices
-            )
-            unlabeled_train_indices = np.random.choice(
-                unlabeled_train_indices, size=n_ssl, replace=False
-            )
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
-            )
-    else:
-        # if SSL is not used, only subjects from largest site is used to create graph
-        # adjust the indices accordingly to match the subject used in the graph
-        all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
-        data = make_dataset(X_flattened[all_indices], Y[all_indices].argmax(axis=1))
-        n_train = len(labeled_train_indices)
-        n_test = len(test_indices)
-        labeled_train_indices = np.array(range(n_train))
-        test_indices = np.array(range(n_train, n_train + n_test))
-        all_train_indices = None
-    return data, labeled_train_indices, all_train_indices, test_indices
+    def load_all_data(
+        self,
+        sites: Optional[Union[str, Sequence[str]]] = None,
+        num_process: int = 1,
+    ) -> Sequence[Data]:
+        if isinstance(sites, str):
+            sites = [sites]
+        all_indices = np.arange(len(self.X))
+        if sites is not None:
+            all_indices = all_indices[np.isin(self.sites, sites)]
 
+        le = LabelEncoder()
+        le.fit(self.sites[all_indices])
 
-def load_GAE_data(
-    X,
-    Y,
-    ssl,
-    labeled_train_indices,
-    test_indices,
-    X_ts=None,
-    num_process=1,
-    verbose=False,
-    sites=None,
-    n_ssl=None,
-):
-    if ssl and (n_ssl is None or (isinstance(n_ssl, int) and n_ssl > 0)):
-        data = make_graph_dataset(
-            X, Y.argmax(axis=1), X_ts, num_process=num_process, verbose=verbose
-        )
-        if isinstance(ssl, (list, tuple)):
-            unlabeled_train_indices = np.argwhere(np.isin(sites, ssl)).flatten()
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
-            )
-        else:
-            all_train_indices = np.setdiff1d(np.arange(len(X)), test_indices)
-        if n_ssl is not None:
-            unlabeled_train_indices = np.setdiff1d(
-                all_train_indices, labeled_train_indices
-            )
-            unlabeled_train_indices = np.random.choice(
-                unlabeled_train_indices, size=n_ssl, replace=False
-            )
-            all_train_indices = np.union1d(
-                unlabeled_train_indices, labeled_train_indices
-            )
-    else:
-        all_indices = np.concatenate([labeled_train_indices, test_indices], axis=0)
-        if X_ts is not None:
-            X_ts = X_ts[all_indices]
-        data = make_graph_dataset(
-            X[all_indices],
-            Y[all_indices].argmax(axis=1),
-            X_ts,
+        return self.make_dataset(
+            x=self.X[all_indices],
+            y=self.Y[all_indices],
+            d=le.transform(self.sites[all_indices]),
+            age=self.age[all_indices],
+            gender=self.gender[all_indices],
             num_process=num_process,
-            verbose=verbose,
         )
-        n_train = len(labeled_train_indices)
-        n_test = len(test_indices)
-        labeled_train_indices = np.array(range(n_train))
-        test_indices = np.array(range(n_train, n_train + n_test))
-        all_train_indices = None
-    data = make_graph_dataloader(
-        data, labeled_train_indices, all_train_indices, test_indices
-    )
-    return data, labeled_train_indices, all_train_indices, test_indices
 
-
-def load_GNN_data(
-    X, Y, train_indices, test_indices, X_ts=None, num_process=1, verbose=False
-):
-    all_indices = np.concatenate([train_indices, test_indices], axis=0)
-    if X_ts is not None:
-        X_ts = X_ts[all_indices]
-    data = make_graph_dataset(
-        X[all_indices],
-        Y[all_indices].argmax(axis=1),
-        X_ts,
-        num_process=num_process,
-        verbose=verbose,
-    )
-    n_train = len(train_indices)
-    n_test = len(test_indices)
-    train_indices = np.array(range(n_train))
-    test_indices = np.array(range(n_train, n_train + n_test))
-    data = make_graph_dataloader(data, train_indices, None, test_indices)
-    return data, train_indices, None, test_indices
