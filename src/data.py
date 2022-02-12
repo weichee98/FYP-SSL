@@ -280,4 +280,3 @@ class GraphModelBaseDataloader(DataloaderBase):
             gender=self.gender[all_indices],
             num_process=num_process,
         )
-
