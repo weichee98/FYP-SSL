@@ -3,11 +3,11 @@ from dataclasses import dataclass
 
 import os
 import sys
-from typing import Any, Dict, Tuple, Union
-from torch.nn import Module
+from typing import Any, Dict, Tuple, Type, Union
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from models.base import ModelBase
 from models import (
     FFN,
     AE_FFN,
@@ -17,8 +17,8 @@ from models import (
     VAECH_II,
     VAESDR,
 )
-from models.ASDSAENet import SAE, MaskedSAE, FCNN
-from models.GAEFCNN import GCN_FCNN, GAE, GVAE, GFCNN
+from models.ASDSAENet import SAE, ASDSAENet, MaskedSAE, FCNN
+from models.GAEFCNN import GAE_FCNN, GCN_FCNN, GAE, GVAE, GFCNN
 from data import DataloaderBase, ModelBaseDataloader, GraphModelBaseDataloader
 
 
@@ -26,7 +26,7 @@ class FrameworkFactory(ABC):
     @abstractclassmethod
     def load_model(
         cls, model_name: str, model_param: Dict[str, Any]
-    ) -> Union[Module, Tuple[Module, Module]]:
+    ) -> Union[ModelBase, Tuple[ModelBase, ModelBase]]:
         raise NotImplementedError
 
     @abstractclassmethod
@@ -39,8 +39,8 @@ class FrameworkFactory(ABC):
 class SingleStageFrameworkFactory(FrameworkFactory):
     @dataclass
     class Mapping:
-        model_cls: Module
-        dataloader_cls: DataloaderBase
+        model_cls: Type[ModelBase]
+        dataloader_cls: Type[DataloaderBase]
 
     mapping = {
         "FFN": Mapping(FFN, ModelBaseDataloader),
@@ -59,7 +59,9 @@ class SingleStageFrameworkFactory(FrameworkFactory):
     }
 
     @classmethod
-    def load_model(cls, model_name: str, model_param: Dict[str, Any]) -> Module:
+    def load_model(
+        cls, model_name: str, model_param: Dict[str, Any]
+    ) -> ModelBase:
         model_mapping = cls.mapping.get(model_name, None)
         if model_mapping is None:
             raise NotImplementedError(
@@ -82,20 +84,33 @@ class SingleStageFrameworkFactory(FrameworkFactory):
 class DoubleStageFrameworkFactory(FrameworkFactory):
     @dataclass
     class Mapping:
-        model_cls: Tuple[Module, Module]
+        model_cls: Tuple[Type[ModelBase], Type[ModelBase]]
+        compile_model_cls: Type[ModelBase]
         dataloader_cls: DataloaderBase
 
     mapping = {
-        "ASDSAENet": Mapping((SAE, FCNN), ModelBaseDataloader),
-        "ASDSAENet1": Mapping((MaskedSAE, FCNN), ModelBaseDataloader),
-        "GAE-FCNN": Mapping((GAE, GFCNN), GraphModelBaseDataloader),
-        "GVAE-FCNN": Mapping((GVAE, GFCNN), GraphModelBaseDataloader),
+        "ASDSAENet": Mapping((SAE, FCNN), ASDSAENet, ModelBaseDataloader),
+        "ASDSAENet1": Mapping(
+            (MaskedSAE, FCNN), ASDSAENet, ModelBaseDataloader
+        ),
+        "GAE-FCNN": Mapping((GAE, GFCNN), GAE_FCNN, GraphModelBaseDataloader),
+        "GVAE-FCNN": Mapping((GVAE, GFCNN), GAE_FCNN, GraphModelBaseDataloader),
     }
+
+    @classmethod
+    def compile_model(cls, model_name: str, ae_model: ModelBase, fcnn_model: ModelBase) -> ModelBase:
+        model_mapping = cls.mapping.get(model_name, None)
+        if model_mapping is None:
+            raise NotImplementedError(
+                "Model {} does not exist".format(model_name)
+            )
+        model_cls = model_mapping.compile_model_cls
+        return model_cls(ae_model, fcnn_model)
 
     @classmethod
     def load_model(
         cls, model_name: str, model_param: Dict[str, Dict[str, Any]]
-    ) -> Tuple[Module, Module]:
+    ) -> Tuple[ModelBase, ModelBase]:
         model_mapping = cls.mapping.get(model_name, None)
         if model_mapping is None:
             raise NotImplementedError(

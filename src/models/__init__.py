@@ -1,4 +1,12 @@
-__all__ = ["FFN" "AE_FFN", "VAE_FFN", "VAECH", "VAECH_I", "VAECH_II", "VAESDR"]
+__all__ = [
+    "FFN" "AE_FFN",
+    "VAE_FFN",
+    "VAECH",
+    "VAECH_I",
+    "VAECH_II",
+    "VAESDR",
+    "count_parameters",
+]
 
 import os
 import sys

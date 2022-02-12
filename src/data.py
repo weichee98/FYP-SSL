@@ -2,6 +2,7 @@ from enum import Enum
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Dict, Optional, Sequence, Tuple, Union
+from importlib_metadata import List
 
 import numpy as np
 from joblib import Parallel, delayed
@@ -15,14 +16,14 @@ from utils.data import corr_mx_flatten
 
 
 class Dataset(Enum):
-    ABIDE = "ABIDE I"
-    ADHD = "ADHD 200"
+    ABIDE = "ABIDE"
+    ADHD = "ADHD"
 
 
 class DataloaderBase(ABC):
-    def __init__(self, dataset: Dataset, harmonized: bool = False):
+    def __init__(self, dataset: Dataset, harmonize: bool = False):
         self.dataset = dataset
-        self.harmonized = harmonized
+        self.harmonize = harmonize
         self._init_dataset_()
 
     def _init_dataset_(self) -> Data:
@@ -33,7 +34,7 @@ class DataloaderBase(ABC):
         else:
             raise NotImplementedError
 
-        data: Tuple[np.ndarray] = load_data_fmri(harmonized=self.harmonized)
+        data: Tuple[np.ndarray] = load_data_fmri(harmonized=self.harmonize)
         self.X: np.ndarray = data[0]
         self.Y: np.ndarray = data[1].argmax(axis=1)
         self.X_flattened: np.ndarray = corr_mx_flatten(self.X)
@@ -91,7 +92,7 @@ class DataloaderBase(ABC):
         indices = dict()
         for k, v in indices_list.items():
             if len(v) == 1:
-                indices[k] = v
+                indices[k] = v[0]
             else:
                 indices[k] = np.concatenate(v, axis=0)
 
@@ -113,15 +114,31 @@ class DataloaderBase(ABC):
                 assert (
                     np.intersect1d(indices[keys[i]], indices[keys[j]]).size == 0
                 )
-
         return indices
 
     @abstractmethod
-    def load_split_data(self, *args, **kwargs):
+    def load_split_data(
+        self,
+        seed: int = 0,
+        fold: int = 0,
+        ssl: bool = False,
+        validation: bool = False,
+        labeled_sites: Optional[Union[str, Sequence[str]]] = None,
+        unlabeled_sites: Optional[Union[str, Sequence[str]]] = None,
+        num_process: int = 1,
+    ) -> Union[
+        Dict[str, Union[int, Data]], Dict[str, Union[int, Sequence[Data]]]
+    ]:
         raise NotImplementedError
 
     @abstractmethod
-    def load_all_data(self, *args, **kwargs):
+    def load_all_data(
+        self,
+        sites: Optional[Union[str, Sequence[str]]] = None,
+        num_process: int = 1,
+    ) -> Union[
+        Dict[str, Union[int, Data]], Dict[str, Union[int, Sequence[Data]]]
+    ]:
         raise NotImplementedError
 
 
@@ -135,11 +152,11 @@ class ModelBaseDataloader(DataloaderBase):
         gender: np.ndarray,
     ) -> Data:
         graph = Data()
-        graph.x = torch.tensor(x)
+        graph.x = torch.tensor(x).float()
         graph.y = torch.tensor(y)
         graph.d = torch.tensor(d)
-        graph.age = torch.tensor(age)
-        graph.gender = torch.tensor(gender)
+        graph.age = torch.tensor(age).float()
+        graph.gender = torch.tensor(gender).float()
         return graph
 
     def load_split_data(
@@ -150,7 +167,8 @@ class ModelBaseDataloader(DataloaderBase):
         validation: bool = False,
         labeled_sites: Optional[Union[str, Sequence[str]]] = None,
         unlabeled_sites: Optional[Union[str, Sequence[str]]] = None,
-    ) -> Dict[str, Data]:
+        num_process: int = 1,
+    ) -> Dict[str, Union[int, Data]]:
         indices = self._get_indices(
             seed, fold, ssl, validation, labeled_sites, unlabeled_sites
         )
@@ -164,7 +182,7 @@ class ModelBaseDataloader(DataloaderBase):
         le = LabelEncoder()
         le.fit(self.sites[all_train_indices])
 
-        all_data = dict()
+        all_data: Dict[str, Data] = dict()
         for name, idx in indices.items():
             all_data[name] = self.make_dataset(
                 x=self.X_flattened[idx],
@@ -173,11 +191,26 @@ class ModelBaseDataloader(DataloaderBase):
                 age=self.age[idx],
                 gender=self.gender[idx],
             )
+
+        all_data["input_size"] = int(self.X_flattened.shape[1])
+        all_data["num_sites"] = int(len(le.classes_))
+
+        empty = Data(x=torch.tensor([]))
+        all_data["num_labeled_train"] = all_data.get(
+            "labeled_train", empty
+        ).x.size(0)
+        all_data["num_unlabeled_train"] = all_data.get(
+            "unlabeled_train", empty
+        ).x.size(0)
+        all_data["num_valid"] = all_data.get("valid", empty).x.size(0)
+        all_data["num_test"] = all_data.get("test", empty).x.size(0)
         return all_data
 
     def load_all_data(
-        self, sites: Optional[Union[str, Sequence[str]]] = None
-    ) -> Data:
+        self,
+        sites: Optional[Union[str, Sequence[str]]] = None,
+        num_process: int = 1,
+    ) -> Dict[str, Union[int, Data]]:
         if isinstance(sites, str):
             sites = [sites]
         all_indices = np.arange(len(self.X))
@@ -187,24 +220,30 @@ class ModelBaseDataloader(DataloaderBase):
         le = LabelEncoder()
         le.fit(self.sites[all_indices])
 
-        return self.make_dataset(
-            x=self.X_flattened[all_indices],
-            y=self.Y[all_indices],
-            d=le.transform(self.sites[all_indices]),
-            age=self.age[all_indices],
-            gender=self.gender[all_indices],
-        )
+        return {
+            "data": self.make_dataset(
+                x=self.X_flattened[all_indices],
+                y=self.Y[all_indices],
+                d=le.transform(self.sites[all_indices]),
+                age=self.age[all_indices],
+                gender=self.gender[all_indices],
+            ),
+            "input_size": int(self.X_flattened.shape[1]),
+            "num_sites": int(len(le.classes_)),
+        }
 
 
 class GraphModelBaseDataloader(DataloaderBase):
     @staticmethod
     def _task(x, y, d, age, gender):
         data = Data()
-        data.x = torch.tensor(x)
-        data.adj_t = SparseTensor.from_dense(torch.tensor(x), has_value=True)
+        data.x = torch.tensor(x).float()
+        data.adj_t = SparseTensor.from_dense(
+            torch.tensor(x).float(), has_value=True
+        )
         data.y = torch.tensor([y])
-        data.age = torch.tensor([age])
-        data.gender = torch.tensor(np.expand_dims(gender, axis=0))
+        data.age = torch.tensor([age]).float()
+        data.gender = torch.tensor(np.expand_dims(gender, axis=0)).float()
         return d
 
     @classmethod
@@ -216,7 +255,7 @@ class GraphModelBaseDataloader(DataloaderBase):
         age: np.ndarray,
         gender: np.ndarray,
         num_process: int = 1,
-    ) -> Data:
+    ) -> Sequence[Data]:
         dataset = Parallel(n_jobs=num_process)(
             delayed(cls._task)(x[i], y[i], d[i], age[i], gender[i])
             for i in range(y.shape[0])
@@ -232,7 +271,7 @@ class GraphModelBaseDataloader(DataloaderBase):
         labeled_sites: Optional[Union[str, Sequence[str]]] = None,
         unlabeled_sites: Optional[Union[str, Sequence[str]]] = None,
         num_process: int = 1,
-    ) -> Dict[str, Data]:
+    ) -> Dict[str, Union[int, Sequence[Data]]]:
         indices = self._get_indices(
             seed, fold, ssl, validation, labeled_sites, unlabeled_sites
         )
@@ -256,13 +295,22 @@ class GraphModelBaseDataloader(DataloaderBase):
                 gender=self.gender[idx],
                 num_process=num_process,
             )
+
+        all_data["input_size"] = int(self.X.shape[2])
+        all_data["num_sites"] = int(len(le.classes_))
+        all_data["num_labeled_train"] = len(all_data.get("labeled_train", []))
+        all_data["num_unlabeled_train"] = len(
+            all_data.get("unlabeled_train", [])
+        )
+        all_data["num_valid"] = len(all_data.get("valid", []))
+        all_data["num_test"] = len(all_data.get("test", []))
         return all_data
 
     def load_all_data(
         self,
         sites: Optional[Union[str, Sequence[str]]] = None,
         num_process: int = 1,
-    ) -> Sequence[Data]:
+    ) -> Dict[str, Union[int, Sequence[Data]]]:
         if isinstance(sites, str):
             sites = [sites]
         all_indices = np.arange(len(self.X))
@@ -272,11 +320,15 @@ class GraphModelBaseDataloader(DataloaderBase):
         le = LabelEncoder()
         le.fit(self.sites[all_indices])
 
-        return self.make_dataset(
-            x=self.X[all_indices],
-            y=self.Y[all_indices],
-            d=le.transform(self.sites[all_indices]),
-            age=self.age[all_indices],
-            gender=self.gender[all_indices],
-            num_process=num_process,
-        )
+        return {
+            "data": self.make_dataset(
+                x=self.X[all_indices],
+                y=self.Y[all_indices],
+                d=le.transform(self.sites[all_indices]),
+                age=self.age[all_indices],
+                gender=self.gender[all_indices],
+                num_process=num_process,
+            ),
+            "input_size": int(self.X.shape[2]),
+            "num_sites": int(len(le.classes_)),
+        }
