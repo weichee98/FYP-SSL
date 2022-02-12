@@ -290,7 +290,7 @@ class GFCNN(ModelBase):
             z = torch.flatten(z, start_dim=1)
         else:
             raise ValueError("invalid z with shape {}".format(z.size()))
-        y = self.clf(z)
+        y = self.clf(F.relu(z))
         return y
 
     def get_optimizer(self, param: dict) -> Optimizer:

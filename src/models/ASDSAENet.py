@@ -91,7 +91,7 @@ class SAE(ModelBase):
         self.to(device)
         self.eval()
 
-        with torch.enable_grad():
+        with torch.no_grad():
             x: torch.Tensor = test_data.x
             x = x.to(device)
 
@@ -102,6 +102,16 @@ class SAE(ModelBase):
             rc_loss = rc_loss.sum(dim=1).mean()
 
         return {"rc_loss": rc_loss.item()}
+
+    def prepare_z_y(self, device: torch.device, data: Data) -> Data:
+        self.to(device)
+        self.eval()
+        with torch.no_grad():
+            x: torch.Tensor = data.x
+            x = x.to(device)
+            z = self(x)["z"]
+            data.z = z
+        return data
 
 
 class MaskedSAE(SAE):
@@ -191,7 +201,7 @@ class MaskedSAE(SAE):
         self.to(device)
         self.eval()
 
-        with torch.enable_grad():
+        with torch.no_grad():
             x: torch.Tensor = test_data.x
             x = x.to(device)
 
@@ -232,7 +242,7 @@ class FCNN(ModelBase):
         raise NotImplementedError
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
-        y = self.clf(z)
+        y = self.clf(F.relu(z))
         return y
 
     def get_optimizer(self, param: dict) -> Optimizer:
