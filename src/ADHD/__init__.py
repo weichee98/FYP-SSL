@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from adhd_config import *
 
 
-def load_data_fmri(harmonized=False):
+def load_data_fmri(harmonized=False, time_series=False):
     """
     Inputs
     site_id: str or None
@@ -25,7 +25,9 @@ def load_data_fmri(harmonized=False):
     else:
         X = np.load(X_PATH)
     Y = np.load(Y_PATH)
-    return X, Y
+    if not time_series:
+        return X, Y
+    raise NotImplementedError
 
 
 def get_splits(site_id=None, test=False):
