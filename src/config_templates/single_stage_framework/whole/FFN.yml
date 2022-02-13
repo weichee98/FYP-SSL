@@ -1,0 +1,60 @@
+seed:
+  min: 0
+  max: 10
+fold:
+  min: 0
+  max: 5
+model:
+  -
+    model_name: FFN
+    model_params:
+      hidden_1: 150
+      hidden_2: 50
+      hidden_3: 30
+      dropout: 0.5
+    optim_params:
+      lr: 0.0001
+      l2_reg: 0.001
+data:
+  -
+    output_directory: ../.archive/ABIDE_WHOLE
+    dataset: ABIDE
+    labeled_sites:
+      - 
+        - NYU
+        - CALTECH
+        - LEUVEN_1
+        - LEUVEN_2
+        - MAX_MUN
+        - OHSU
+        - OLIN
+        - PITT
+        - STANFORD
+        - TRINITY
+        - UCLA_1
+        - UCLA_2
+        - UM_1
+        - UM_2
+        - USM
+        - YALE
+  -
+    output_directory: ../.archive/ADHD_WHOLE
+    dataset: ADHD
+    labeled_sites:
+      -
+        - NYU
+        - PKU
+        - NI
+        - OHSU
+experiment_settings:
+  -
+    ssl: false
+    harmonize: false
+    validation: false
+  -
+    ssl: false
+    harmonize: true
+    validation: false
+process:
+  device: 2
+  verbose: false
