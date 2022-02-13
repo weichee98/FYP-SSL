@@ -42,7 +42,6 @@ class TrainerParams:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "id": id(self),
             "model_name": self.model_name,
             "model_params": str(self.model_params),
             "optim_params": str(self.optim_params),
@@ -69,7 +68,7 @@ class TrainerParams:
                 self.model_name,
                 self.seed,
                 self.fold,
-                id(self),
+                int(time.time()),
             ),
         )
 
@@ -83,7 +82,7 @@ class TrainerParams:
                 self.model_name,
                 self.seed,
                 self.fold,
-                id(self),
+                int(time.time()),
             ),
         )
 
@@ -317,7 +316,7 @@ class DoubleTrainerParams(TrainerParams):
                 self.model_name,
                 self.seed,
                 self.fold,
-                id(self),
+                int(time.time()),
             ),
         )
 
@@ -331,7 +330,7 @@ class DoubleTrainerParams(TrainerParams):
                 self.model_name,
                 self.seed,
                 self.fold,
-                id(self),
+                int(time.time()),
             ),
         )
 
