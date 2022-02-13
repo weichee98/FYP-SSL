@@ -399,8 +399,15 @@ class DoubleStageFrameworkTrainer(Trainer):
                 data_dict.get("test")
             )
 
-        self.trainer_params.model_params["input_size"] = data_dict["input_size"]
-        self.trainer_params.model_params["num_sites"] = data_dict["num_sites"]
+        self.trainer_params.model_params["ae_param"]["input_size"] = data_dict[
+            "input_size"
+        ]
+        self.trainer_params.model_params["ae_param"]["num_sites"] = data_dict[
+            "num_sites"
+        ]
+        self.trainer_params.model_params["fcnn_param"]["num_sites"] = data_dict[
+            "num_sites"
+        ]
         ae_model, fcnn_model = DoubleStageFrameworkFactory.load_model(
             self.trainer_params.model_name, self.trainer_params.model_params
         )
@@ -473,7 +480,7 @@ class DoubleStageFrameworkTrainer(Trainer):
 
         ae_model.load_state_dict(best_ae_model_state_dict)
         new_data_dict = dict()
-        for key in ["labeled_data", "unlabeled_data", "valid", "test"]:
+        for key in ["labeled_train", "unlabeled_train", "valid", "test"]:
             if key in data_dict:
                 new_data_dict[key] = ae_model.prepare_z_y(
                     device, data_dict[key]
@@ -553,10 +560,10 @@ class DoubleStageFrameworkTrainer(Trainer):
             self.trainer_params.model_name, ae_model, fcnn_model
         )
         model_size = count_parameters(best_model)
-        best_model_state_dict = best_model.state_dict()
 
         if self.trainer_params.save_model:
             try:
+                best_model_state_dict = best_model.state_dict()
                 model_path = self.trainer_params.model_path
                 mkdir(os.path.dirname(model_path))
                 torch.save(best_model_state_dict, model_path)

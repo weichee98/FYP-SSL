@@ -71,10 +71,10 @@ class SAE(ModelBase):
             p = hyperparameters.get("p", 0.05)
             eps = hyperparameters.get("eps", 1e-4)
 
-            rc_loss = F.mse_loss(x, pred_x, reduction="sum")
+            rc_loss = F.mse_loss(x, pred_x, reduction="none")
             rc_loss = rc_loss.sum(dim=1).mean()
 
-            p_hat = torch.maximum((z ** 2).mean(), eps)
+            p_hat = torch.maximum((z ** 2).mean(), torch.tensor(eps))
             sparsity = torch.sum(
                 p * torch.log(p / p_hat)
                 + (1 - p) * torch.log((1 - p) / (1 - p_hat))
@@ -98,7 +98,7 @@ class SAE(ModelBase):
             result = self(x)
             pred_x = result["x_hat"]
 
-            rc_loss = F.mse_loss(x, pred_x, reduction="sum")
+            rc_loss = F.mse_loss(x, pred_x, reduction="none")
             rc_loss = rc_loss.sum(dim=1).mean()
 
         return {"rc_loss": rc_loss.item()}
@@ -133,7 +133,7 @@ class MaskedSAE(SAE):
     def fit_mask(self, x: torch.Tensor):
         n_smallest = int(self.num_features / 2)
         n_largest = self.num_features - n_smallest
-        mask = torch.zeros(x.size(0), dtype=torch.bool)
+        mask = torch.zeros(x.size(1), dtype=torch.bool)
 
         mean = x.mean(dim=0)
         n_largest_idx = torch.topk(mean, n_largest)[1]
@@ -181,10 +181,10 @@ class MaskedSAE(SAE):
             p = hyperparameters.get("p", 0.05)
             eps = hyperparameters.get("eps", 1e-4)
 
-            rc_loss = F.mse_loss(masked_x, pred_x, reduction="sum")
+            rc_loss = F.mse_loss(masked_x, pred_x, reduction="none")
             rc_loss = rc_loss.sum(dim=1).mean()
 
-            p_hat = torch.maximum((z ** 2).mean(), eps)
+            p_hat = torch.maximum((z ** 2).mean(), torch.tensor(eps))
             sparsity = torch.sum(
                 p * torch.log(p / p_hat)
                 + (1 - p) * torch.log((1 - p) / (1 - p_hat))
@@ -209,7 +209,7 @@ class MaskedSAE(SAE):
             pred_x = result["x_hat"]
             masked_x = result["masked_x"]
 
-            rc_loss = F.mse_loss(masked_x, pred_x, reduction="sum")
+            rc_loss = F.mse_loss(masked_x, pred_x, reduction="none")
             rc_loss = rc_loss.sum(dim=1).mean()
 
         return {"rc_loss": rc_loss.item()}

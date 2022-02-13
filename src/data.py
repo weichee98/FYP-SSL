@@ -242,9 +242,10 @@ class GraphModelBaseDataloader(DataloaderBase):
             torch.tensor(x).float(), has_value=True
         )
         data.y = torch.tensor([y])
+        data.d = torch.tensor([d])
         data.age = torch.tensor([age]).float()
         data.gender = torch.tensor(np.expand_dims(gender, axis=0)).float()
-        return d
+        return data
 
     @classmethod
     def make_dataset(

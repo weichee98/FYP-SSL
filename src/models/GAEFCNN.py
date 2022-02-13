@@ -50,10 +50,8 @@ class GCN(Module):
         if self.tau > 0:
             adj_t = threshold(adj_t, 1.0 - self.tau)
         z = self.encoder1(x, adj_t)
-        z = F.relu(z)
         if self.encoder2 is not None:
-            z = self.encoder2(z, adj_t)
-            z = F.relu(z)
+            z = self.encoder2(F.relu(z), adj_t)
         return {"z": z, "adj_t": adj_t}
 
     def get_optimizer(self, param: dict) -> Optimizer:
@@ -386,10 +384,29 @@ class GAE_FCNN(Module):
 
 
 class GCN_FCNN(GraphModelBase):
-    def __init__(self, gcn: GCN, fcnn: GFCNN):
+    def __init__(
+        self,
+        input_size: int = 116,
+        emb1: int = 94,
+        emb2: int = 0,
+        tau: float = 0.25,
+        num_nodes: int = 116,
+        clf_hidden_size: Sequence[int] = (128, 264),
+        clf_output_size: int = 2,
+        **kwargs
+    ):
         super().__init__()
-        self.gcn = gcn
-        self.fcnn = fcnn
+        self.gcn = GCN(input_size, emb1, emb2, tau)
+        self.fcnn = GFCNN(
+            emb2 or emb1, num_nodes, clf_hidden_size, clf_output_size
+        )
+
+    @staticmethod
+    def state_dict_mapping() -> dict:
+        return dict()
+
+    def ss_forward(self, *args) -> torch.Tensor:
+        raise NotImplementedError
 
     def forward(
         self, x: torch.Tensor, adj_t: SparseTensor

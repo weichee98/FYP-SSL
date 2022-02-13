@@ -11,12 +11,12 @@ from typing import Any, Dict
 from data import Dataset
 from config import EXPERIMENT_DIR, ConfigParser
 from utils import mkdir, on_error
-from factory import SingleStageFrameworkFactory
-from trainer import SingleStageFrameworkTrainer, TrainerParams
+from factory import DoubleStageFrameworkFactory
+from trainer import DoubleStageFrameworkTrainer, DoubleTrainerParams
 
 
 @on_error(dict(), True)
-def experiment(trainer: SingleStageFrameworkTrainer):
+def experiment(trainer: DoubleStageFrameworkTrainer):
     trainer_results = trainer.run()
     return trainer_results.to_dict()
 
@@ -41,7 +41,7 @@ def process(config: Dict[str, Any]):
     with open(config_path, "w") as f:
         json.dump(config, f, indent=4, sort_keys=True)
 
-    dataloader = SingleStageFrameworkFactory.load_dataloader(
+    dataloader = DoubleStageFrameworkFactory.load_dataloader(
         model_name=config["model_name"],
         dataloader_param={
             "dataset": Dataset(config["dataset"]),
@@ -51,9 +51,9 @@ def process(config: Dict[str, Any]):
     all_results = list()
 
     for seed, fold in product(config["seed"], config["fold"]):
-        trainer = SingleStageFrameworkTrainer(
+        trainer = DoubleStageFrameworkTrainer(
             dataloader=dataloader,
-            trainer_params=TrainerParams(
+            trainer_params=DoubleTrainerParams(
                 output_dir,
                 config.get("model_name"),
                 config.get("model_params", dict()),
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="config_templates/single_stage_framework/config.yml",
+        default="config_templates/double_stage_framework/config.yml",
         help="the path to the config file",
     )
     args = parser.parse_args()

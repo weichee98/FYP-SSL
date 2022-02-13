@@ -18,17 +18,17 @@ class VAECH_II(VAECH_I):
     def get_optimizer(
         self, param: Dict[str, Any]
     ) -> Tuple[Optimizer, Optimizer]:
-        lr_param: dict = param.get("lr", dict())
-        l2_reg_param: dict = param.get("l2_reg", dict())
+        vae_param: dict = param.get("vae_ffn", dict())
+        ch_param: dict = param.get("ch", dict())
         vae_optim = Adam(
             filter(lambda p: p.requires_grad, self.vae_ffn.parameters()),
-            lr=lr_param.get("vae_ffn", 0.0001),
-            weight_decay=l2_reg_param.get("vae_ffn", 0.0),
+            lr=vae_param.get("lr", 0.0001),
+            weight_decay=vae_param.get("l2_reg", 0.0),
         )
         ch_optim = Adam(
             filter(lambda p: p.requires_grad, self.ch.parameters()),
-            lr=lr_param.get("ch", 0.005),
-            weight_decay=l2_reg_param.get("ch", 0.0),
+            lr=ch_param.get("lr", 0.005),
+            weight_decay=ch_param.get("l2_reg", 0.0),
         )
         return vae_optim, ch_optim
 
