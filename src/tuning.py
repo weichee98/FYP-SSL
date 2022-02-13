@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from itertools import product
+from pickle import TRUE
 from typing import Any, Dict, Generator, List, Sequence, Tuple
 
 import copy
 import pandas as pd
 import numpy as np
+from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor
 
 from config import TuningStrategy as TS
@@ -168,11 +170,22 @@ class BayesianGridSearch(GridSearch):
         self.__gp_model = GaussianProcessRegressor()
 
     def acquisition(self):
-        pred_scores = self.__gp_model.predict(self.__X[~self.__idx_is_sampled])
+        self.__gp_model.fit(
+            self.__X[self.__idx_is_sampled],
+            self.__real_scores[self.__idx_is_sampled],
+        )
+        sampled_scores = self.__gp_model.predict(
+            self.__X[self.__idx_is_sampled]
+        )
         if self.direction == TS.Direction.MAXIMUM:
-            idx = np.argmax(pred_scores)
+            best_score = sampled_scores.max()
         else:
-            idx = np.argmin(pred_scores)
+            best_score = sampled_scores.min()
+        pred_scores, pred_std = self.__gp_model.predict(
+            self.__X[~self.__idx_is_sampled], return_std=TRUE
+        )
+        probabilities = norm.cdf((pred_scores - best_score) / (pred_std + 1e-9))
+        idx = np.argmax(probabilities)
         return np.argwhere(~self.__idx_is_sampled).flatten()[idx]
 
     def _generate_sample(self) -> Generator[Dict[str, Any], None, None]:
@@ -191,10 +204,6 @@ class BayesianGridSearch(GridSearch):
                 list(self._get_last_result().values())
             )
 
-        self.__gp_model.fit(
-            self.__X[self.__idx_is_sampled],
-            self.__real_scores[self.__idx_is_sampled],
-        )
         for _ in range(self.num_samples_init, self.num_samples_total):
             idx = self.acquisition()
             self.__idx_is_sampled[idx] = True
