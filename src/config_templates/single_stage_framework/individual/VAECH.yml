@@ -85,16 +85,8 @@ data:
       - OHSU
 experiment_settings:
   -
-    ssl: false
-    harmonize: false
-    validation: false
-  -
     ssl: true
     harmonize: false
-    validation: false
-  -
-    ssl: true
-    harmonize: true
     validation: false
 process:
   device: 2

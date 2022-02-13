@@ -439,8 +439,8 @@ class VAESDR(ModelBase):
 
         ce_y_loss = F.cross_entropy(pred_y, real_y)
         ce_d_loss = F.cross_entropy(pred_d, real_d)
-        rc_x_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2)
-        rc_z_loss = F.gaussian_nll_loss(z, z_disease + z_site, z_std ** 2)
+        rc_x_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
+        rc_z_loss = F.gaussian_nll_loss(z, z_disease + z_site, z_std ** 2, full=True)
         kl_loss = kl_divergence_loss(
             z_mu, z_std ** 2, torch.zeros_like(z_mu), torch.ones_like(z_std),
         )
@@ -531,13 +531,13 @@ class VAESDR(ModelBase):
             ce_y_loss_2 = F.cross_entropy(pred_y, real_y)
             ce_d_loss_2 = entropy_loss(pred_d)
             rc_x_loss_2 = (
-                F.gaussian_nll_loss(x_mu, x_disease, x_std ** 2)
-                + F.gaussian_nll_loss(x_disease_2, x_disease, x_std ** 2)
+                F.gaussian_nll_loss(x_mu, x_disease, x_std ** 2, full=True)
+                + F.gaussian_nll_loss(x_disease_2, x_disease, x_std ** 2, full=True)
             ) / 2.0
             rc_z_loss_2 = (
-                F.gaussian_nll_loss(z, z_disease, z_std ** 2)
+                F.gaussian_nll_loss(z, z_disease, z_std ** 2, full=True)
                 + F.gaussian_nll_loss(
-                    torch.zeros_like(z_site), z_site, z_std ** 2
+                    torch.zeros_like(z_site), z_site, z_std ** 2, full=True
                 )
             ) / 2.0
             kl_loss_2 = kl_divergence_loss(
@@ -580,6 +580,7 @@ class VAESDR(ModelBase):
 
         total_loss.backward()
         model_optim.step()
+        return metrics
 
     def train_step(
         self,
@@ -693,8 +694,8 @@ class VAESDR(ModelBase):
 
             ce_y_loss = F.cross_entropy(pred_y, real_y)
             ce_d_loss = F.cross_entropy(pred_d, real_d)
-            rc_x_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2)
-            rc_z_loss = F.gaussian_nll_loss(z, z_disease + z_site, z_std ** 2)
+            rc_x_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
+            rc_z_loss = F.gaussian_nll_loss(z, z_disease + z_site, z_std ** 2, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,

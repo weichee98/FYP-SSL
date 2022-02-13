@@ -1,0 +1,150 @@
+seed:
+  min: 0
+  max: 10
+fold:
+  min: 0
+  max: 5
+model:
+  -
+    model_name: VAESDR
+    model_params:
+      hidden_size: 300
+      emb_size: 150
+      dropout: 0.5
+      share_decoder: false
+    optim_params:
+      lr: 0.0001
+      l2_reg: 0.001
+    hyperparameters:
+      rc_x_loss: 0.00001
+      rc_z_loss: 0.001
+      kl_loss: 0.001
+      discriminator_loss: 0
+      second_pass_loss: 0
+  -
+    model_name: VAESDR-D
+    model_params:
+      hidden_size: 300
+      emb_size: 150
+      dropout: 0.5
+      share_decoder: false
+    optim_params:
+      lr: 0.0001
+      l2_reg: 0.001
+    hyperparameters:
+      rc_x_loss: 0.00001
+      rc_z_loss: 0.001
+      kl_loss: 0.001
+      discriminator_loss: 0.3
+      second_pass_loss: 0
+  -
+    model_name: VAESDR-DS
+    model_params:
+      hidden_size: 300
+      emb_size: 150
+      dropout: 0.5
+      share_decoder: false
+    optim_params:
+      lr: 0.0001
+      l2_reg: 0.001
+    hyperparameters:
+      rc_x_loss: 0.00001
+      rc_z_loss: 0.001
+      kl_loss: 0.001
+      discriminator_loss: 0.3
+      second_pass_loss: 1
+  -
+    model_name: VAESDR-W
+    model_params:
+      hidden_size: 300
+      emb_size: 150
+      dropout: 0.5
+      share_decoder: true
+    optim_params:
+      lr: 0.0001
+      l2_reg: 0.001
+    hyperparameters:
+      rc_x_loss: 0.00001
+      rc_z_loss: 0.001
+      kl_loss: 0.001
+      discriminator_loss: 0
+      second_pass_loss: 0
+  -
+    model_name: VAESDR-DW
+    model_params:
+      hidden_size: 300
+      emb_size: 150
+      dropout: 0.5
+      share_decoder: true
+    optim_params:
+      lr: 0.0001
+      l2_reg: 0.001
+    hyperparameters:
+      rc_x_loss: 0.00001
+      rc_z_loss: 0.001
+      kl_loss: 0.001
+      discriminator_loss: 0.3
+      second_pass_loss: 0
+  -
+    model_name: VAESDR-DSW
+    model_params:
+      hidden_size: 300
+      emb_size: 150
+      dropout: 0.5
+      share_decoder: true
+    optim_params:
+      lr: 0.0001
+      l2_reg: 0.001
+    hyperparameters:
+      rc_x_loss: 0.00001
+      rc_z_loss: 0.001
+      kl_loss: 0.001
+      discriminator_loss: 0.3
+      second_pass_loss: 1
+data:
+  -
+    output_directory: ../.archive/ABIDE_INDIVIDUAL
+    dataset: ABIDE
+    labeled_sites:
+      - NYU
+      - CALTECH
+      - LEUVEN_1
+      - LEUVEN_2
+      - MAX_MUN
+      - OHSU
+      - OLIN
+      - PITT
+      - STANFORD
+      - TRINITY
+      - UCLA_1
+      - UCLA_2
+      - UM_1
+      - UM_2
+      - USM
+      - YALE
+  -
+    output_directory: ../.archive/ADHD_INDIVIDUAL
+    dataset: ADHD
+    labeled_sites:
+      - NYU
+      - PKU
+      - NI
+      - OHSU
+experiment_settings:
+  -
+    ssl: true
+    harmonize: false
+    validation: false
+process:
+  device: 2
+  verbose: false
+  save_model_condition:
+    -
+      dataset: ABIDE
+      labeled_sites: NYU
+    -
+      dataset: ADHD
+      labeled_sites: NYU
+    -
+      dataset: ADHD
+      labeled_sites: PKU
