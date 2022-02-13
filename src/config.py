@@ -1,5 +1,7 @@
 from __future__ import annotations
+from collections import defaultdict
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, Optional, Sequence, Union
 
 import os.path as osp
@@ -141,7 +143,7 @@ class ProcessConfig:
 
 
 @dataclass(frozen=True)
-class ConfigParser:
+class FrameworkConfigParser:
     seed: RangeGenerator
     fold: RangeGenerator
     model: ModelConfig
@@ -173,12 +175,138 @@ class ConfigParser:
         data: Sequence[Dict[str, Any]],
         experiment_settings: Sequence[Dict[str, bool]],
         process: Dict[str, Any],
-    ) -> ConfigParser:
-        return ConfigParser(
+    ) -> FrameworkConfigParser:
+        return FrameworkConfigParser(
             seed=RangeGenerator.parse(seed),
             fold=RangeGenerator.parse(fold),
             model=ModelConfig.parse(model),
             data=DataConfig.parse(data),
             experiment_settings=ExperimentSettings.parse(experiment_settings),
+            process=ProcessConfig(**process),
+        )
+
+
+@dataclass(frozen=True)
+class CandidateParameters:
+    model_name: str
+    model_params: Dict[str, Sequence[Any]]
+    optim_params: Dict[str, Sequence[Any]] = field(default_factory=dict)
+    hyperparameters: Dict[str, Sequence[Any]] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return dict(
+            model_name=self.model_name,
+            tuning_params={
+                **{
+                    "model_params__{}".format(k): v
+                    for k, v in self.model_params.items()
+                },
+                **{
+                    "optim_params__{}".format(k): v
+                    for k, v in self.optim_params.items()
+                },
+                **{
+                    "hyperparameters__{}".format(k): v
+                    for k, v in self.hyperparameters.items()
+                },
+            },
+        )
+
+    @dataclass(frozen=True)
+    class SampledParams:
+        model_params: Dict[str, Any]
+        optim_params: Dict[str, Any] = field(default_factory=dict)
+        hyperparameters: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def decompose_sampled_params(cls, params: Dict[str, Any]) -> SampledParams:
+        valid_params = dict()
+        nested_params = defaultdict(dict)
+        for key, value in params.items():
+            key, delim, sub_key = key.partition("__")
+            if not delim:
+                valid_params[key] = value
+            else:
+                nested_params[key][sub_key] = value
+        for key, sub_params in nested_params.items():
+            valid_params[key] = cls.decompose_sampled_params(sub_params)
+        try:
+            return cls.SampledParams(**valid_params)
+        except:
+            return valid_params
+
+
+@dataclass(frozen=True)
+class TuningStrategy:
+    metric: str = field(default="accuracy")
+    direction: str = field(default="maximum")
+    sampling_method: str = field(default="bayes_grid")
+    sampling_kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    class Direction(Enum):
+        MAXIMUM = "maximum"
+        MINIMUM = "minimum"
+
+    class SamplingMethod(Enum):
+        GRID = "grid"
+        BAYES_GRID = "bayes_grid"
+
+    def __post_init__(self):
+        assert self.Direction(self.direction)
+        assert self.SamplingMethod(self.sampling_method)
+
+    def to_dict(self):
+        return {
+            "strategy": dict(
+                metric=self.metric,
+                direction=self.direction,
+                sampling_method=self.sampling_method,
+                sampling_kwargs=self.sampling_kwargs,
+            )
+        }
+
+
+@dataclass(frozen=True)
+class TuningConfigParser:
+    seed: RangeGenerator
+    fold: RangeGenerator
+    data: DataConfig
+    experiment_settings: ExperimentSettings
+    parameters: CandidateParameters
+    strategy: TuningStrategy
+    process: ProcessConfig
+
+    def generate(self):
+        for data, exp_setting in product(
+            self.data.generate(), self.experiment_settings.generate(),
+        ):
+            config = {
+                "seed": self.seed.generate(),
+                "fold": self.fold.generate(),
+                **data,
+                **exp_setting,
+            }
+            config.update(self.parameters.to_dict())
+            config.update(self.strategy.to_dict())
+            config = self.process.update(config)
+            yield config
+
+    @staticmethod
+    def parse(
+        seed: Dict[str, int],
+        fold: Dict[str, Any],
+        data: Sequence[Dict[str, Any]],
+        experiment_settings: Sequence[Dict[str, bool]],
+        parameters: Dict[str, Any],
+        strategy: Dict[str, Any],
+        process: Dict[str, Any],
+    ) -> TuningConfigParser:
+        return TuningConfigParser(
+            seed=RangeGenerator.parse(seed),
+            fold=RangeGenerator.parse(fold),
+            data=DataConfig.parse(data),
+            experiment_settings=ExperimentSettings.parse(experiment_settings),
+            parameters=CandidateParameters(**parameters),
+            strategy=TuningStrategy(**strategy),
             process=ProcessConfig(**process),
         )
