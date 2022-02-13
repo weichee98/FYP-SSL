@@ -231,7 +231,7 @@ class FCNN(ModelBase):
             Linear(hidden_1, hidden_2),
             ReLU(),
             Linear(hidden_2, output_size),
-            Softmax(),
+            Softmax(dim=1),
         )
 
     @staticmethod

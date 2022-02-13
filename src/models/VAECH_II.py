@@ -110,13 +110,13 @@ class VAECH_II(VAECH_I):
 
             labeled_vae_res = self.vae_ffn(labeled_x_ch)
             pred_y = labeled_vae_res["y"]
-            labeled_x_ch_mu = labeled_vae_res["x_ch_mu"]
+            labeled_x_ch_mu = labeled_vae_res["x_mu"]
             labeled_x_std = labeled_vae_res["x_std"]
             labeled_z_mu = labeled_vae_res["z_mu"]
             labeled_z_std = labeled_vae_res["z_std"]
             if unlabeled_data is not None:
-                unlabeled_vae_res = self.vae_ffn(labeled_ch_res)
-                unlabeled_x_ch_mu = unlabeled_vae_res["x_ch_mu"]
+                unlabeled_vae_res = self.vae_ffn(unlabeled_x_ch)
+                unlabeled_x_ch_mu = unlabeled_vae_res["x_mu"]
                 unlabeled_x_std = unlabeled_vae_res["x_std"]
                 unlabeled_z_mu = unlabeled_vae_res["z_mu"]
                 unlabeled_z_std = unlabeled_vae_res["z_std"]

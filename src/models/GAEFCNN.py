@@ -273,7 +273,7 @@ class GFCNN(ModelBase):
             layers.append(ReLU())
         else:
             layers.append(Linear(dimensions[-2], dimensions[-1]))
-            layers.append(Softmax())
+            layers.append(Softmax(dim=1))
         self.clf = Sequential(*layers)
 
     @staticmethod

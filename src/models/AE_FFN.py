@@ -44,7 +44,7 @@ class AE_FFN(ModelBase):
             emb_size,
             [h for h in [clf_hidden_1, clf_hidden_2] if h > 0],
             clf_output_size,
-            Softmax(),
+            Softmax(dim=1),
             dropout=dropout,
         )
 
@@ -128,7 +128,7 @@ class AE_FFN(ModelBase):
                 x_hat = torch.cat((labeled_x_hat, unlabeled_x_hat), dim=0)
             else:
                 x = labeled_x
-                x_hat = unlabeled_x_hat
+                x_hat = labeled_x_hat
 
             ce_loss = F.cross_entropy(pred_y, real_y)
             rc_loss = F.mse_loss(x_hat, x, reduction="none")

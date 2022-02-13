@@ -46,7 +46,7 @@ class CH(Module):
         if site.ndim == 2:
             pass
         elif site.ndim == 1:
-            site = F.one_hot(site, num_classes=self.num_sites)
+            site = F.one_hot(site, num_classes=self.num_sites).float()
         else:
             raise ValueError("invalid shape for site: {}".format(site.size()))
 

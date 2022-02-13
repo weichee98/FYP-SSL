@@ -63,16 +63,16 @@ class VAESDR(ModelBase):
             )
 
         self.site_cls = FeedForward(
-            emb_size, [], num_sites, Softmax(), dropout=dropout
+            emb_size, [], num_sites, Softmax(dim=1), dropout=dropout
         )
         self.disease_cls = FeedForward(
-            emb_size, [], clf_output_size, Softmax(), dropout=dropout
+            emb_size, [], clf_output_size, Softmax(dim=1), dropout=dropout
         )
         self.site_dis = FeedForward(
-            emb_size, [], num_sites, Softmax(), dropout=dropout
+            emb_size, [], num_sites, Softmax(dim=1), dropout=dropout
         )
         self.disease_dis = FeedForward(
-            emb_size, [], clf_output_size, Softmax(), dropout=dropout
+            emb_size, [], clf_output_size, Softmax(dim=1), dropout=dropout
         )
 
     @staticmethod

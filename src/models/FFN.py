@@ -30,7 +30,7 @@ class FFN(ModelBase):
             input_size,
             [h for h in [hidden_1, hidden_2, hidden_3] if h > 0],
             output_size,
-            Softmax(),
+            Softmax(dim=1),
             dropout=dropout,
         )
 

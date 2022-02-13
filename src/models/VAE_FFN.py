@@ -51,7 +51,7 @@ class VAE_FFN(ModelBase):
             emb_size,
             [h for h in [clf_hidden_1, clf_hidden_2] if h > 0],
             clf_output_size,
-            Softmax(),
+            Softmax(dim=1),
             dropout=dropout,
         )
 
