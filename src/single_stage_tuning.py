@@ -130,7 +130,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="config_templates/single_stage_framework/config.yml",
+        default="config_templates/single_stage_tuning/config.yml",
         help="the path to the config file",
     )
     args = parser.parse_args()
