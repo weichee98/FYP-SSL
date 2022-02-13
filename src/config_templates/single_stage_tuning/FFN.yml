@@ -86,3 +86,6 @@ process:
   verbose: false
   max_epoch: 100
   patience: 100
+  save_model_condition:
+    -
+      dataset: null
