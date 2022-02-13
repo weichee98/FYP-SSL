@@ -9,8 +9,8 @@ from itertools import product
 from typing import Any, Dict
 
 from data import Dataset
-from config import EXPERIMENT_DIR, ConfigParser
-from utils import mkdir, on_error
+from config import EXPERIMENT_DIR, FrameworkConfigParser
+from utils import mkdir, on_error, seed_torch
 from factory import SingleStageFrameworkFactory
 from trainer import SingleStageFrameworkTrainer, TrainerParams
 
@@ -22,6 +22,7 @@ def experiment(trainer: SingleStageFrameworkTrainer):
 
 
 def process(config: Dict[str, Any]):
+    seed_torch()
     logging.info("CONFIG:\n{}".format(json.dumps(config, indent=4)))
 
     script_name = os.path.splitext(os.path.basename(__file__))[0]
@@ -37,6 +38,8 @@ def process(config: Dict[str, Any]):
     config_path = os.path.join(
         output_dir, "{}.config.json".format(experiment_name),
     )
+    results_path = os.path.join(output_dir, "{}.csv".format(experiment_name),)
+
     mkdir(output_dir)
     with open(config_path, "w") as f:
         json.dump(config, f, indent=4, sort_keys=True)
@@ -82,21 +85,15 @@ def process(config: Dict[str, Any]):
         logging.info("RESULT:\n{}".format(json.dumps(result, indent=4)))
 
         df = pd.DataFrame(all_results).dropna(how="all")
-        if df.empty:
-            continue
-
-        mkdir(output_dir)
-        results_path = os.path.join(
-            output_dir, "{}.csv".format(experiment_name),
-        )
-        df.to_csv(results_path, index=False)
+        if not df.empty:
+            df.to_csv(results_path, index=False)
 
 
 def main(args):
     with open(os.path.abspath(args.config), "r") as f:
         configs: Dict[str, Any] = yaml.full_load(f)
 
-    parser: ConfigParser = ConfigParser.parse(**configs)
+    parser: FrameworkConfigParser = FrameworkConfigParser.parse(**configs)
     for config in parser.generate():
         process(config)
 
