@@ -1,0 +1,87 @@
+seed:
+  min: 0
+  max: 10
+fold:
+  min: 0
+  max: 5
+model:
+  -
+    model_name: GAE-FCNN
+    model_params:
+      ae_param:
+        emb1: 64
+        emb2: 16
+        tau: 0.25
+      fcnn_param:
+        input_size: 16
+        num_nodes: 264
+        clf_hidden_size:
+          - 256
+          - 256
+          - 128
+    optim_params:
+      ae_param:
+        lr: 0.0001
+        l2_reg: 0.0001
+      fcnn_param:
+        lr: 0.0001
+        l2_reg: 0.0001
+data:
+  -
+    dataset: ABIDE
+    labeled_sites:
+      - 
+        - NYU
+        - CALTECH
+        - LEUVEN_1
+        - LEUVEN_2
+        - MAX_MUN
+        - OHSU
+        - OLIN
+        - PITT
+        - STANFORD
+        - TRINITY
+        - UCLA_1
+        - UCLA_2
+        - UM_1
+        - UM_2
+        - USM
+        - YALE
+      - NYU
+      - CALTECH
+      - LEUVEN_1
+      - LEUVEN_2
+      - MAX_MUN
+      - OHSU
+      - OLIN
+      - PITT
+      - STANFORD
+      - TRINITY
+      - UCLA_1
+      - UCLA_2
+      - UM_1
+      - UM_2
+      - USM
+      - YALE
+  -
+    dataset: ADHD
+    labeled_sites:
+      -
+        - NYU
+        - PKU
+        - NI
+        - OHSU
+      - NYU
+      - PKU
+      - NI
+      - OHSU
+experiment_settings:
+  -
+    ssl: false
+    harmonize: false
+    validation: false
+process:
+  device: 1
+  verbose: false
+  max_epoch: 400
+  dataloader_num_process: 10

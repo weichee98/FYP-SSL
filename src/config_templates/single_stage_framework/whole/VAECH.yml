@@ -48,12 +48,12 @@ model:
       kl_loss: 0.001
       ch_loss: 10
     optim_params:
-      lr:
-        ch: 0.005
-        vae_ffn: 0.0001
-      l2_reg:
-        ch: 0.0
-        vae_ffn: 0.001
+      ch:
+        lr: 0.005
+        l2_reg: 0.0
+      vae_ffn:
+        lr: 0.0001
+        l2_reg: 0.001
 data:
   -
     output_directory: ../.archive/ABIDE_WHOLE
