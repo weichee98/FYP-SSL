@@ -15,7 +15,6 @@ from torch.nn import Module
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from .FFN import FFN
-from .AE_FFN import AE_FFN
 from .VAE_FFN import VAE_FFN
 from .VAECH import VAECH
 from .VAECH_I import VAECH_I

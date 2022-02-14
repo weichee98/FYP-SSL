@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from typing import Any, Optional, Dict
 from torch.nn import Tanh, Softmax
-from torch.optim import Optimizer
+from torch.optim import Optimizer, Adam
 from torch_geometric.data import Data
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,7 +14,7 @@ from utils.metrics import ClassificationMetrics as CM
 from models.base import ModelBase, FeedForward
 
 
-class AE_FFN(ModelBase):
+class ASDDiagNet(ModelBase):
     def __init__(
         self,
         input_size: int,
@@ -67,6 +67,14 @@ class AE_FFN(ModelBase):
             "cls3.bias": "classifier.2.bias",
         }
 
+    def get_optimizer(self, param: dict) -> Optimizer:
+        optim = Adam(
+            filter(lambda p: p.requires_grad, self.parameters()),
+            lr=param.get("lr", 0.0001),
+            weight_decay=param.get("l2_reg", 0.0001),
+        )
+        return optim
+
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         return self.encoder(x)
 
@@ -118,12 +126,12 @@ class AE_FFN(ModelBase):
         with torch.enable_grad():
             optimizer.zero_grad()
 
-            labeled_z = self.encode(labeled_x)
-            labeled_x_hat = self.decode(labeled_z)
-            pred_y = self.classify(labeled_z)
+            labeled_res = self(labeled_x)
+            labeled_x_hat = labeled_res["x_hat"]
+            pred_y = labeled_res["y"]
             if unlabeled_data is not None:
-                unlabeled_z = self.encode(unlabeled_x)
-                unlabeled_x_hat = self.decode(unlabeled_z)
+                unlabeled_res = self(unlabeled_res)
+                unlabeled_x_hat = unlabeled_res["x_hat"]
                 x = torch.cat((labeled_x, unlabeled_x), dim=0)
                 x_hat = torch.cat((labeled_x_hat, unlabeled_x_hat), dim=0)
             else:
@@ -166,11 +174,11 @@ class AE_FFN(ModelBase):
             real_y: torch.Tensor = test_data.y
             x, real_y = x.to(device), real_y.to(device)
 
-            z = self.encode(x)
-            x_ = self.decode(z)
-            pred_y = self.classify(z)
+            result = self(x)
+            pred_y = result["y"]
+            x_hat = result["x_hat"]
 
-            rc_loss = F.mse_loss(x_, x, reduction="none")
+            rc_loss = F.mse_loss(x_hat, x, reduction="none")
             rc_loss = rc_loss.sum(dim=1).mean()
             ce_loss = F.cross_entropy(pred_y, real_y)
 
@@ -193,7 +201,7 @@ class AE_FFN(ModelBase):
 
 
 if __name__ == "__main__":
-    model = AE_FFN.load_from_state_dict(
+    model = ASDDiagNet.load_from_state_dict(
         "/data/yeww0006/FYP-SSL/.archive/exp20_ABIDE_WHOLE/ssl_ABIDE_1639615017/models/1639616389.pt",
         dict(
             input_size=34716,

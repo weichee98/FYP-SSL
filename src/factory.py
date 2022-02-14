@@ -10,14 +10,14 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from models.base import ModelBase
 from models import (
     FFN,
-    AE_FFN,
     VAE_FFN,
     VAECH,
     VAECH_I,
     VAECH_II,
     VAESDR,
 )
-from models.ASDSAENet import SAE, ASDSAENet, MaskedSAE, FCNN
+from models.ASDDiagNet import ASDDiagNet
+from models.ASDSAENet import ASDSAENet
 from models.GAEFCNN import GAE_FCNN, GCN_FCNN, GAE, GVAE, GFCNN
 from data import DataloaderBase, ModelBaseDataloader, GraphModelBaseDataloader
 
@@ -44,7 +44,10 @@ class SingleStageFrameworkFactory(FrameworkFactory):
 
     mapping = {
         "FFN": Mapping(FFN, ModelBaseDataloader),
-        "AE-FFN": Mapping(AE_FFN, ModelBaseDataloader),
+        "ASDDiagNet": Mapping(ASDDiagNet, ModelBaseDataloader),
+        "ASDSAENet": Mapping(ASDSAENet, ModelBaseDataloader),
+        "AE-FFN": Mapping(ASDDiagNet, ModelBaseDataloader),
+        "SAE-FFN": Mapping(ASDSAENet, ModelBaseDataloader),
         "VAE-FFN": Mapping(VAE_FFN, ModelBaseDataloader),
         "VAECH": Mapping(VAECH, ModelBaseDataloader),
         "VAECH-I": Mapping(VAECH_I, ModelBaseDataloader),
@@ -89,16 +92,14 @@ class DoubleStageFrameworkFactory(FrameworkFactory):
         dataloader_cls: DataloaderBase
 
     mapping = {
-        "ASDSAENet": Mapping((SAE, FCNN), ASDSAENet, ModelBaseDataloader),
-        "ASDSAENet1": Mapping(
-            (MaskedSAE, FCNN), ASDSAENet, ModelBaseDataloader
-        ),
         "GAE-FCNN": Mapping((GAE, GFCNN), GAE_FCNN, GraphModelBaseDataloader),
         "GVAE-FCNN": Mapping((GVAE, GFCNN), GAE_FCNN, GraphModelBaseDataloader),
     }
 
     @classmethod
-    def compile_model(cls, model_name: str, ae_model: ModelBase, fcnn_model: ModelBase) -> ModelBase:
+    def compile_model(
+        cls, model_name: str, ae_model: ModelBase, fcnn_model: ModelBase
+    ) -> ModelBase:
         model_mapping = cls.mapping.get(model_name, None)
         if model_mapping is None:
             raise NotImplementedError(

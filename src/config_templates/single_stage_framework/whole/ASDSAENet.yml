@@ -1,0 +1,78 @@
+seed:
+  min: 0
+  max: 10
+fold:
+  min: 0
+  max: 5
+model:
+  -
+    model_name: ASDDiagNet
+    model_params:
+      hidden_size: 0
+      emb_size: 4975
+      clf_hidden_1: 2487
+      clf_hidden_2: 500
+      dropout: 0.5
+    hyperparameters:
+      rc_loss: 1.0
+    optim_params:
+      lr: 0.0001
+      l2_reg: 0.0001
+  -
+    model_name: ASDSAENet
+    model_params:
+      hidden_size: 0
+      emb_size: 4975
+      clf_hidden_1: 2487
+      clf_hidden_2: 500
+      dropout: 0.5
+    hyperparameters:
+      rc_loss: 1.0
+      beta: 2
+      p: 0.05
+    optim_params:
+      lr: 0.0001
+      l2_reg: 0.0001
+data:
+  -
+    output_directory: ../.archive/ABIDE_WHOLE
+    dataset: ABIDE
+    labeled_sites:
+      - 
+        - NYU
+        - CALTECH
+        - LEUVEN_1
+        - LEUVEN_2
+        - MAX_MUN
+        - OHSU
+        - OLIN
+        - PITT
+        - STANFORD
+        - TRINITY
+        - UCLA_1
+        - UCLA_2
+        - UM_1
+        - UM_2
+        - USM
+        - YALE
+  -
+    output_directory: ../.archive/ADHD_WHOLE
+    dataset: ADHD
+    labeled_sites:
+      -
+        - NYU
+        - PKU
+        - NI
+        - OHSU
+experiment_settings:
+  -
+    ssl: false
+    harmonize: false
+    validation: false
+  -
+    ssl: false
+    harmonize: true
+    validation: false
+process:
+  device: 2
+  verbose: false
