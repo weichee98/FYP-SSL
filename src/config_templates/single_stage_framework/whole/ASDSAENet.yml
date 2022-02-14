@@ -56,10 +56,6 @@ experiment_settings:
     ssl: false
     harmonize: false
     validation: false
-  -
-    ssl: false
-    harmonize: true
-    validation: false
 process:
   device: 2
   verbose: false

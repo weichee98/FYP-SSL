@@ -145,3 +145,4 @@ nohup*
 *.png
 *.jpg
 deprecated
+log
