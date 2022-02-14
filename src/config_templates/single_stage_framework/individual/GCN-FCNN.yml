@@ -57,18 +57,11 @@ experiment_settings:
     harmonize: false
     validation: false
 process:
-  device: 2
+  device: 1
   verbose: false
   max_epoch: 400
   patience: 400
   dataloader_num_process: 10
   save_model_condition:
     -
-      dataset: ABIDE
-      labeled_sites: NYU
-    -
-      dataset: ADHD
-      labeled_sites: NYU
-    -
-      dataset: ADHD
-      labeled_sites: PKU
+      dataset: null
