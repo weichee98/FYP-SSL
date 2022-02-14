@@ -26,29 +26,31 @@ data:
     dataset: ABIDE
     labeled_sites:
       - NYU
-      - CALTECH
-      - LEUVEN_1
-      - LEUVEN_2
-      - MAX_MUN
-      - OHSU
-      - OLIN
-      - PITT
-      - STANFORD
-      - TRINITY
-      - UCLA_1
-      - UCLA_2
-      - UM_1
-      - UM_2
       - USM
+      - UM_1
+      - UCLA_1
+      # less than 50 subjects
       - YALE
+      - TRINITY
+      - MAX_MUN
+      - PITT
+      - CALTECH
+      - STANDFORD
+      - LEUVEN_2
+      - UM_2
+      - LEUVEN_1
+      - OLIN
+      - OHSU
+      - UCLA_2
   -
     output_directory: ../.archive/ADHD_INDIVIDUAL
     dataset: ADHD
     labeled_sites:
       - NYU
       - PKU
-      - NI
       - OHSU
+      # less than 50 subjects
+      - NI
 experiment_settings:
   -
     ssl: false
