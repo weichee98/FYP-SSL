@@ -64,6 +64,8 @@ experiment_settings:
 process:
   device: 2
   verbose: false
+  max_epoch: 1000
+  patience: 1000
   save_model_condition:
     -
       dataset: ABIDE

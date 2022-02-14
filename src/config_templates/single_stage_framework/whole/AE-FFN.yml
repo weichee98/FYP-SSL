@@ -18,6 +18,21 @@ model:
     optim_params:
       lr: 0.0001
       l2_reg: 0.001
+  -
+    model_name: SAE-FFN
+    model_params:
+      hidden_size: 300
+      emb_size: 150
+      clf_hidden_1: 50
+      clf_hidden_2: 30
+      dropout: 0.5
+    hyperparameters:
+      rc_loss: 0.00001
+      beta: 2
+      p: 0.05
+    optim_params:
+      lr: 0.0001
+      l2_reg: 0.001
 data:
   -
     output_directory: ../.archive/ABIDE_WHOLE
@@ -61,3 +76,5 @@ experiment_settings:
 process:
   device: 2
   verbose: false
+  max_epoch: 1000
+  patience: 1000

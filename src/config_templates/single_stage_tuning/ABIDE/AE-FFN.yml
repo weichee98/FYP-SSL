@@ -26,37 +26,29 @@ data:
         - UM_2
         - USM
         - YALE
-  -
-    output_directory: ../.archive/ADHD_TUNING
-    dataset: ADHD
-    labeled_sites:
-      -
-        - NYU
-        - PKU
-        - NI
-        - OHSU
 experiment_settings:
   -
     ssl: false
     harmonize: false
     validation: false
-  -
-    ssl: false
-    harmonize: true
-    validation: false
 parameters:
-  model_name: FFN
+  model_name: AE-FFN
   model_params:
-    hidden_1: 
+    hidden_size: 
+      - 0
       - 30
-      - 50
-      - 100
+      - 60
+      - 90
+    emb_size:
+      - 60
+      - 90
+      - 120
       - 150
-    hidden_2:
+    clf_hidden_1:
       - 10
       - 30
       - 50
-    hidden_3:
+    clf_hidden_2:
       - 5
       - 10
       - 30
@@ -74,18 +66,26 @@ parameters:
       - 0.00001
       - 0.0001
       - 0.001
+  hyperparameters:
+    rc_loss:
+      - 0.00001
+      - 0.0001
+      - 0.001
+      - 0.01
+      - 0.1
+      - 1.0
 strategy:
   metric: accuracy
   direction: maximum
   sampling_method: bayes_grid
   sampling_kwargs:
-    num_samples_init: 10
+    num_samples_init: 20
     num_samples_total: 50
 process:
   device: 2
   verbose: false
-  max_epoch: 100
-  patience: 100
+  max_epoch: 1000
+  patience: 1000
   save_model_condition:
     -
       dataset: null

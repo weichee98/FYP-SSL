@@ -6,19 +6,6 @@ fold:
   max: 5
 model:
   -
-    model_name: ASDDiagNet
-    model_params:
-      hidden_size: 0
-      emb_size: 4975
-      clf_hidden_1: 2487
-      clf_hidden_2: 500
-      dropout: 0.5
-    hyperparameters:
-      rc_loss: 1.0
-    optim_params:
-      lr: 0.0001
-      l2_reg: 0.0001
-  -
     model_name: ASDSAENet
     model_params:
       hidden_size: 0
@@ -78,13 +65,8 @@ experiment_settings:
 process:
   device: 2
   verbose: false
+  max_epoch: 1000
+  patience: 1000
   save_model_condition:
     -
-      dataset: ABIDE
-      labeled_sites: NYU
-    -
-      dataset: ADHD
-      labeled_sites: NYU
-    -
-      dataset: ADHD
-      labeled_sites: PKU
+      dataset: null
