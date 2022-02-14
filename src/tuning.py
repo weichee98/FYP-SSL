@@ -26,7 +26,7 @@ class TuningBase(ABC):
         self.direction = direction
         self.seed_fold_list = set(seed_fold_list)
 
-        self.__valid = True
+        self.__valid = False
         self.__updated_model_size = False
         self.__param_list: List[Dict[str, Any]] = list()
         self.__result_list: List[Dict[Tuple[int, int], float]] = list()
@@ -40,7 +40,7 @@ class TuningBase(ABC):
             )
         if not self.__updated_model_size:
             raise Exception(
-                "update model size first " "before getting the best param"
+                "update model size first before getting the best param"
             )
         cv_results = self.cv_results
         idx = np.argmin(cv_results["rank"])
@@ -60,10 +60,15 @@ class TuningBase(ABC):
             )
         params_df = pd.DataFrame(self.__param_list)
         results_df = pd.DataFrame(self.__result_list)
+        model_size = params_df["model_size"]
         mean = results_df.mean(axis=1)
         std = results_df.std(axis=1)
         rank_criterion = pd.concat(
-            [mean if self.direction == TS.Direction.MINIMUM else -mean, std,],
+            [
+                mean if self.direction == TS.Direction.MINIMUM else -mean,
+                model_size,
+                std,
+            ],
             axis=1,
         )
         rank = (
