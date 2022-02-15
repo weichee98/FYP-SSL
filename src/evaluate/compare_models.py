@@ -88,6 +88,9 @@ def plot_target_cols():
 
 def main(directory):
     df = read_csv(directory)
+    if df.empty:
+        return
+        
     output_dir = directory
 
     grouping = GroupSeedFold(df)
@@ -149,3 +152,4 @@ def main(directory):
 
 if __name__ == "__main__":
     main("/data/yeww0006/FYP-SSL/.archive/ABIDE_INDIVIDUAL")
+    main("/data/yeww0006/FYP-SSL/.archive/ADHD_INDIVIDUAL")
