@@ -14,6 +14,7 @@ sys.path.append(__dir__)
 from utils.loss import kl_divergence_loss
 from utils.metrics import ClassificationMetrics as CM
 from models.base import (
+    LatentSpaceEncoding,
     ModelBase,
     FeedForward,
     VariationalDecoder,
@@ -21,7 +22,7 @@ from models.base import (
 )
 
 
-class VAE_FFN(ModelBase):
+class VAE_FFN(ModelBase, LatentSpaceEncoding):
     def __init__(
         self,
         input_size: int,
@@ -119,6 +120,15 @@ class VAE_FFN(ModelBase):
     def ss_forward(self, x: torch.Tensor) -> torch.Tensor:
         z_mu, _ = self.encode(x)
         y = self.classify(z_mu)
+        return y
+
+    def ls_forward(self, data: Data) -> torch.Tensor:
+        x: torch.Tensor = data.x
+        z_mu, _ = self.encode(x)
+        return z_mu
+
+    def get_surface(self, z: torch.Tensor) -> torch.Tensor:
+        y = self.classify(z)
         return y
 
     def train_step(

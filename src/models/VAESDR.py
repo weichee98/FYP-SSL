@@ -16,13 +16,14 @@ from utils.loss import entropy_loss, kl_divergence_loss
 from utils.metrics import ClassificationMetrics as CM
 from models.base import (
     FeedForward,
+    LatentSpaceEncoding,
     ModelBase,
     VariationalDecoder,
     VariationalEncoder,
 )
 
 
-class VAESDR(ModelBase):
+class VAESDR(ModelBase, LatentSpaceEncoding):
     def __init__(
         self,
         input_size: int,
@@ -198,8 +199,18 @@ class VAESDR(ModelBase):
     def ss_forward(self, x):
         encode_res = self.encode(x)
         split_encode_res = self.split_encoding(encode_res["z_mu"])
-        cls_res = self.classify_disease(split_encode_res["z_disease"])
-        return cls_res["y"]
+        y = self.classify_disease(split_encode_res["z_disease"])
+        return y
+
+    def ls_forward(self, data: Data) -> torch.Tensor:
+        x: torch.Tensor = data.x
+        encode_res = self.encode(x)
+        split_encode_res = self.split_encoding(encode_res["z_mu"])
+        return split_encode_res["z_disease"]
+
+    def get_surface(self, z: torch.Tensor) -> torch.Tensor:
+        y = self.classify_disease(z)
+        return y
 
     def get_optimizer(self, param: Dict[str, Any]) -> Dict[str, Optimizer]:
         model_optim = Adam(
@@ -440,7 +451,9 @@ class VAESDR(ModelBase):
         ce_y_loss = F.cross_entropy(pred_y, real_y)
         ce_d_loss = F.cross_entropy(pred_d, real_d)
         rc_x_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
-        rc_z_loss = F.gaussian_nll_loss(z, z_disease + z_site, z_std ** 2, full=True)
+        rc_z_loss = F.gaussian_nll_loss(
+            z, z_disease + z_site, z_std ** 2, full=True
+        )
         kl_loss = kl_divergence_loss(
             z_mu, z_std ** 2, torch.zeros_like(z_mu), torch.ones_like(z_std),
         )
@@ -532,7 +545,9 @@ class VAESDR(ModelBase):
             ce_d_loss_2 = entropy_loss(pred_d)
             rc_x_loss_2 = (
                 F.gaussian_nll_loss(x_mu, x_disease, x_std ** 2, full=True)
-                + F.gaussian_nll_loss(x_disease_2, x_disease, x_std ** 2, full=True)
+                + F.gaussian_nll_loss(
+                    x_disease_2, x_disease, x_std ** 2, full=True
+                )
             ) / 2.0
             rc_z_loss_2 = (
                 F.gaussian_nll_loss(z, z_disease, z_std ** 2, full=True)
@@ -695,7 +710,9 @@ class VAESDR(ModelBase):
             ce_y_loss = F.cross_entropy(pred_y, real_y)
             ce_d_loss = F.cross_entropy(pred_d, real_d)
             rc_x_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
-            rc_z_loss = F.gaussian_nll_loss(z, z_disease + z_site, z_std ** 2, full=True)
+            rc_z_loss = F.gaussian_nll_loss(
+                z, z_disease + z_site, z_std ** 2, full=True
+            )
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,

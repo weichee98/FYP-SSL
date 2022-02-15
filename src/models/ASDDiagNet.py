@@ -11,10 +11,10 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
 
 from utils.metrics import ClassificationMetrics as CM
-from models.base import ModelBase, FeedForward
+from models.base import LatentSpaceEncoding, ModelBase, FeedForward
 
 
-class ASDDiagNet(ModelBase):
+class ASDDiagNet(ModelBase, LatentSpaceEncoding):
     def __init__(
         self,
         input_size: int,
@@ -98,6 +98,15 @@ class ASDDiagNet(ModelBase):
 
     def ss_forward(self, x: torch.Tensor) -> torch.Tensor:
         z = self.encode(x)
+        y = self.classify(z)
+        return y
+
+    def ls_forward(self, data: Data) -> torch.Tensor:
+        x: torch.Tensor = data.x
+        z = self.encode(x)
+        return z
+
+    def get_surface(self, z: torch.Tensor) -> torch.Tensor:
         y = self.classify(z)
         return y
 

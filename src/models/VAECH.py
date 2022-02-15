@@ -12,7 +12,7 @@ sys.path.append(__dir__)
 
 from utils.loss import kl_divergence_loss
 from utils.metrics import ClassificationMetrics as CM
-from models.base import ModelBase
+from models.base import LatentSpaceEncoding, ModelBase
 from models.VAE_FFN import VAE_FFN
 
 
@@ -89,7 +89,7 @@ class CH(Module):
         return x
 
 
-class VAECH(ModelBase):
+class VAECH(ModelBase, LatentSpaceEncoding):
     def __init__(
         self,
         num_sites: int,
@@ -213,6 +213,16 @@ class VAECH(ModelBase):
         baselines = eps[y == 0].mean(dim=0).view(1, -1)
         inputs = eps[y == 1]
         return baselines, inputs
+
+    def ls_forward(self, data: Data) -> torch.Tensor:
+        x, age, gender, site = data.x, data.age, data.gender, data.d
+        ch_res = self.combat(x, age, gender, site)
+        eps: torch.Tensor = ch_res["eps"]
+        z_mu, _ = self.vae_ffn.encode(eps)
+        return z_mu
+
+    def get_surface(self, z: torch.Tensor) -> torch.Tensor:
+        return self.vae_ffn.get_surface(z)
 
     def train_step(
         self,

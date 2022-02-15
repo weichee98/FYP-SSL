@@ -5,6 +5,9 @@ from abc import ABC, abstractmethod, abstractstaticmethod
 import numpy as np
 from captum.attr import IntegratedGradients
 from scipy.spatial.distance import squareform
+from sklearn.decomposition import PCA
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 import torch
 from torch_geometric.data import Data
@@ -139,6 +142,52 @@ class GraphSaliencyScoreForward(SaliencyScoreForward):
         scores = torch.stack(scores, dim=0)
         scores = scores.detach().cpu().numpy()
         return scores
+
+
+class LatentSpaceEncoding(ABC):
+    @abstractmethod
+    def ls_forward(self, data: Data) -> torch.Tensor:
+        """
+        return z
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_surface(self, z: torch.Tensor) -> torch.Tensor:
+        """
+        return y value for each z
+        """
+        raise NotImplementedError
+
+    def _prepare_grid(
+        x: np.ndarray, pipeline: Pipeline
+    ) -> Tuple[Tuple[np.ndarray, np.ndarray], np.ndarray]:
+        min1, max1 = x[:, 0].min() - 1, x[:, 0].max() + 1
+        min2, max2 = x[:, 1].min() - 1, x[:, 1].max() + 1
+        x1grid = np.arange(min1, max1, 0.1)
+        x2grid = np.arange(min2, max2, 0.1)
+        xx, yy = np.meshgrid(x1grid, x2grid)
+        r1, r2 = xx.flatten(), yy.flatten()
+        r1, r2 = r1.reshape((len(r1), 1)), r2.reshape((len(r2), 1))
+        grid_xt = np.hstack((r1, r2))
+        emb_grid = pipeline.inverse_transform(grid_xt)
+        return (xx, yy), emb_grid
+
+    def get_latent_space_encoding(self, data: Data) -> Dict[str, np.ndarray]:
+        self.eval()
+        with torch.no_grad():
+            z = self.ls_forward(data).detach().numpy()
+            pipeline = make_pipeline(StandardScaler(), PCA(2))
+            x = pipeline.fit_transform(z)
+
+            surface, emb_grid = self._prepare_grid(x, pipeline)
+            emb_grid = torch.tensor(emb_grid, dtype=data.x.dtype)
+            zz: np.ndarray = self.get_surface(emb_grid)[:, 1].detach().numpy()
+
+            xx: np.ndarray = surface[0]
+            yy: np.ndarray = surface[1]
+            zz = zz.reshape(xx.shape)
+        return {"x": x, "xx": xx, "yy": yy, "zz": zz}
 
 
 class ModelBase(Module, SaliencyScoreForward):

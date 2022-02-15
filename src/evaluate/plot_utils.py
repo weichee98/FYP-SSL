@@ -1,7 +1,9 @@
 import os
 import math
+import numpy as np
 from contextlib import contextmanager
-from typing import Sequence, Dict
+from typing import Any, Sequence, Dict, Tuple
+from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 
 from data_processing import MetricTable
@@ -171,3 +173,37 @@ class PlotCharts:
             save_path = os.path.join(output_dir, "{}.png".format(filename),)
             plt.savefig(save_path)
             plt.close()
+
+
+class PlotLatentSpace:
+    @classmethod
+    def plot_result(
+        cls,
+        ax: Axes,
+        surface: Tuple[np.ndarray, np.ndarray, np.ndarray],
+        x_dict: Dict[str, np.ndarray],
+        surface_kwargs: Dict[str, Any] = dict(cmap="Paired", alpha=0.3),
+        x_dict_kwargs: Dict[str, Dict[str, Any]] = dict(),
+        title: str = "",
+        x_label: str = "PCA 1",
+        y_label: str = "PCA 2",
+    ):
+        xx, yy, zz = surface
+        zz = zz.astype(int)
+
+        ax.contourf(xx, yy, zz, **surface_kwargs)
+        for label, xt in x_dict.items():
+            ax.scatter(
+                xt[:, 0],
+                xt[:, 1],
+                label=label,
+                **x_dict_kwargs.get(label, dict())
+            )
+
+        if title:
+            ax.set_title(title)
+        ax.set_title(title)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.legend()
+
