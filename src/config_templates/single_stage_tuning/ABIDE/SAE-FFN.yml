@@ -22,13 +22,12 @@ parameters:
   model_name: SAE-FFN
   model_params:
     hidden_size: 
-      - 0
       - 30
       - 60
       - 90
     emb_size:
-      - 50
-      - 70
+      - 30
+      - 60
       - 90
     clf_hidden_1:
       - 0
