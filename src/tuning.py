@@ -26,7 +26,7 @@ class TuningBase(ABC):
         self.direction = direction
         self.seed_fold_list = set(seed_fold_list)
 
-        self.__valid = False
+        self.__valid = True
         self.__updated_model_size = False
         self.__param_list: List[Dict[str, Any]] = list()
         self.__result_list: List[Dict[Tuple[int, int], float]] = list()
@@ -38,10 +38,6 @@ class TuningBase(ABC):
                 "finish update current param result first "
                 "before getting the best param"
             )
-        if not self.__updated_model_size:
-            raise Exception(
-                "update model size first before getting the best param"
-            )
         cv_results = self.cv_results
         idx = np.argmin(cv_results["rank"])
         return copy.deepcopy(self.__param_list[idx])
@@ -51,11 +47,6 @@ class TuningBase(ABC):
         if not self.__valid:
             raise Exception(
                 "finish update current param result first "
-                "before getting cross validation results"
-            )
-        if not self.__updated_model_size:
-            raise Exception(
-                "update model size first "
                 "before getting cross validation results"
             )
         params_df = pd.DataFrame(self.__param_list)
@@ -115,6 +106,8 @@ class TuningBase(ABC):
                 break
 
     def update_param_model_size(self, model_size: int):
+        if self.__updated_model_size or np.isnan(model_size):
+            return
         self.__param_list[-1]["model_size"] = model_size
         self.__updated_model_size = True
 

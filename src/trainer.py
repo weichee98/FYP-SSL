@@ -39,6 +39,7 @@ class TrainerParams:
     max_epoch: int = field(default=1000)
     save_model: bool = field(default=False)
     dataloader_num_process: int = 1
+    time_id: bool = field(init=False, default_factory=lambda: int(time.time()))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -68,7 +69,7 @@ class TrainerParams:
                 self.model_name,
                 self.seed,
                 self.fold,
-                int(time.time()),
+                self.time_id,
             ),
         )
 
@@ -82,7 +83,7 @@ class TrainerParams:
                 self.model_name,
                 self.seed,
                 self.fold,
-                int(time.time()),
+                self.time_id,
             ),
         )
 
@@ -222,21 +223,24 @@ class SingleStageFrameworkTrainer(Trainer):
 
         pbar = get_pbar(max_epoch, verbose)
         for epoch in pbar:
-            train_metrics = model.train_step(
-                device,
-                data_dict.get("labeled_train", None),
-                data_dict.get("unlabeled_train", None),
-                optimizer,
-                self.trainer_params.hyperparameters,
-            )
-            if self.trainer_params.validation:
-                valid_metrics = model.test_step(
-                    device, data_dict.get("valid", None)
+            try:
+                train_metrics = model.train_step(
+                    device,
+                    data_dict.get("labeled_train", None),
+                    data_dict.get("unlabeled_train", None),
+                    optimizer,
+                    self.trainer_params.hyperparameters,
                 )
-            else:
-                valid_metrics = model.test_step(
-                    device, data_dict.get("test", None)
-                )
+                if self.trainer_params.validation:
+                    valid_metrics = model.test_step(
+                        device, data_dict.get("valid", None)
+                    )
+                else:
+                    valid_metrics = model.test_step(
+                        device, data_dict.get("test", None)
+                    )
+            except:
+                continue
             with open(epochs_log_path, "a") as f:
                 f.write(
                     json.dumps(
@@ -316,7 +320,7 @@ class DoubleTrainerParams(TrainerParams):
                 self.model_name,
                 self.seed,
                 self.fold,
-                int(time.time()),
+                self.time_id,
             ),
         )
 
@@ -330,7 +334,7 @@ class DoubleTrainerParams(TrainerParams):
                 self.model_name,
                 self.seed,
                 self.fold,
-                int(time.time()),
+                self.time_id,
             ),
         )
 
@@ -434,21 +438,24 @@ class DoubleStageFrameworkTrainer(Trainer):
 
         pbar = get_pbar(max_epoch, verbose)
         for epoch in pbar:
-            train_metrics = ae_model.train_step(
-                device,
-                data_dict.get("labeled_train", None),
-                data_dict.get("unlabeled_train", None),
-                ae_optim,
-                self.trainer_params.hyperparameters.get("ae_param", dict()),
-            )
-            if self.trainer_params.validation:
-                valid_metrics = ae_model.test_step(
-                    device, data_dict.get("valid", None)
+            try:
+                train_metrics = ae_model.train_step(
+                    device,
+                    data_dict.get("labeled_train", None),
+                    data_dict.get("unlabeled_train", None),
+                    ae_optim,
+                    self.trainer_params.hyperparameters.get("ae_param", dict()),
                 )
-            else:
-                valid_metrics = ae_model.test_step(
-                    device, data_dict.get("test", None)
-                )
+                if self.trainer_params.validation:
+                    valid_metrics = ae_model.test_step(
+                        device, data_dict.get("valid", None)
+                    )
+                else:
+                    valid_metrics = ae_model.test_step(
+                        device, data_dict.get("test", None)
+                    )
+            except:
+                continue
             with open(ae_epochs_log_path, "a") as f:
                 f.write(
                     json.dumps(
@@ -503,21 +510,26 @@ class DoubleStageFrameworkTrainer(Trainer):
 
         pbar = get_pbar(max_epoch, verbose)
         for epoch in pbar:
-            train_metrics = fcnn_model.train_step(
-                device,
-                new_data_dict.get("labeled_train", None),
-                new_data_dict.get("unlabeled_train", None),
-                fcnn_optim,
-                self.trainer_params.hyperparameters.get("fcnn_param", dict()),
-            )
-            if self.trainer_params.validation:
-                valid_metrics = fcnn_model.test_step(
-                    device, new_data_dict.get("valid", None)
+            try:
+                train_metrics = fcnn_model.train_step(
+                    device,
+                    new_data_dict.get("labeled_train", None),
+                    new_data_dict.get("unlabeled_train", None),
+                    fcnn_optim,
+                    self.trainer_params.hyperparameters.get(
+                        "fcnn_param", dict()
+                    ),
                 )
-            else:
-                valid_metrics = fcnn_model.test_step(
-                    device, new_data_dict.get("test", None)
-                )
+                if self.trainer_params.validation:
+                    valid_metrics = fcnn_model.test_step(
+                        device, new_data_dict.get("valid", None)
+                    )
+                else:
+                    valid_metrics = fcnn_model.test_step(
+                        device, new_data_dict.get("test", None)
+                    )
+            except:
+                continue
             with open(fcnn_epochs_log_path, "a") as f:
                 f.write(
                     json.dumps(
