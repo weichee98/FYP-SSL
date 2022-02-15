@@ -10,22 +10,9 @@ data:
     dataset: ABIDE
     labeled_sites:
       - 
-        - NYU
-        - CALTECH
-        - LEUVEN_1
-        - LEUVEN_2
-        - MAX_MUN
-        - OHSU
-        - OLIN
-        - PITT
-        - STANFORD
-        - TRINITY
-        - UCLA_1
-        - UCLA_2
-        - UM_1
-        - UM_2
-        - USM
-        - YALE
+        - SBL
+        - SDSU
+        - KKI
 experiment_settings:
   -
     ssl: false
@@ -35,15 +22,16 @@ parameters:
   model_name: FFN
   model_params:
     hidden_1: 
-      - 30
       - 50
-      - 100
-      - 150
+      - 70
+      - 90
     hidden_2:
+      - 0
       - 10
       - 30
       - 50
     hidden_3:
+      - 0
       - 5
       - 10
       - 30
@@ -51,8 +39,6 @@ parameters:
       - 0.1
       - 0.2
       - 0.3
-      - 0.4
-      - 0.5
   optim_params:
     lr:
       - 0.0001

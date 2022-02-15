@@ -10,44 +10,33 @@ data:
     dataset: ABIDE
     labeled_sites:
       - 
-        - NYU
-        - CALTECH
-        - LEUVEN_1
-        - LEUVEN_2
-        - MAX_MUN
-        - OHSU
-        - OLIN
-        - PITT
-        - STANFORD
-        - TRINITY
-        - UCLA_1
-        - UCLA_2
-        - UM_1
-        - UM_2
-        - USM
-        - YALE
+        - SBL
+        - SDSU
+        - KKI
 experiment_settings:
   -
     ssl: false
     harmonize: false
     validation: false
 parameters:
-  model_name: VAE-FFN
+  model_name: VAECH
   model_params:
     hidden_size: 
+      - 0
       - 30
       - 60
       - 90
     emb_size:
-      - 30
       - 50
-      - 100
-      - 150
+      - 70
+      - 90
     clf_hidden_1:
+      - 0
       - 10
       - 30
       - 50
     clf_hidden_2:
+      - 0
       - 5
       - 10
       - 30
@@ -55,8 +44,6 @@ parameters:
       - 0.1
       - 0.2
       - 0.3
-      - 0.4
-      - 0.5
   optim_params:
     lr:
       - 0.0001
@@ -92,7 +79,7 @@ strategy:
   sampling_method: bayes_grid
   sampling_kwargs:
     num_samples_init: 20
-    num_samples_total: 50
+    num_samples_total: 100
 process:
   device: 2
   verbose: false

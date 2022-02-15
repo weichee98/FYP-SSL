@@ -10,22 +10,9 @@ data:
     dataset: ABIDE
     labeled_sites:
       - 
-        - NYU
-        - CALTECH
-        - LEUVEN_1
-        - LEUVEN_2
-        - MAX_MUN
-        - OHSU
-        - OLIN
-        - PITT
-        - STANFORD
-        - TRINITY
-        - UCLA_1
-        - UCLA_2
-        - UM_1
-        - UM_2
-        - USM
-        - YALE
+        - SBL
+        - SDSU
+        - KKI
 experiment_settings:
   -
     ssl: false
@@ -40,15 +27,16 @@ parameters:
       - 60
       - 90
     emb_size:
-      - 60
+      - 50
+      - 70
       - 90
-      - 120
-      - 150
     clf_hidden_1:
+      - 0
       - 10
       - 30
       - 50
     clf_hidden_2:
+      - 0
       - 5
       - 10
       - 30
@@ -56,8 +44,6 @@ parameters:
       - 0.1
       - 0.2
       - 0.3
-      - 0.4
-      - 0.5
   optim_params:
     lr:
       - 0.0001
