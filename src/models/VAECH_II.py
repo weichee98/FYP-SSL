@@ -95,7 +95,10 @@ class VAECH_II(VAECH_I):
             else:
                 eps = labeled_eps
 
-            ch_loss = F.mse_loss(alpha, x.mean(dim=0)) + (eps ** 2).mean()
+            ch_loss = (
+                F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
+                + (eps ** 2).sum(dim=1).mean()
+            )
             gamma3 = hyperparameters.get("ch_loss", 1)
             total_loss = gamma3 * ch_loss
             total_loss.backward()
@@ -202,7 +205,10 @@ class VAECH_II(VAECH_I):
                 torch.zeros_like(z_mu),
                 torch.ones_like(z_std),
             )
-            ch_loss = F.mse_loss(alpha, x.mean(dim=0)) + (eps ** 2).mean()
+            ch_loss = (
+                F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
+                + (eps ** 2).sum(dim=1).mean()
+            )
 
         accuracy = CM.accuracy(real_y, pred_y)
         sensitivity = CM.tpr(real_y, pred_y)

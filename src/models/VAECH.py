@@ -303,7 +303,7 @@ class VAECH(ModelBase, LatentSpaceEncoding):
                 torch.zeros_like(z_mu),
                 torch.ones_like(z_std),
             )
-            ch_loss = (eps ** 2).mean()
+            ch_loss = (eps ** 2).sum(dim=1).mean()
 
             gamma1 = hyperparameters.get("rc_loss", 1)
             gamma2 = hyperparameters.get("kl_loss", 1)
@@ -368,7 +368,7 @@ class VAECH(ModelBase, LatentSpaceEncoding):
                 torch.zeros_like(z_mu),
                 torch.ones_like(z_std),
             )
-            ch_loss = (eps ** 2).mean()
+            ch_loss = (eps ** 2).sum(dim=1).mean()
 
         accuracy = CM.accuracy(real_y, pred_y)
         sensitivity = CM.tpr(real_y, pred_y)
