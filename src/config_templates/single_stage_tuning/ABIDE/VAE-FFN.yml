@@ -22,34 +22,30 @@ parameters:
   model_name: VAE-FFN
   model_params:
     hidden_size: 
-      - 30
-      - 60
-      - 90
+      - 32
+      - 64
+      - 128
     emb_size:
-      - 30
-      - 60
-      - 90
+      - 16
+      - 32
+      - 64
     clf_hidden_1:
       - 0
-      - 10
-      - 30
-      - 50
     clf_hidden_2:
       - 0
-      - 5
-      - 10
-      - 30
     dropout:
+      - 0.0
       - 0.1
       - 0.2
       - 0.3
   optim_params:
     lr:
-      - 0.0001
+      - 0.00025
+      - 0.0005
       - 0.001
+      - 0.002
+      - 0.004
     l2_reg:
-      - 0.00001
-      - 0.0001
       - 0.001
   hyperparameters:
     rc_loss:
@@ -63,17 +59,15 @@ parameters:
       - 0.0001
       - 0.001
       - 0.01
-      - 0.1
-      - 1.0
 strategy:
   metric: accuracy
   direction: maximum
   sampling_method: bayes_grid
   sampling_kwargs:
     num_samples_init: 30
-    num_samples_total: 360
+    num_samples_total: 300
 process:
-  device: 3
+  device: 1
   verbose: false
   max_epoch: 1000
   patience: 1000

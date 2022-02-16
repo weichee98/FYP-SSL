@@ -35,7 +35,7 @@ data:
       - MAX_MUN
       - PITT
       - CALTECH
-      - STANDFORD
+      - STANFORD
       - LEUVEN_2
       - UM_2
       - LEUVEN_1
@@ -57,7 +57,7 @@ experiment_settings:
     harmonize: false
     validation: false
 process:
-  device: 2
+  device: 0
   verbose: false
   max_epoch: 1000
   patience: 1000
