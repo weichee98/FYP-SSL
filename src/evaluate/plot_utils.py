@@ -189,7 +189,7 @@ class PlotLatentSpace:
         y_label: str = "PCA 2",
     ):
         xx, yy, zz = surface
-        zz = zz.astype(int)
+        zz = np.round(zz).astype(int)
 
         ax.contourf(xx, yy, zz, **surface_kwargs)
         for label, xt in x_dict.items():
