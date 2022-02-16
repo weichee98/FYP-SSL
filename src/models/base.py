@@ -159,6 +159,7 @@ class LatentSpaceEncoding(ABC):
         """
         raise NotImplementedError
 
+    @staticmethod
     def _prepare_grid(
         x: np.ndarray, pipeline: Pipeline
     ) -> Tuple[Tuple[np.ndarray, np.ndarray], np.ndarray]:
@@ -177,7 +178,7 @@ class LatentSpaceEncoding(ABC):
         self.eval()
         with torch.no_grad():
             z = self.ls_forward(data).detach().numpy()
-            pipeline = make_pipeline(StandardScaler(), PCA(2))
+            pipeline = make_pipeline(StandardScaler(), PCA(2, random_state=0))
             x = pipeline.fit_transform(z)
 
             surface, emb_grid = self._prepare_grid(x, pipeline)

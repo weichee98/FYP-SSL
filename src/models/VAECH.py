@@ -266,6 +266,7 @@ class VAECH(ModelBase, LatentSpaceEncoding):
             labeled_res = self(
                 labeled_x, labeled_age, labeled_gender, labeled_site
             )
+            alpha = labeled_res["alpha"]
             pred_y = labeled_res["y"]
             labeled_x_mu = labeled_res["x_mu"]
             labeled_x_std = labeled_res["x_std"]
@@ -304,13 +305,27 @@ class VAECH(ModelBase, LatentSpaceEncoding):
                 torch.ones_like(z_std),
             )
             ch_loss = (eps ** 2).sum(dim=1).mean()
+            alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
 
             gamma1 = hyperparameters.get("rc_loss", 1)
             gamma2 = hyperparameters.get("kl_loss", 1)
             gamma3 = hyperparameters.get("ch_loss", 1)
-            total_loss = (
-                ce_loss + gamma1 * rc_loss + gamma2 * kl_loss + gamma3 * ch_loss
-            )
+            use_alpha_loss = hyperparameters.get("alpha_loss", True)
+
+            if use_alpha_loss:
+                total_loss = (
+                    ce_loss
+                    + gamma1 * rc_loss
+                    + gamma2 * kl_loss
+                    + gamma3 * (ch_loss + alpha_loss)
+                )
+            else:
+                total_loss = (
+                    ce_loss
+                    + gamma1 * rc_loss
+                    + gamma2 * kl_loss
+                    + gamma3 * ch_loss
+                )
             total_loss.backward()
             optimizer.step()
 
@@ -324,6 +339,7 @@ class VAECH(ModelBase, LatentSpaceEncoding):
             "rc_loss": rc_loss.item(),
             "kl_loss": kl_loss.item(),
             "ch_loss": ch_loss.item(),
+            "alpha_loss": alpha_loss.item(),
             "accuracy": accuracy.item(),
             "sensitivity": sensitivity.item(),
             "specificity": specificity.item(),
@@ -358,6 +374,7 @@ class VAECH(ModelBase, LatentSpaceEncoding):
             x_std = res["x_std"]
             z_mu = res["z_mu"]
             z_std = res["z_std"]
+            alpha = res["alpha"]
             eps: torch.Tensor = res["eps"]
 
             ce_loss = F.cross_entropy(pred_y, real_y)
@@ -369,6 +386,7 @@ class VAECH(ModelBase, LatentSpaceEncoding):
                 torch.ones_like(z_std),
             )
             ch_loss = (eps ** 2).sum(dim=1).mean()
+            alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
 
         accuracy = CM.accuracy(real_y, pred_y)
         sensitivity = CM.tpr(real_y, pred_y)
@@ -380,6 +398,7 @@ class VAECH(ModelBase, LatentSpaceEncoding):
             "rc_loss": rc_loss.item(),
             "kl_loss": kl_loss.item(),
             "ch_loss": ch_loss.item(),
+            "alpha_loss": alpha_loss.item(),
             "accuracy": accuracy.item(),
             "sensitivity": sensitivity.item(),
             "specificity": specificity.item(),

@@ -14,6 +14,20 @@ from utils.metrics import ClassificationMetrics as CM
 from models.VAECH_I import VAECH_I
 
 
+class VAECHOptimizer:
+    def __init__(self, ch_optim: Optimizer, vae_optim: Optimizer):
+        self.ch_optim = ch_optim
+        self.vae_optim = vae_optim
+
+    def zero_grad(self):
+        self.ch_optim.zero_grad()
+        self.vae_optim.zero_grad()
+
+    def step(self):
+        self.vae_optim.step()
+        self.ch_optim.step()
+
+
 class VAECH_II(VAECH_I):
     def get_optimizer(
         self, param: Dict[str, Any]
@@ -84,23 +98,24 @@ class VAECH_II(VAECH_I):
             )
             alpha = labeled_ch_res["alpha"]
             labeled_eps = labeled_ch_res["eps"]
-            labeled_x_ch = labeled_ch_res["x_ch"]
             if unlabeled_data is not None:
                 unlabeled_ch_res = self.combat(
                     unlabeled_x, unlabeled_age, unlabeled_gender, unlabeled_site
                 )
                 unlabeled_eps = unlabeled_ch_res["eps"]
-                unlabeled_x_ch = unlabeled_ch_res["x_ch"]
                 eps = torch.cat((labeled_eps, unlabeled_eps), dim=0)
             else:
                 eps = labeled_eps
 
-            ch_loss = (
-                F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
-                + (eps ** 2).sum(dim=1).mean()
-            )
+            ch_loss = (eps ** 2).sum(dim=1).mean()
+            alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
+
+            use_alpha_loss = hyperparameters.get("alpha_loss", True)
             gamma3 = hyperparameters.get("ch_loss", 1)
-            total_loss = gamma3 * ch_loss
+            if use_alpha_loss:
+                total_loss = gamma3 * (ch_loss + alpha_loss)
+            else:
+                total_loss = gamma3 * ch_loss
             total_loss.backward()
             ch_optim.step()
 
@@ -108,8 +123,18 @@ class VAECH_II(VAECH_I):
             train VAE component
             """
             vae_optim.zero_grad()
+
+            labeled_ch_res = self.combat(
+                labeled_x, labeled_age, labeled_gender, labeled_site
+            )
+            labeled_x_ch = labeled_ch_res["x_ch"]
             labeled_x_ch = labeled_x_ch.detach()
-            unlabeled_x_ch = unlabeled_x_ch.detach()
+            if unlabeled_data is not None:
+                unlabeled_ch_res = self.combat(
+                    unlabeled_x, unlabeled_age, unlabeled_gender, unlabeled_site
+                )
+                unlabeled_x_ch = unlabeled_ch_res["x_ch"]
+                unlabeled_x_ch = unlabeled_x_ch.detach()
 
             labeled_vae_res = self.vae_ffn(labeled_x_ch)
             pred_y = labeled_vae_res["y"]

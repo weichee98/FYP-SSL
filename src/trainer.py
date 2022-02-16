@@ -239,8 +239,8 @@ class SingleStageFrameworkTrainer(Trainer):
                     valid_metrics = model.test_step(
                         device, data_dict.get("test", None)
                     )
-            except:
-                continue
+            except Exception as e:
+                logging.error(e)
             with open(epochs_log_path, "a") as f:
                 f.write(
                     json.dumps(
@@ -454,8 +454,8 @@ class DoubleStageFrameworkTrainer(Trainer):
                     valid_metrics = ae_model.test_step(
                         device, data_dict.get("test", None)
                     )
-            except:
-                continue
+            except Exception as e:
+                logging.error(e)
             with open(ae_epochs_log_path, "a") as f:
                 f.write(
                     json.dumps(
