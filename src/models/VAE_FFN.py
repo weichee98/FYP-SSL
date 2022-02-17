@@ -127,9 +127,15 @@ class VAE_FFN(ModelBase, LatentSpaceEncoding):
         z_mu, _ = self.encode(x)
         return z_mu
 
+    def is_forward(self, data: Data) -> torch.Tensor:
+        return data.x
+
     def get_surface(self, z: torch.Tensor) -> torch.Tensor:
         y = self.classify(z)
         return y
+
+    def get_input_surface(self, x: torch.Tensor) -> torch.Tensor:
+        return self.ss_forward(x)
 
     def train_step(
         self,

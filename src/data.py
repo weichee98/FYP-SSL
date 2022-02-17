@@ -47,11 +47,8 @@ class DataloaderBase(ABC):
         age = np.expand_dims(age, axis=1)
 
         assert np.all(np.isnan(gender) | (gender >= 0) | (gender <= 1))
-        gender1 = np.where(np.isnan(gender), 0, gender)
-        gender0 = np.where(np.isnan(gender), 0, 1 - gender)
-        gender = np.zeros((gender.shape[0], 2))
-        gender[:, 0] = gender0
-        gender[:, 1] = gender1
+        gender = np.where(np.isnan(gender), np.nanmean(gender), gender)
+        gender = np.expand_dims(gender, axis=1)
 
         self.age: np.ndarray = age
         self.gender: np.ndarray = gender

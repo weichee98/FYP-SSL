@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod, abstractstaticmethod
 import numpy as np
 from captum.attr import IntegratedGradients
 from scipy.spatial.distance import squareform
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -153,20 +153,34 @@ class LatentSpaceEncoding(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def is_forward(self, data: Data) -> torch.Tensor:
+        """
+        return z
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def get_surface(self, z: torch.Tensor) -> torch.Tensor:
         """
         return y value for each z
         """
         raise NotImplementedError
 
+    @abstractmethod
+    def get_input_surface(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        return y value for each x
+        """
+        raise NotImplementedError
+
     @staticmethod
     def _prepare_grid(
-        x: np.ndarray, pipeline: Pipeline
+        x: np.ndarray, pipeline: Pipeline, grid_points_dist: float = 0.1
     ) -> Tuple[Tuple[np.ndarray, np.ndarray], np.ndarray]:
         min1, max1 = x[:, 0].min() - 1, x[:, 0].max() + 1
         min2, max2 = x[:, 1].min() - 1, x[:, 1].max() + 1
-        x1grid = np.arange(min1, max1, 0.1)
-        x2grid = np.arange(min2, max2, 0.1)
+        x1grid = np.arange(min1, max1, grid_points_dist)
+        x2grid = np.arange(min2, max2, grid_points_dist)
         xx, yy = np.meshgrid(x1grid, x2grid)
         r1, r2 = xx.flatten(), yy.flatten()
         r1, r2 = r1.reshape((len(r1), 1)), r2.reshape((len(r2), 1))
@@ -178,12 +192,32 @@ class LatentSpaceEncoding(ABC):
         self.eval()
         with torch.no_grad():
             z = self.ls_forward(data).detach().numpy()
-            pipeline = make_pipeline(StandardScaler(), PCA(2, random_state=0))
+            pipeline = make_pipeline(StandardScaler(), TruncatedSVD(2, random_state=0))
             x = pipeline.fit_transform(z)
 
             surface, emb_grid = self._prepare_grid(x, pipeline)
             emb_grid = torch.tensor(emb_grid, dtype=data.x.dtype)
             zz: np.ndarray = self.get_surface(emb_grid)[:, 1].detach().numpy()
+
+            xx: np.ndarray = surface[0]
+            yy: np.ndarray = surface[1]
+            zz = zz.reshape(xx.shape)
+        return {"x": x, "xx": xx, "yy": yy, "zz": zz}
+
+    def get_input_space_encoding(self, data: Data) -> Dict[str, np.ndarray]:
+        self.eval()
+        with torch.no_grad():
+            x = self.is_forward(data).detach().numpy()
+            pipeline = make_pipeline(StandardScaler(), PCA(2, random_state=0))
+            x = pipeline.fit_transform(x)
+
+            surface, emb_grid = self._prepare_grid(
+                x, pipeline, grid_points_dist=1.5
+            )
+            emb_grid = torch.tensor(emb_grid, dtype=data.x.dtype)
+            zz: np.ndarray = self.get_input_surface(emb_grid)[
+                :, 1
+            ].detach().numpy()
 
             xx: np.ndarray = surface[0]
             yy: np.ndarray = surface[1]

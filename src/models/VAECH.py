@@ -28,7 +28,7 @@ class CH(Module):
         self.alpha = Parameter(torch.zeros(input_size))
         self.age_norm = BatchNorm1d(1)
         self.age = Linear(1, input_size)
-        self.gender = Linear(2, input_size)
+        self.gender = Linear(1, input_size)
         self.gamma = Linear(num_sites, input_size)
         self.delta = Linear(num_sites, input_size)
         init_zero(self.age)
@@ -221,8 +221,18 @@ class VAECH(ModelBase, LatentSpaceEncoding):
         z_mu, _ = self.vae_ffn.encode(eps)
         return z_mu
 
+    def is_forward(self, data: Data) -> torch.Tensor:
+        x, age, gender, site = data.x, data.age, data.gender, data.d
+        ch_res = self.combat(x, age, gender, site)
+        eps: torch.Tensor = ch_res["eps"]
+        return eps
+
     def get_surface(self, z: torch.Tensor) -> torch.Tensor:
         return self.vae_ffn.get_surface(z)
+
+    def get_input_surface(self, x: torch.Tensor) -> torch.Tensor:
+        z_mu, _ = self.vae_ffn.encode(x)
+        return self.vae_ffn.get_surface(z_mu)
 
     def train_step(
         self,
@@ -266,7 +276,9 @@ class VAECH(ModelBase, LatentSpaceEncoding):
             labeled_res = self(
                 labeled_x, labeled_age, labeled_gender, labeled_site
             )
-            alpha = labeled_res["alpha"]
+            alpha: torch.Tensor = labeled_res["alpha"]
+            labeled_age_x = labeled_res["age"]
+            labeled_gender_x = labeled_res["gender"]
             pred_y = labeled_res["y"]
             labeled_x_mu = labeled_res["x_mu"]
             labeled_x_std = labeled_res["x_std"]
@@ -277,11 +289,17 @@ class VAECH(ModelBase, LatentSpaceEncoding):
                 unlabeled_res = self(
                     unlabeled_x, unlabeled_age, unlabeled_gender, unlabeled_site
                 )
+                unlabeled_age_x = unlabeled_res["age"]
+                unlabeled_gender_x = unlabeled_res["gender"]
                 unlabeled_x_mu = unlabeled_res["x_mu"]
                 unlabeled_x_std = unlabeled_res["x_std"]
                 unlabeled_z_mu = unlabeled_res["z_mu"]
                 unlabeled_z_std = unlabeled_res["z_std"]
                 unlabeled_eps = unlabeled_res["eps"]
+                age_x = torch.cat((labeled_age_x, unlabeled_age_x), dim=0)
+                gender_x = torch.cat(
+                    (labeled_gender_x, unlabeled_gender_x), dim=0
+                )
                 x = torch.cat((labeled_x, unlabeled_x), dim=0)
                 x_mu = torch.cat((labeled_x_mu, unlabeled_x_mu), dim=0)
                 x_std = torch.cat((labeled_x_std, unlabeled_x_std), dim=0)
@@ -289,6 +307,8 @@ class VAECH(ModelBase, LatentSpaceEncoding):
                 z_std = torch.cat((labeled_z_std, unlabeled_z_std), dim=0)
                 eps = torch.cat((labeled_eps, unlabeled_eps), dim=0)
             else:
+                age_x = labeled_age_x
+                gender_x = labeled_gender_x
                 x = labeled_x
                 x_mu = labeled_x_mu
                 x_std = labeled_x_std
@@ -305,7 +325,12 @@ class VAECH(ModelBase, LatentSpaceEncoding):
                 torch.ones_like(z_std),
             )
             ch_loss = (eps ** 2).sum(dim=1).mean()
-            alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
+            # alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
+            alpha_loss = F.mse_loss(
+                alpha.expand(age_x.size()) + age_x + gender_x,
+                x,
+                reduction="sum",
+            ).mean()
 
             gamma1 = hyperparameters.get("rc_loss", 1)
             gamma2 = hyperparameters.get("kl_loss", 1)
@@ -374,7 +399,9 @@ class VAECH(ModelBase, LatentSpaceEncoding):
             x_std = res["x_std"]
             z_mu = res["z_mu"]
             z_std = res["z_std"]
-            alpha = res["alpha"]
+            alpha: torch.Tensor = res["alpha"]
+            age_x: torch.Tensor = res["age"]
+            gender_x = res["gender"]
             eps: torch.Tensor = res["eps"]
 
             ce_loss = F.cross_entropy(pred_y, real_y)
@@ -386,7 +413,12 @@ class VAECH(ModelBase, LatentSpaceEncoding):
                 torch.ones_like(z_std),
             )
             ch_loss = (eps ** 2).sum(dim=1).mean()
-            alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
+            # alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
+            alpha_loss = F.mse_loss(
+                alpha.expand(age_x.size()) + age_x + gender_x,
+                x,
+                reduction="sum",
+            ).mean()
 
         accuracy = CM.accuracy(real_y, pred_y)
         sensitivity = CM.tpr(real_y, pred_y)

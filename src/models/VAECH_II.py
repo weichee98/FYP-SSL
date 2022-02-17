@@ -97,18 +97,31 @@ class VAECH_II(VAECH_I):
                 labeled_x, labeled_age, labeled_gender, labeled_site
             )
             alpha = labeled_ch_res["alpha"]
+            labeled_age_x = labeled_ch_res["age"]
+            labeled_gender_x = labeled_ch_res["gender"]
             labeled_eps = labeled_ch_res["eps"]
             if unlabeled_data is not None:
                 unlabeled_ch_res = self.combat(
                     unlabeled_x, unlabeled_age, unlabeled_gender, unlabeled_site
                 )
+                unlabeled_age_x = unlabeled_ch_res["age"]
+                unlabeled_gender_x = unlabeled_ch_res["gender"]
                 unlabeled_eps = unlabeled_ch_res["eps"]
+                age_x = torch.cat((labeled_age_x, unlabeled_age_x), dim=0)
+                gender_x = torch.cat((labeled_gender_x, unlabeled_gender_x), dim=0)
                 eps = torch.cat((labeled_eps, unlabeled_eps), dim=0)
             else:
+                age_x = labeled_age_x
+                gender_x = labeled_gender_x
                 eps = labeled_eps
 
             ch_loss = (eps ** 2).sum(dim=1).mean()
-            alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
+            # alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
+            alpha_loss = F.mse_loss(
+                alpha.expand(age_x.size()) + age_x + gender_x,
+                x,
+                reduction="sum",
+            ).mean()
 
             use_alpha_loss = hyperparameters.get("alpha_loss", True)
             gamma3 = hyperparameters.get("ch_loss", 1)
@@ -184,6 +197,7 @@ class VAECH_II(VAECH_I):
             "rc_loss": rc_loss.item(),
             "kl_loss": kl_loss.item(),
             "ch_loss": ch_loss.item(),
+            "alpha_loss": alpha_loss.item(),
             "accuracy": accuracy.item(),
             "sensitivity": sensitivity.item(),
             "specificity": specificity.item(),
@@ -219,7 +233,9 @@ class VAECH_II(VAECH_I):
             x_std = res["x_std"]
             z_mu = res["z_mu"]
             z_std = res["z_std"]
-            alpha = res["alpha"]
+            alpha: torch.Tensor = res["alpha"]
+            age_x: torch.Tensor = res["age"]
+            gender_x = res["gender"]
             eps: torch.Tensor = res["eps"]
 
             ce_loss = F.cross_entropy(pred_y, real_y)
@@ -234,6 +250,9 @@ class VAECH_II(VAECH_I):
                 F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
                 + (eps ** 2).sum(dim=1).mean()
             )
+            alpha_loss = F.mse_loss(
+                alpha.expand(age_x.size()) + age_x + gender_x, x, reduction="sum"
+            ).mean()
 
         accuracy = CM.accuracy(real_y, pred_y)
         sensitivity = CM.tpr(real_y, pred_y)
@@ -245,6 +264,7 @@ class VAECH_II(VAECH_I):
             "rc_loss": rc_loss.item(),
             "kl_loss": kl_loss.item(),
             "ch_loss": ch_loss.item(),
+            "alpha_loss": alpha_loss.item(),
             "accuracy": accuracy.item(),
             "sensitivity": sensitivity.item(),
             "specificity": specificity.item(),

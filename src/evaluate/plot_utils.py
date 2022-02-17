@@ -55,19 +55,25 @@ class PlotCharts:
                 col for col in target_cols if col in metric_mean.columns
             ]
             if not color_dict:
-                colors = None
+                ax1 = metric_mean[target_cols].plot(
+                    kind="bar",
+                    rot=45,
+                    yerr=metric_std,
+                    error_kw=error_kw,
+                    ylim=(ylim0, ylim1),
+                    figsize=(width, height),
+                )
             else:
                 colors = [color_dict[x] for x in target_cols]
-
-            ax1 = metric_mean[target_cols].plot(
-                kind="bar",
-                rot=45,
-                yerr=metric_std,
-                error_kw=error_kw,
-                ylim=(ylim0, ylim1),
-                figsize=(width, height),
-                color=colors,
-            )
+                ax1 = metric_mean[target_cols].plot(
+                    kind="bar",
+                    rot=45,
+                    yerr=metric_std,
+                    error_kw=error_kw,
+                    ylim=(ylim0, ylim1),
+                    figsize=(width, height),
+                    color=colors,
+                )
             ax1.set_xlabel(x_axis_label)
             ax1.set_ylabel(metric_name.title())
             legend_1 = plt.legend()
@@ -191,7 +197,13 @@ class PlotLatentSpace:
         xx, yy, zz = surface
         zz = np.round(zz).astype(int)
 
-        ax.contourf(xx, yy, zz, **surface_kwargs)
+        # ax.contourf(xx, yy, zz, **surface_kwargs)
+        ax.imshow(
+            zz,
+            extent=[xx.min(), xx.max(), yy.min(), yy.max()],
+            aspect="equal",
+            **surface_kwargs
+        )
         for label, xt in x_dict.items():
             ax.scatter(
                 xt[:, 0],

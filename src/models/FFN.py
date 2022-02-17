@@ -11,10 +11,10 @@ __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(__dir__)
 
 from utils.metrics import ClassificationMetrics as CM
-from models.base import ModelBase, FeedForward
+from models.base import LatentSpaceEncoding, ModelBase, FeedForward
 
 
-class FFN(ModelBase):
+class FFN(ModelBase, LatentSpaceEncoding):
     def __init__(
         self,
         input_size: int,
@@ -53,6 +53,18 @@ class FFN(ModelBase):
 
     def ss_forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.forward(x)["y"]
+
+    def ls_forward(self, data: Data) -> torch.Tensor:
+        raise NotImplementedError
+
+    def is_forward(self, data: Data) -> torch.Tensor:
+        return data.x
+
+    def get_surface(self, z: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+    def get_input_surface(self, x: torch.Tensor) -> torch.Tensor:
+        return self.ss_forward(x)
 
     def train_step(
         self,

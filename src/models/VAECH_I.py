@@ -54,6 +54,12 @@ class VAECH_I(VAECH):
         z_mu, _ = self.vae_ffn.encode(x_ch)
         return z_mu
 
+    def is_forward(self, data: Data) -> torch.Tensor:
+        x, age, gender, site = data.x, data.age, data.gender, data.d
+        ch_res = self.combat(x, age, gender, site)
+        x_ch: torch.Tensor = ch_res["x_ch"]
+        return x_ch
+
 
 if __name__ == "__main__":
     model = VAECH_I.load_from_state_dict(
