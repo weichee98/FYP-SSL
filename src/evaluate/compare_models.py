@@ -80,6 +80,7 @@ def plot_target_cols():
             "ASDSAENet (SL)",
             "GCN-FCNN (SL)",
             "GAE-FCNN (SL)",
+            "VAE-FFN (SL)",
             "VAE-FFN (SSL)",
             "VAE-FFN (SSL ComBat)",
         ],
@@ -90,7 +91,7 @@ def main(directory):
     df = read_csv(directory)
     if df.empty:
         return
-        
+
     output_dir = directory
 
     grouping = GroupSeedFold(df)
