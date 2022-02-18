@@ -329,8 +329,8 @@ class VAECH(ModelBase, LatentSpaceEncoding):
             alpha_loss = F.mse_loss(
                 alpha.expand(age_x.size()) + age_x + gender_x,
                 x,
-                reduction="sum",
-            ).mean()
+                reduction="none",
+            ).sum(dim=1).mean()
 
             gamma1 = hyperparameters.get("rc_loss", 1)
             gamma2 = hyperparameters.get("kl_loss", 1)
@@ -417,8 +417,8 @@ class VAECH(ModelBase, LatentSpaceEncoding):
             alpha_loss = F.mse_loss(
                 alpha.expand(age_x.size()) + age_x + gender_x,
                 x,
-                reduction="sum",
-            ).mean()
+                reduction="none",
+            ).sum(dim=1).mean()
 
         accuracy = CM.accuracy(real_y, pred_y)
         sensitivity = CM.tpr(real_y, pred_y)

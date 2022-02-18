@@ -120,8 +120,8 @@ class VAECH_II(VAECH_I):
             alpha_loss = F.mse_loss(
                 alpha.expand(age_x.size()) + age_x + gender_x,
                 x,
-                reduction="sum",
-            ).mean()
+                reduction="none",
+            ).sum(dim=1).mean()
 
             use_alpha_loss = hyperparameters.get("alpha_loss", True)
             gamma3 = hyperparameters.get("ch_loss", 1)
@@ -251,8 +251,8 @@ class VAECH_II(VAECH_I):
                 + (eps ** 2).sum(dim=1).mean()
             )
             alpha_loss = F.mse_loss(
-                alpha.expand(age_x.size()) + age_x + gender_x, x, reduction="sum"
-            ).mean()
+                alpha.expand(age_x.size()) + age_x + gender_x, x, reduction="none",
+            ).sum(dim=1).mean()
 
         accuracy = CM.accuracy(real_y, pred_y)
         sensitivity = CM.tpr(real_y, pred_y)
