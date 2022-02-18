@@ -87,19 +87,10 @@ def plot_target_cols():
     }
 
 
-def main(directory):
-    df = read_csv(directory)
-    if df.empty:
-        return
-
-    output_dir = directory
-
-    grouping = GroupSeedFold(df)
-    grouped_df = grouping.group_seed_fold()
-
+def plot_metrics_bar(grouped_df, output_dir, metric_name="accuracy"):
     metric_table_list = DataProcessing.prepare_metric_tables_per_group(
         grouped_df=grouped_df,
-        metric_name="accuracy",
+        metric_name=metric_name,
         grouping_cols=("dataset",),
         index_cols=("labeled_sites",),
         num_subject_cols="num_subjects",
@@ -118,6 +109,19 @@ def main(directory):
                 num_subjects_y_axis_label="Number of Subjects",
                 color_dict=dict(),
             )
+
+
+def main(directory):
+    df = read_csv(directory)
+    if df.empty:
+        return
+
+    output_dir = directory
+
+    grouping = GroupSeedFold(df)
+    grouped_df = grouping.group_seed_fold()
+
+    plot_metrics_bar(grouped_df, output_dir, metric_name="accuracy")
 
     for dataset in grouped_df["dataset"].unique():
         dataset_df = grouped_df[grouped_df["dataset"] == dataset]

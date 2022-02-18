@@ -46,9 +46,18 @@ class PlotCharts:
 
         error_kw = dict(ecolor="gray")
         width = max(10, metric_mean.shape[0] * 1.25)
-        height = 5
-        ylim0 = 0.5
-        ylim1 = 1.0
+        height = 7
+
+        ranges_dict = {
+            "accuracy": (0.5, 1.0),
+            "f1": (0.5, 1.0),
+            "precision": (0.5, 1.0),
+            "sensitivity": (0.5, 1.0),
+            "specificity": (0.5, 1.0),
+            "ce_loss": (0.45, 0.75),
+        }
+        ylim0, ylim1 = ranges_dict.get(metric_name, (None, None))
+        bbox_anchor = (1.0, -0.3)
 
         with catch_exception() as c:
             target_cols = [
@@ -76,7 +85,7 @@ class PlotCharts:
                 )
             ax1.set_xlabel(x_axis_label)
             ax1.set_ylabel(metric_name.title())
-            legend_1 = plt.legend()
+            legend_1 = plt.legend(loc="lower right", bbox_to_anchor=bbox_anchor)
 
             if num_subjects is not None:
                 ax2 = num_subjects.plot(
@@ -99,8 +108,9 @@ class PlotCharts:
                     legend_1.get_patches() + legend_2.get_lines(),
                     [text.get_text() for text in legend_1.get_texts()]
                     + [num_subjects_y_axis_label],
-                    loc="best",
                     ncol=int(math.ceil((metric_mean.shape[1] + 1) / 4.0)),
+                    loc="lower right",
+                    bbox_to_anchor=bbox_anchor,
                 )
 
             plt.title(
