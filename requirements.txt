@@ -1,5 +1,7 @@
 numpy
 pandas
+pyarrow
+psutil
 scipy
 seaborn
 matplotlib
