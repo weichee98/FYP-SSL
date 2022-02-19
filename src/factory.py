@@ -62,6 +62,15 @@ class SingleStageFrameworkFactory(FrameworkFactory):
     }
 
     @classmethod
+    def get_model_class(cls, model_name: str) -> ModelBase:
+        model_mapping = cls.mapping.get(model_name, None)
+        if model_mapping is None:
+            raise NotImplementedError(
+                "Model {} does not exist".format(model_name)
+            )
+        return model_mapping.model_cls
+
+    @classmethod
     def load_model(
         cls, model_name: str, model_param: Dict[str, Any]
     ) -> ModelBase:
