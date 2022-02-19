@@ -8,16 +8,16 @@ model:
   -
     model_name: VAE-FFN
     model_params:
-      hidden_size: 300
-      emb_size: 150
-      clf_hidden_1: 50
-      clf_hidden_2: 30
-      dropout: 0.5
+      hidden_size: 32
+      emb_size: 16
+      clf_hidden_1: 0
+      clf_hidden_2: 0
+      dropout: 0.1
     hyperparameters:
-      rc_loss: 0.00001
+      rc_loss: 0.0001
       kl_loss: 0.001
     optim_params:
-      lr: 0.0001
+      lr: 0.001
       l2_reg: 0.001
 data:
   -
@@ -64,7 +64,7 @@ experiment_settings:
     harmonize: true
     validation: false
 process:
-  device: 2
+  device: 1
   verbose: false
   max_epoch: 1000
   patience: 1000
