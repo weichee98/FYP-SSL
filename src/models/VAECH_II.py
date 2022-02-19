@@ -2,8 +2,9 @@ import os
 import sys
 import torch
 import torch.nn.functional as F
-from typing import Any, Dict, Optional, Tuple
-from torch.optim import Optimizer, Adam
+from torch.nn.utils import clip_grad_norm_
+from typing import Any, Dict, Optional
+from torch.optim import Optimizer
 from torch_geometric.data import Data
 
 __dir__ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,49 +15,17 @@ from utils.metrics import ClassificationMetrics as CM
 from models.VAECH_I import VAECH_I
 
 
-class VAECHOptimizer:
-    def __init__(self, ch_optim: Optimizer, vae_optim: Optimizer):
-        self.ch_optim = ch_optim
-        self.vae_optim = vae_optim
-
-    def zero_grad(self):
-        self.ch_optim.zero_grad()
-        self.vae_optim.zero_grad()
-
-    def step(self):
-        self.vae_optim.step()
-        self.ch_optim.step()
-
-
 class VAECH_II(VAECH_I):
-    def get_optimizer(
-        self, param: Dict[str, Any]
-    ) -> Tuple[Optimizer, Optimizer]:
-        vae_param: dict = param.get("vae_ffn", dict())
-        ch_param: dict = param.get("ch", dict())
-        vae_optim = Adam(
-            filter(lambda p: p.requires_grad, self.vae_ffn.parameters()),
-            lr=vae_param.get("lr", 0.0001),
-            weight_decay=vae_param.get("l2_reg", 0.0),
-        )
-        ch_optim = Adam(
-            filter(lambda p: p.requires_grad, self.ch.parameters()),
-            lr=ch_param.get("lr", 0.005),
-            weight_decay=ch_param.get("l2_reg", 0.0),
-        )
-        return vae_optim, ch_optim
-
     def train_step(
         self,
         device: torch.device,
         labeled_data: Data,
         unlabeled_data: Optional[Data],
-        optimizer: Tuple[Optimizer, Optimizer],
+        optimizer: Optimizer,
         hyperparameters: Dict[str, Any],
     ) -> Dict[str, float]:
         self.to(device)
         self.train()
-        vae_optim, ch_optim = optimizer
 
         labeled_x: torch.Tensor = labeled_data.x
         labeled_age: torch.Tensor = labeled_data.age
@@ -82,110 +51,103 @@ class VAECH_II(VAECH_I):
                 unlabeled_gender.to(device),
                 unlabeled_site.to(device),
             )
-            x = torch.cat((labeled_x, unlabeled_x), dim=0)
-        else:
-            x = labeled_x
 
         with torch.enable_grad():
+            optimizer.zero_grad()
 
-            """
-            train CH component
-            """
-            ch_optim.zero_grad()
-
-            labeled_ch_res = self.combat(
+            labeled_res = self(
                 labeled_x, labeled_age, labeled_gender, labeled_site
             )
-            alpha = labeled_ch_res["alpha"]
-            labeled_age_x = labeled_ch_res["age"]
-            labeled_gender_x = labeled_ch_res["gender"]
-            labeled_eps = labeled_ch_res["eps"]
+            alpha: torch.Tensor = labeled_res["alpha"]
+            labeled_age_x = labeled_res["age"]
+            labeled_gender_x = labeled_res["gender"]
+            pred_y = labeled_res["y"]
+            labeled_x_mu = labeled_res["x_mu"]
+            labeled_x_std = labeled_res["x_std"]
+            labeled_z_mu = labeled_res["z_mu"]
+            labeled_z_std = labeled_res["z_std"]
+            labeled_eps = labeled_res["eps"]
+            labeled_gamma = labeled_res["gamma"]
+            labeled_delta = labeled_res["delta"]
             if unlabeled_data is not None:
-                unlabeled_ch_res = self.combat(
+                unlabeled_res = self(
                     unlabeled_x, unlabeled_age, unlabeled_gender, unlabeled_site
                 )
-                unlabeled_age_x = unlabeled_ch_res["age"]
-                unlabeled_gender_x = unlabeled_ch_res["gender"]
-                unlabeled_eps = unlabeled_ch_res["eps"]
+                unlabeled_age_x = unlabeled_res["age"]
+                unlabeled_gender_x = unlabeled_res["gender"]
+                unlabeled_x_mu = unlabeled_res["x_mu"]
+                unlabeled_x_std = unlabeled_res["x_std"]
+                unlabeled_z_mu = unlabeled_res["z_mu"]
+                unlabeled_z_std = unlabeled_res["z_std"]
+                unlabeled_eps = unlabeled_res["eps"]
+                unlabeled_gamma = unlabeled_res["gamma"]
+                unlabeled_delta = unlabeled_res["delta"]
                 age_x = torch.cat((labeled_age_x, unlabeled_age_x), dim=0)
-                gender_x = torch.cat((labeled_gender_x, unlabeled_gender_x), dim=0)
-                eps = torch.cat((labeled_eps, unlabeled_eps), dim=0)
-            else:
-                age_x = labeled_age_x
-                gender_x = labeled_gender_x
-                eps = labeled_eps
-
-            ch_loss = (eps ** 2).sum(dim=1).mean()
-            # alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
-            alpha_loss = F.mse_loss(
-                alpha.expand(age_x.size()) + age_x + gender_x,
-                x,
-                reduction="none",
-            ).sum(dim=1).mean()
-
-            use_alpha_loss = hyperparameters.get("alpha_loss", True)
-            gamma3 = hyperparameters.get("ch_loss", 1)
-            if use_alpha_loss:
-                total_loss = gamma3 * (ch_loss + alpha_loss)
-            else:
-                total_loss = gamma3 * ch_loss
-            total_loss.backward()
-            ch_optim.step()
-
-            """
-            train VAE component
-            """
-            vae_optim.zero_grad()
-
-            labeled_ch_res = self.combat(
-                labeled_x, labeled_age, labeled_gender, labeled_site
-            )
-            labeled_x_ch = labeled_ch_res["x_ch"]
-            labeled_x_ch = labeled_x_ch.detach()
-            if unlabeled_data is not None:
-                unlabeled_ch_res = self.combat(
-                    unlabeled_x, unlabeled_age, unlabeled_gender, unlabeled_site
+                gender_x = torch.cat(
+                    (labeled_gender_x, unlabeled_gender_x), dim=0
                 )
-                unlabeled_x_ch = unlabeled_ch_res["x_ch"]
-                unlabeled_x_ch = unlabeled_x_ch.detach()
-
-            labeled_vae_res = self.vae_ffn(labeled_x_ch)
-            pred_y = labeled_vae_res["y"]
-            labeled_x_ch_mu = labeled_vae_res["x_mu"]
-            labeled_x_std = labeled_vae_res["x_std"]
-            labeled_z_mu = labeled_vae_res["z_mu"]
-            labeled_z_std = labeled_vae_res["z_std"]
-            if unlabeled_data is not None:
-                unlabeled_vae_res = self.vae_ffn(unlabeled_x_ch)
-                unlabeled_x_ch_mu = unlabeled_vae_res["x_mu"]
-                unlabeled_x_std = unlabeled_vae_res["x_std"]
-                unlabeled_z_mu = unlabeled_vae_res["z_mu"]
-                unlabeled_z_std = unlabeled_vae_res["z_std"]
-                x_ch = torch.cat((labeled_x_ch, unlabeled_x_ch), dim=0)
-                x_ch_mu = torch.cat((labeled_x_ch_mu, unlabeled_x_ch_mu), dim=0)
+                x = torch.cat((labeled_x, unlabeled_x), dim=0)
+                x_mu = torch.cat((labeled_x_mu, unlabeled_x_mu), dim=0)
                 x_std = torch.cat((labeled_x_std, unlabeled_x_std), dim=0)
                 z_mu = torch.cat((labeled_z_mu, unlabeled_z_mu), dim=0)
                 z_std = torch.cat((labeled_z_std, unlabeled_z_std), dim=0)
+                eps = torch.cat((labeled_eps, unlabeled_eps), dim=0)
+                gamma = torch.cat((labeled_gamma, unlabeled_gamma), dim=0)
+                delta = torch.cat((labeled_delta, unlabeled_delta), dim=0)
             else:
-                x_ch = labeled_x_ch
-                x_ch_mu = labeled_x_ch_mu
+                age_x = labeled_age_x
+                gender_x = labeled_gender_x
+                x = labeled_x
+                x_mu = labeled_x_mu
                 x_std = labeled_x_std
                 z_mu = labeled_z_mu
                 z_std = labeled_z_std
+                eps = labeled_eps
+                gamma = labeled_gamma
+                delta = labeled_delta
 
             ce_loss = F.cross_entropy(pred_y, real_y)
-            rc_loss = F.gaussian_nll_loss(x_ch_mu, x_ch, x_std, full=True)
+            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,
                 torch.zeros_like(z_mu),
                 torch.ones_like(z_std),
             )
+
+            stand_mean = alpha.expand(age_x.size()) + age_x + gender_x
+            ch_loss = F.gaussian_nll_loss(
+                gamma, x - stand_mean, delta, full=True
+            )
+            alpha_loss = F.gaussian_nll_loss(
+                stand_mean,
+                x,
+                x.var(dim=0, keepdim=True).expand(x.size()),
+                full=True,
+            )
+
             gamma1 = hyperparameters.get("rc_loss", 1)
             gamma2 = hyperparameters.get("kl_loss", 1)
-            total_loss = ce_loss + gamma1 * rc_loss + gamma2 * kl_loss
+            gamma3 = hyperparameters.get("ch_loss", 1)
+            use_alpha_loss = hyperparameters.get("alpha_loss", True)
+
+            if use_alpha_loss:
+                total_loss = (
+                    ce_loss
+                    + gamma1 * rc_loss
+                    + gamma2 * kl_loss
+                    + gamma3 * (ch_loss + alpha_loss)
+                )
+            else:
+                total_loss = (
+                    ce_loss
+                    + gamma1 * rc_loss
+                    + gamma2 * kl_loss
+                    + gamma3 * ch_loss
+                )
             total_loss.backward()
-            vae_optim.step()
+            clip_grad_norm_(self.parameters(), 5.0)
+            optimizer.step()
 
         accuracy = CM.accuracy(real_y, pred_y)
         sensitivity = CM.tpr(real_y, pred_y)
@@ -228,8 +190,7 @@ class VAECH_II(VAECH_I):
 
             res = self(x, age, gender, site)
             pred_y = res["y"]
-            x_ch = res["x_ch"]
-            x_ch_mu = res["x_ch_mu"]
+            x_mu = res["x_mu"]
             x_std = res["x_std"]
             z_mu = res["z_mu"]
             z_std = res["z_std"]
@@ -237,22 +198,28 @@ class VAECH_II(VAECH_I):
             age_x: torch.Tensor = res["age"]
             gender_x = res["gender"]
             eps: torch.Tensor = res["eps"]
+            gamma: torch.Tensor = res["gamma"]
+            delta: torch.Tensor = res["delta"]
 
             ce_loss = F.cross_entropy(pred_y, real_y)
-            rc_loss = F.gaussian_nll_loss(x_ch_mu, x_ch, x_std, full=True)
+            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,
                 torch.zeros_like(z_mu),
                 torch.ones_like(z_std),
             )
-            ch_loss = (
-                F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
-                + (eps ** 2).sum(dim=1).mean()
+
+            stand_mean = alpha.expand(age_x.size()) + age_x + gender_x
+            ch_loss = F.gaussian_nll_loss(
+                gamma, x - stand_mean, delta, full=True
             )
-            alpha_loss = F.mse_loss(
-                alpha.expand(age_x.size()) + age_x + gender_x, x, reduction="none",
-            ).sum(dim=1).mean()
+            alpha_loss = F.gaussian_nll_loss(
+                stand_mean,
+                x,
+                x.var(dim=0, keepdim=True).expand(x.size()),
+                full=True,
+            )
 
         accuracy = CM.accuracy(real_y, pred_y)
         sensitivity = CM.tpr(real_y, pred_y)

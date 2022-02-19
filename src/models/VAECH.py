@@ -324,13 +324,19 @@ class VAECH(ModelBase, LatentSpaceEncoding):
                 torch.zeros_like(z_mu),
                 torch.ones_like(z_std),
             )
-            ch_loss = (eps ** 2).sum(dim=1).mean()
+            # ch_loss = (eps ** 2).sum(dim=1).mean()
             # alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
-            alpha_loss = F.mse_loss(
-                alpha.expand(age_x.size()) + age_x + gender_x,
-                x,
-                reduction="none",
-            ).sum(dim=1).mean()
+
+            ch_loss = (eps.mean(dim=0) ** 2).sum()
+            alpha_loss = (
+                F.mse_loss(
+                    alpha.expand(age_x.size()) + age_x + gender_x,
+                    x,
+                    reduction="none",
+                )
+                .sum(dim=1)
+                .mean()
+            )
 
             gamma1 = hyperparameters.get("rc_loss", 1)
             gamma2 = hyperparameters.get("kl_loss", 1)
@@ -412,13 +418,18 @@ class VAECH(ModelBase, LatentSpaceEncoding):
                 torch.zeros_like(z_mu),
                 torch.ones_like(z_std),
             )
-            ch_loss = (eps ** 2).sum(dim=1).mean()
+            # ch_loss = (eps ** 2).sum(dim=1).mean()
             # alpha_loss = F.mse_loss(alpha, x.mean(dim=0), reduction="sum")
-            alpha_loss = F.mse_loss(
-                alpha.expand(age_x.size()) + age_x + gender_x,
-                x,
-                reduction="none",
-            ).sum(dim=1).mean()
+            ch_loss = (eps.mean(dim=0) ** 2).sum()
+            alpha_loss = (
+                F.mse_loss(
+                    alpha.expand(age_x.size()) + age_x + gender_x,
+                    x,
+                    reduction="none",
+                )
+                .sum(dim=1)
+                .mean()
+            )
 
         accuracy = CM.accuracy(real_y, pred_y)
         sensitivity = CM.tpr(real_y, pred_y)
@@ -438,27 +449,3 @@ class VAECH(ModelBase, LatentSpaceEncoding):
             "precision": precision.item(),
         }
         return metrics
-
-
-if __name__ == "__main__":
-    model = VAECH.load_from_state_dict(
-        "/data/yeww0006/FYP-SSL/.archive/exp20_ABIDE_WHOLE/ssl_ABIDE_1641361495/models/1641372616.pt",
-        dict(
-            num_sites=20,
-            input_size=34716,
-            hidden_size=300,
-            emb_size=150,
-            clf_hidden_1=50,
-            clf_hidden_2=30,
-        ),
-    )
-
-    print(model)
-
-    x = torch.randn((10, 34716))
-    age = torch.randn((10, 1))
-    gender = torch.randn((10, 2))
-    site = torch.randn((10, 20))
-    res = model(x, age, gender, site)
-    for k, v in res.items():
-        print("{}: {}".format(k, v.size()))
