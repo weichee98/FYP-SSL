@@ -207,13 +207,13 @@ class PlotLatentSpace:
         xx, yy, zz = surface
         zz = np.round(zz).astype(int)
 
-        # ax.contourf(xx, yy, zz, **surface_kwargs)
-        ax.imshow(
-            zz,
-            extent=[xx.min(), xx.max(), yy.min(), yy.max()],
-            aspect="equal",
-            **surface_kwargs
-        )
+        ax.contourf(xx, yy, zz, **surface_kwargs)
+        # ax.imshow(
+        #     zz,
+        #     extent=[xx.min(), xx.max(), yy.min(), yy.max()],
+        #     aspect="equal",
+        #     **surface_kwargs
+        # )
         for label, xt in x_dict.items():
             ax.scatter(
                 xt[:, 0],

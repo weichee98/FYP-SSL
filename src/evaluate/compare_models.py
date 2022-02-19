@@ -30,6 +30,20 @@ def read_csv(main_folder: str) -> pd.DataFrame:
     return pd.concat(all_df, axis=0, ignore_index=True).reset_index(drop=True)
 
 
+def color_dict():
+    return {
+        "ASDSAENet (SL)": "goldenrod",
+        "GCN-FCNN (SL)": "gold",
+        "GAE-FCNN (SL)": "orange",
+        "VAE-FFN (SL)": "cadetblue",
+        "VAE-FFN (SSL)": "deepskyblue",
+        "VAE-FFN (SSL ComBat)": "steelblue",
+        "VAECH (SSL)": "tab:green",
+        "VAECH-I (SSL)": "springgreen",
+        "VAECH-II (SSL)": "yellowgreen",
+    }
+
+
 def plot_target_cols():
     return {
         "FFN_AE_VAE": [
@@ -82,6 +96,7 @@ def plot_target_cols():
             "GAE-FCNN (SL)",
             "VAE-FFN (SL)",
             "VAE-FFN (SSL)",
+            "VAECH-I (SSL)",
             "VAE-FFN (SSL ComBat)",
         ],
     }
@@ -107,7 +122,7 @@ def plot_metrics_bar(grouped_df, output_dir, metric_name="accuracy"):
                 target_cols=target_cols,
                 x_axis_label="Labeled Site",
                 num_subjects_y_axis_label="Number of Subjects",
-                color_dict=dict(),
+                color_dict=color_dict(),
             )
 
 
