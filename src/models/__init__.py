@@ -1,5 +1,5 @@
 __all__ = [
-    "FFN" "AE_FFN",
+    "FFN",
     "VAE_FFN",
     "VAECH",
     "VAECH_I",
