@@ -23,7 +23,7 @@ class ExportDocument:
         else:
             table = (mean_df * 100).applymap(lambda x: "{:.2f}".format(x))
 
-        final_mean = mean_df.mean(axis=0)
+        final_mean = mean_df.mean(axis=0) * 100
 
         doc = docx.Document()
         t = doc.add_table(table.shape[0] + 2, table.shape[1] + 1)

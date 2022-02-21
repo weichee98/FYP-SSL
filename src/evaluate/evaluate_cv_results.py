@@ -58,6 +58,17 @@ def evaluate(folder_path: str, cv_results: pd.DataFrame):
         ax.set_ylabel(metric_name)
         ax.set_xlabel(col)
 
+        num_samples = {
+            str(k): v
+            for k, v in cv_results[col].value_counts().to_dict().items()
+        }
+        ax.set_xticklabels(
+            [
+                str(x.get_text()) + "\nn = {}".format(num_samples[x.get_text()])
+                for x in ax.get_xticklabels()
+            ]
+        )
+
         plt.tight_layout()
         f.savefig(
             os.path.join(
