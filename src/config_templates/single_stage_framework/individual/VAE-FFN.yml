@@ -45,12 +45,16 @@ data:
     output_directory: ../.archive/ADHD_INDIVIDUAL
     dataset: ADHD
     labeled_sites:
-      - NYU
-      - PKU
+      # - NYU
+      # - PKU
       - OHSU
       # less than 50 subjects
       - NI
 experiment_settings:
+  -
+    ssl: true
+    harmonize: true
+    validation: false
   -
     ssl: false
     harmonize: false
@@ -58,10 +62,6 @@ experiment_settings:
   -
     ssl: true
     harmonize: false
-    validation: false
-  -
-    ssl: true
-    harmonize: true
     validation: false
 process:
   device: 1
@@ -71,10 +71,5 @@ process:
   save_model_condition:
     -
       dataset: ABIDE
-      labeled_sites: NYU
     -
       dataset: ADHD
-      labeled_sites: NYU
-    -
-      dataset: ADHD
-      labeled_sites: PKU

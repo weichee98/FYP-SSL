@@ -65,10 +65,5 @@ process:
   save_model_condition:
     -
       dataset: ABIDE
-      labeled_sites: NYU
     -
       dataset: ADHD
-      labeled_sites: NYU
-    -
-      dataset: ADHD
-      labeled_sites: PKU
