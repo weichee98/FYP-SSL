@@ -1,6 +1,7 @@
 import os
 import ast
 import sys
+import traceback
 import argparse
 import logging
 import pandas as pd
@@ -51,6 +52,18 @@ def load_model(param: Dict[str, Any]) -> ModelBase:
     return model
 
 
+def parse_sites(sites):
+    if isinstance(sites, float) and np.isnan(sites):
+        return []
+    try:
+        site_list = ast.literal_eval(sites)
+        if isinstance(site_list, (list, tuple)):
+            return list(site_list)
+    except:
+        pass
+    return [sites]
+
+
 def model_score(
     param: Dict[str, Any], data_dict: Dict[str, Data], force: bool
 ) -> Tuple[Optional[np.ndarray], Dict[str, Any]]:
@@ -60,9 +73,20 @@ def model_score(
         if os.path.exists(score_path) and not force:
             scores = np.load(score_path, allow_pickle=True)
         else:
-            data = data_dict[param["dataset"], param["harmonize"]]
+            dataloader: ModelBaseDataloader = data_dict[
+                param["dataset"], param["harmonize"]
+            ]
             model: ModelBase = load_model(param)
-            scores = model.saliency_score(data)
+            try:
+                data = dataloader.load_all_data(num_process=10)["data"]
+                scores = model.saliency_score(data)
+            except:
+                labeled_sites = parse_sites(param["labeled_sites"])
+                unlabeled_sites = parse_sites(param["unlabeled_sites"])
+                data = dataloader.load_all_data(
+                    sites=labeled_sites + unlabeled_sites, num_process=10
+                )["data"]
+                scores = model.saliency_score(data)
             scores = scores.mean(axis=0)
             np.save(score_path, scores)
         param["max_score"] = scores.max()
@@ -72,6 +96,7 @@ def model_score(
         return scores, param
     except Exception as e:
         logging.error(e)
+        traceback.print_exc()
         return None, dict()
 
 
@@ -108,9 +133,7 @@ def generate_score_matrices(
     for dataset in Dataset:
         for harmonize in [True, False]:
             dataloader = ModelBaseDataloader(dataset, harmonize)
-            data_dict[dataset.value, harmonize] = dataloader.load_all_data(
-                num_process=10
-            )["data"]
+            data_dict[dataset.value, harmonize] = dataloader
 
     results = Parallel(n_jobs=n_jobs)(
         delayed(model_score)(param, data_dict, force)
