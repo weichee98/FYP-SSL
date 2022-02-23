@@ -107,7 +107,7 @@ class VAECH_II(VAECH_I):
                 delta = labeled_delta
 
             ce_loss = F.cross_entropy(pred_y, real_y)
-            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std, full=True)
+            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,
@@ -117,7 +117,7 @@ class VAECH_II(VAECH_I):
 
             stand_mean = alpha.expand(age_x.size()) + age_x + gender_x
             ch_loss = F.gaussian_nll_loss(
-                gamma, x - stand_mean, delta, full=True
+                gamma, x - stand_mean, delta ** 2, full=True
             )
             alpha_loss = F.gaussian_nll_loss(
                 stand_mean,
@@ -202,7 +202,7 @@ class VAECH_II(VAECH_I):
             delta: torch.Tensor = res["delta"]
 
             ce_loss = F.cross_entropy(pred_y, real_y)
-            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std, full=True)
+            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,
@@ -212,7 +212,7 @@ class VAECH_II(VAECH_I):
 
             stand_mean = alpha.expand(age_x.size()) + age_x + gender_x
             ch_loss = F.gaussian_nll_loss(
-                gamma, x - stand_mean, delta, full=True
+                gamma, x - stand_mean, delta ** 2, full=True
             )
             alpha_loss = F.gaussian_nll_loss(
                 stand_mean,

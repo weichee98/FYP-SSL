@@ -147,7 +147,7 @@ class VAECH_I(VAECH):
                 eps = labeled_eps
 
             ce_loss = F.cross_entropy(pred_y, real_y)
-            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std, full=True)
+            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,
@@ -239,7 +239,7 @@ class VAECH_I(VAECH):
             eps: torch.Tensor = res["eps"]
 
             ce_loss = F.cross_entropy(pred_y, real_y)
-            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std, full=True)
+            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,

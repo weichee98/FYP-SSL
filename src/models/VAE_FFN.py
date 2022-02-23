@@ -188,7 +188,7 @@ class VAE_FFN(ModelBase, LatentSpaceEncoding):
                 z_std = labeled_z_std
 
             ce_loss = F.cross_entropy(pred_y, real_y)
-            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std, full=True)
+            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,
@@ -238,7 +238,7 @@ class VAE_FFN(ModelBase, LatentSpaceEncoding):
             z_std = res["z_std"]
 
             ce_loss = F.cross_entropy(pred_y, real_y)
-            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std, full=True)
+            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,
