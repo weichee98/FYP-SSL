@@ -27,7 +27,7 @@
 
 ## Run the Code
 
-1. Modify the ``config.yml`` file or create a new ``config.yml`` file as the input to the ``main.py`` script. The ``config.yml`` file contains the necessary arguments required to run the main script.
+1. Modify the ``config.yml`` file ([example](src/config.yml)) or create a new ``config.yml`` file as the input to the ``main.py`` script. The ``config.yml`` file contains the necessary arguments required to run the main script.
 
    - ``output_directory``: The directory in which the results should be stored at
    - ``model_name``: The name to be assigned to the model
@@ -58,4 +58,5 @@
 
 2. Run the main script
 
+        cd src
         python main.py --config <PATH_TO_YML_FILE>
