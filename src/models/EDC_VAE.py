@@ -21,7 +21,7 @@ from models.base import (
 )
 
 
-class VAE_FFN(ModelBase):
+class EDC_VAE(ModelBase):
     def __init__(
         self,
         input_size: int,
