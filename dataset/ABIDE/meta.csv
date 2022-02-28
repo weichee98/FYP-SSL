@@ -1,0 +1,5 @@
+SUBJECT,AGE,GENDER,DISEASE_LABEL,SITE,FC_MATRIX_PATH
+50954,14.75,1,1,NYU,processed_corr_mat/NYU_0050954_power.npy
+51036,8.04,1,0,NYU,processed_corr_mat/NYU_0051036_power.npy
+50433,18.7379,0,0,USM,processed_corr_mat/USM_0050433_power.npy
+50487,25.7972,0,1,USM,processed_corr_mat/USM_0050487_power.npy
