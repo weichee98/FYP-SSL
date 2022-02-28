@@ -101,21 +101,15 @@ class Dataset:
     - FC_MATRIX_PATH
     """
 
-    def __init__(self, data_folder: str, name: str, harmonize: bool = False):
-        self.data_folder = os.path.abspath(data_folder)
+    def __init__(self, data_csv_path: str, name: str, harmonize: bool = False):
+        self.data_csv_path = os.path.abspath(data_csv_path)
+        self.data_folder = os.path.dirname(self.data_csv_path)
         self.name = name
         self.harmonize = harmonize
         self._init_properties_()
 
-    @property
-    def _meta_csv_path(self):
-        csv_path = os.path.join(self.data_folder, "meta.example.csv")
-        if not os.path.exists(csv_path):
-            raise FileNotFoundError
-        return csv_path
-
     def _init_properties_(self):
-        meta_df = pd.read_csv(self._meta_csv_path)
+        meta_df = pd.read_csv(self.data_csv_path)
         X = np.array(
             [
                 np.load(os.path.join(self.data_folder, path))

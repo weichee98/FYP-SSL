@@ -12,7 +12,7 @@ optim_params:
 hyperparameters:
   rc_loss: 0.0001
   kl_loss: 0.001
-dataset_path: ../dataset/ABIDE
+dataset_path: ../dataset/ABIDE/meta.csv
 dataset_name: ABIDE
 seeds:
   - 0
