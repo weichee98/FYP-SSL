@@ -2,7 +2,7 @@ import os
 import sys
 import torch
 import torch.nn.functional as F
-from typing import Any, Optional, Dict, OrderedDict, Tuple
+from typing import Any, Optional, Dict, Tuple
 from torch.nn import Softmax, Tanh
 from torch.optim import Optimizer
 from torch.distributions import Normal
@@ -14,7 +14,6 @@ sys.path.append(__dir__)
 from utils.loss import kl_divergence_loss
 from utils.metrics import ClassificationMetrics as CM
 from models.base import (
-    LatentSpaceEncoding,
     ModelBase,
     FeedForward,
     VariationalDecoder,
@@ -22,7 +21,7 @@ from models.base import (
 )
 
 
-class VAE_FFN(ModelBase, LatentSpaceEncoding):
+class VAE_FFN(ModelBase):
     def __init__(
         self,
         input_size: int,
@@ -56,40 +55,6 @@ class VAE_FFN(ModelBase, LatentSpaceEncoding):
             dropout=dropout,
         )
 
-    @staticmethod
-    def state_dict_mapping() -> dict:
-        return {
-            "log_std": "decoder.log_std",
-            "encoder1.weight": "encoder.hidden.0.0.weight",
-            "encoder1.bias": "encoder.hidden.0.0.bias",
-            "encoder_mu.weight": "encoder.mu.weight",
-            "encoder_mu.bias": "encoder.mu.bias",
-            "encoder_std.weight": "encoder.log_std.weight",
-            "encoder_std.bias": "encoder.log_std.bias",
-            "decoder1.weight": "decoder.decoder.0.0.weight",
-            "decoder1.bias": "decoder.decoder.0.0.bias",
-            "decoder2.weight": "decoder.decoder.1.weight",
-            "decoder2.bias": "decoder.decoder.1.bias",
-            "cls1.weight": "classifier.0.0.weight",
-            "cls1.bias": "classifier.0.0.bias",
-            "cls2.weight": "classifier.1.0.weight",
-            "cls2.bias": "classifier.1.0.bias",
-            "cls3.weight": "classifier.2.weight",
-            "cls3.bias": "classifier.2.bias",
-        }
-
-    @classmethod
-    def update_old_parameters(
-        cls,
-        old_state_dict: OrderedDict[str, torch.Tensor],
-        model_params: Dict[str, Any],
-    ) -> OrderedDict[str, torch.Tensor]:
-        log_std: torch.Tensor = old_state_dict["decoder.log_std"]
-        old_state_dict["decoder.log_std"] = log_std.expand(
-            1, int(model_params.get("input_size", 1))
-        )
-        return old_state_dict
-
     def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor]:
         return self.encoder(x)
 
@@ -116,26 +81,6 @@ class VAE_FFN(ModelBase, LatentSpaceEncoding):
             "z_mu": z_mu,
             "z_std": z_std,
         }
-
-    def ss_forward(self, x: torch.Tensor) -> torch.Tensor:
-        z_mu, _ = self.encode(x)
-        y = self.classify(z_mu)
-        return y
-
-    def ls_forward(self, data: Data) -> torch.Tensor:
-        x: torch.Tensor = data.x
-        z_mu, _ = self.encode(x)
-        return z_mu
-
-    def is_forward(self, data: Data) -> torch.Tensor:
-        return data.x
-
-    def get_surface(self, z: torch.Tensor) -> torch.Tensor:
-        y = self.classify(z)
-        return y
-
-    def get_input_surface(self, x: torch.Tensor) -> torch.Tensor:
-        return self.ss_forward(x)
 
     def train_step(
         self,
@@ -263,23 +208,3 @@ class VAE_FFN(ModelBase, LatentSpaceEncoding):
                 "precision": precision.item(),
             }
         return metrics
-
-
-if __name__ == "__main__":
-    model = VAE_FFN.load_from_state_dict(
-        "/data/yeww0006/FYP-SSL/.archive/exp20_ABIDE_WHOLE/ssl_ABIDE_1639618916/models/1639619128.pt",
-        dict(
-            input_size=34716,
-            hidden_size=300,
-            emb_size=150,
-            clf_hidden_1=50,
-            clf_hidden_2=30,
-        ),
-    )
-
-    print(model)
-
-    x = torch.randn((10, 34716))
-    res = model(x)
-    for k, v in res.items():
-        print("{}: {}".format(k, v.size()))
