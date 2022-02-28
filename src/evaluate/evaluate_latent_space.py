@@ -34,7 +34,10 @@ def parse_sites(site):
     if isinstance(site, float) and np.isnan(site):
         return None
     try:
-        return ast.literal_eval(site)
+        site = ast.literal_eval(site)
+        if isinstance(site, list):
+            return tuple(site)
+        return site
     except:
         return site
 

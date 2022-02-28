@@ -37,10 +37,14 @@ def color_dict():
         "GAE-FCNN (SL)": "orange",
         "VAE-FFN (SL)": "cadetblue",
         "VAE-FFN (SSL)": "deepskyblue",
+        "VAE-FFN (SL ComBat)": "steelblue",
         "VAE-FFN (SSL ComBat)": "steelblue",
         "VAECH (SSL)": "tab:green",
         "VAECH-I (SSL)": "springgreen",
         "VAECH-II (SSL)": "yellowgreen",
+        "VAECH (SL)": "tab:green",
+        "VAECH-I (SL)": "springgreen",
+        "VAECH-II (SL)": "yellowgreen",
     }
 
 
@@ -173,3 +177,5 @@ def main(directory):
 if __name__ == "__main__":
     main("/data/yeww0006/FYP-SSL/.archive/ABIDE_INDIVIDUAL")
     main("/data/yeww0006/FYP-SSL/.archive/ADHD_INDIVIDUAL")
+    main("/data/yeww0006/FYP-SSL/.archive/ABIDE_WHOLE")
+    main("/data/yeww0006/FYP-SSL/.archive/ADHD_WHOLE")
