@@ -1,10 +1,4 @@
-# Disease classification of Alzheimer's Disease and Parkinson’s Disease via Semi-supervised Learning
-
-The human connectome is measured via the structural connectome (SC) which comprises of white matter connections between brain regions, and the functional connectome (FC) which comprises  correlated activations across brain regions. Both have been shown to be useful for early detection of neurodegenerative diseases and many algorithms have been proposed to extract such biomarkers from neuroimaging scans. However, a longstanding issue that has limited the effectiveness of these algorithms is the lack of large datasets, especially for rare diseases. Coupled with the high dimensionality of neuroimaging data, this makes it easy for models to overfit, rendering the discovered biomarkers ungeneralizable and inaccurate.
-
-To address this issue, we will explore semi-supervised techniques to train these models, such that large datasets can be used in the training process to help the model generalise better. Both SC and FC can be expressed as graphs. Thus, graph neural networks are best suited to model these datasets and we will explore techniques such as manifold regularisation, graph Laplacian regularisation and dual learning to train models in a semi-supervised fashion. In the first part of the project, we will be using the Parkinson's Progression Marker Initiative (PPMI) dataset for classification of patients with Parkinson’s Disease. In the second part of the project, we will attempt to use both the Schizconnect dataset and a private dataset to diagnose Schizophrenia. Scans obtained from different sites and via different protocols cannot be trivially combined together. We will apply data harmonisation techniques such as the ComBat algorithm to remove site differences before using the datasets for modelling.
-
-Throughout this project, the student will gain familiarity with deep learning frameworks such as Keras and PyTorch, especially the PyTorch Geometric library. Also, the student will develop an in-depth understanding of semi-supervised learning techniques. The student will be expected to be comfortable with reading and implementing algorithms from research papers and will thus pick up research skills from this experience.
+# Semi-supervised learning with data harmonisation for biomarker discovery from resting state fMRI
 
 ## Environment Setup
 
@@ -17,3 +11,51 @@ Throughout this project, the student will gain familiarity with deep learning fr
 
         chmod u+x ./setup.sh
         ./setup.sh
+
+## Dataset Preparation
+
+1. Process the raw fMRI data to obtain a functional connectivity matrix for each subject scan. The functional connectivity matrices should be saved as ``.npy`` files ([example](dataset/ABIDE/processed_corr_mat/)). There are no specific requirements on where the files should be saved at.
+
+2. Prepare a CSV file ([example](dataset/ABIDE/meta.csv)) which contains the required columns below:
+
+   - ``SUBJECT``: A unique identifier for different subjects
+   - ``AGE``: The age of subjects when the fMRI scan is acquired
+   - ``GENDER``: The gender of subjects
+   - ``DISEASE_LABEL``: The label for disease classification (0 represents cognitive normal subjects, 1 represents diseased subjects)
+   - ``SITE``: The site in which the subject scan is acquired
+   - ``FC_MATRIX_PATH``: The paths to the ``.npy`` files that store the functional connectivity matrices of subjects. This path can either be absolute local path or relative path from the directory of the CSV file.
+
+## Run the Code
+
+1. Modify the ``config.yml`` file or create a new ``config.yml`` file as the input to the ``main.py`` script. The ``config.yml`` file contains the necessary arguments required to run the main script.
+
+   - ``output_directory``: The directory in which the results should be stored at
+   - ``model_name``: The name to be assigned to the model
+   - ``model_params``: The parameters for initializing the EDC-VAE model, including
+        - ``hidden_size``: The number of hidden nodes for encoder and decoder.
+        - ``emb_size``: The dimension of the latent space representation output by the encoder.
+        - ``clf_hidden_1``: The number of hidden nodes in the first hidden layer of classifier.
+        - ``clf_hidden_2``:  The number of hidden nodes in the second hidden layer of classifier.
+        - ``dropout``: The amount of dropout during training.
+   - ``optim_params``: The parameters for initializing Adam optimizer
+        - ``lr``: The learning rate
+        - ``l2_reg``: The L2 regularization
+   - ``hyperparameters``: Additional hyperparameters when training EDC-VAE model
+        - ``rc_loss``: The weightage of reconstruction loss
+        - ``kl_loss``: The weightage of KL divergence
+   - ``dataset_path``: Path to the CSV prepared during dataset preparation stage. This path can be an absolute path, or a relative path from the directory of ``main.py``
+   - ``dataset_name``: The name to be assigned to the dataset
+   - ``seeds``: A list of seeds to iterate through
+   - ``num_fold``: The number of folds for cross validation
+   - ``ssl``: A boolean, indicating whether unlabeled data should be used to train the EDC-VAE model
+   - ``harmonize``: A boolean, indicating whether ComBat harmonization should be performed prior to model training.
+   - ``labeled_sites``: The site used as labeled data, when ``null``, all sites are used as labeled data.
+   - ``device``: The GPU to be used, ``-1`` means to use CPU only
+   - ``verbose``: A boolean, indicating Whether to display training progress messages
+   - ``max_epoch``: The maximum number of epochs
+   - ``patience``: The number of epochs without improvement for early stopping
+   - ``save_model``: A boolean, indicating whether to save EDC-VAE's state_dict.
+
+2. Run the main script
+
+        python main.py --config <PATH_TO_YML_FILE>
