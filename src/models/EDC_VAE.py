@@ -133,7 +133,7 @@ class EDC_VAE(ModelBase):
                 z_std = labeled_z_std
 
             ce_loss = F.cross_entropy(pred_y, real_y)
-            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
+            ll_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,
@@ -141,9 +141,9 @@ class EDC_VAE(ModelBase):
                 torch.ones_like(z_std),
             )
 
-            gamma1 = hyperparameters.get("rc_loss", 1)
+            gamma1 = hyperparameters.get("ll_loss", 1)
             gamma2 = hyperparameters.get("kl_loss", 1)
-            total_loss = ce_loss + gamma1 * rc_loss + gamma2 * kl_loss
+            total_loss = ce_loss + gamma1 * ll_loss + gamma2 * kl_loss
             total_loss.backward()
             optimizer.step()
 
@@ -154,7 +154,7 @@ class EDC_VAE(ModelBase):
         f1_score = CM.f1_score(real_y, pred_y)
         metrics = {
             "ce_loss": ce_loss.item(),
-            "rc_loss": rc_loss.item(),
+            "ll_loss": ll_loss.item(),
             "kl_loss": kl_loss.item(),
             "accuracy": accuracy.item(),
             "sensitivity": sensitivity.item(),
@@ -183,7 +183,7 @@ class EDC_VAE(ModelBase):
             z_std = res["z_std"]
 
             ce_loss = F.cross_entropy(pred_y, real_y)
-            rc_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
+            ll_loss = F.gaussian_nll_loss(x_mu, x, x_std ** 2, full=True)
             kl_loss = kl_divergence_loss(
                 z_mu,
                 z_std ** 2,
@@ -199,7 +199,7 @@ class EDC_VAE(ModelBase):
 
             metrics = {
                 "ce_loss": ce_loss.item(),
-                "rc_loss": rc_loss.item(),
+                "ll_loss": ll_loss.item(),
                 "kl_loss": kl_loss.item(),
                 "accuracy": accuracy.item(),
                 "sensitivity": sensitivity.item(),

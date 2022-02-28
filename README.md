@@ -41,7 +41,7 @@
         - ``lr``: The learning rate
         - ``l2_reg``: The L2 regularization
    - ``hyperparameters``: Additional hyperparameters when training EDC-VAE model
-        - ``rc_loss``: The weightage of reconstruction loss
+        - ``ll_loss``: The weightage of VAE likelihood loss
         - ``kl_loss``: The weightage of KL divergence
    - ``dataset_path``: Path to the CSV prepared during dataset preparation stage. This path can be an absolute path, or a relative path from the directory of ``main.py``
    - ``dataset_name``: The name to be assigned to the dataset
