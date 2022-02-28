@@ -3,10 +3,10 @@ import time
 import random
 import logging
 import traceback
-import subprocess
 import numpy as np
 import torch
 from tqdm import tqdm
+from torch.nn import Module
 
 
 def mkdir(path):
@@ -83,18 +83,5 @@ def get_pbar(max_epoch, verbose):
         return epoch_gen(max_epoch)
 
 
-def get_gpu(num_polling: int = 20):
-    polled_memory_free = list()
-    for _ in range(num_polling):
-        command = "nvidia-smi --query-gpu=memory.free --format=csv"
-        memory_free_info = (
-            subprocess.check_output(command.split())
-            .decode("ascii")
-            .split("\n")[:-1][1:]
-        )
-        memory_free_values = [
-            int(x.split()[0]) for i, x in enumerate(memory_free_info)
-        ]
-        polled_memory_free.append(memory_free_values)
-    gpu = np.argmax(np.mean(memory_free_values, axis=0))
-    return get_device(gpu)
+def count_parameters(model: Module) -> int:
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
