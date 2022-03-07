@@ -239,27 +239,3 @@ class VAECH_II(VAECH_I):
             "precision": precision.item(),
         }
         return metrics
-
-
-if __name__ == "__main__":
-    model = VAECH_II.load_from_state_dict(
-        "/data/yeww0006/FYP-SSL/.archive/exp06_rerun_ffn/ssl_ABIDE_1644486310/models/1644490844.pt",
-        dict(
-            num_sites=20,
-            input_size=34716,
-            hidden_size=300,
-            emb_size=150,
-            clf_hidden_1=50,
-            clf_hidden_2=30,
-        ),
-    )
-
-    print(model)
-
-    x = torch.randn((10, 34716))
-    age = torch.randn((10, 1))
-    gender = torch.randn((10, 2))
-    site = torch.randn((10, 20))
-    res = model(x, age, gender, site)
-    for k, v in res.items():
-        print("{}: {}".format(k, v.size()))

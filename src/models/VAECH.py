@@ -114,61 +114,6 @@ class VAECH(ModelBase, LatentSpaceEncoding):
             dropout=dropout,
         )
 
-    @staticmethod
-    def state_dict_mapping() -> dict:
-        return {
-            "ch.batch_add.weight": "ch.gamma.weight",
-            "ch.batch_add.bias": "ch.gamma.bias",
-            "ch.batch_mul.weight": "ch.delta.weight",
-            "ch.batch_mul.bias": "ch.delta.bias",
-            "log_std": "vae_ffn.decoder.log_std",
-            "encoder1.weight": "vae_ffn.encoder.hidden.0.0.weight",
-            "encoder1.bias": "vae_ffn.encoder.hidden.0.0.bias",
-            "encoder_mu.weight": "vae_ffn.encoder.mu.weight",
-            "encoder_mu.bias": "vae_ffn.encoder.mu.bias",
-            "encoder_std.weight": "vae_ffn.encoder.log_std.weight",
-            "encoder_std.bias": "vae_ffn.encoder.log_std.bias",
-            "decoder1.weight": "vae_ffn.decoder.decoder.0.0.weight",
-            "decoder1.bias": "vae_ffn.decoder.decoder.0.0.bias",
-            "decoder2.weight": "vae_ffn.decoder.decoder.1.weight",
-            "decoder2.bias": "vae_ffn.decoder.decoder.1.bias",
-            "cls1.weight": "vae_ffn.classifier.0.0.weight",
-            "cls1.bias": "vae_ffn.classifier.0.0.bias",
-            "cls2.weight": "vae_ffn.classifier.1.0.weight",
-            "cls2.bias": "vae_ffn.classifier.1.0.bias",
-            "cls3.weight": "vae_ffn.classifier.2.weight",
-            "cls3.bias": "vae_ffn.classifier.2.bias",
-            "vae.log_std": "vae_ffn.decoder.log_std",
-            "vae.encoder1.weight": "vae_ffn.encoder.hidden.0.0.weight",
-            "vae.encoder1.bias": "vae_ffn.encoder.hidden.0.0.bias",
-            "vae.encoder_mu.weight": "vae_ffn.encoder.mu.weight",
-            "vae.encoder_mu.bias": "vae_ffn.encoder.mu.bias",
-            "vae.encoder_std.weight": "vae_ffn.encoder.log_std.weight",
-            "vae.encoder_std.bias": "vae_ffn.encoder.log_std.bias",
-            "vae.decoder1.weight": "vae_ffn.decoder.decoder.0.0.weight",
-            "vae.decoder1.bias": "vae_ffn.decoder.decoder.0.0.bias",
-            "vae.decoder2.weight": "vae_ffn.decoder.decoder.1.weight",
-            "vae.decoder2.bias": "vae_ffn.decoder.decoder.1.bias",
-            "vae.cls1.weight": "vae_ffn.classifier.0.0.weight",
-            "vae.cls1.bias": "vae_ffn.classifier.0.0.bias",
-            "vae.cls2.weight": "vae_ffn.classifier.1.0.weight",
-            "vae.cls2.bias": "vae_ffn.classifier.1.0.bias",
-            "vae.cls3.weight": "vae_ffn.classifier.2.weight",
-            "vae.cls3.bias": "vae_ffn.classifier.2.bias",
-        }
-
-    @classmethod
-    def update_old_parameters(
-        cls,
-        old_state_dict: OrderedDict[str, torch.Tensor],
-        model_params: Dict[str, Any],
-    ) -> OrderedDict[str, torch.Tensor]:
-        log_std: torch.Tensor = old_state_dict["vae_ffn.decoder.log_std"]
-        old_state_dict["vae_ffn.decoder.log_std"] = log_std.expand(
-            1, int(model_params.get("input_size", 1))
-        )
-        return old_state_dict
-
     def combat(
         self,
         x: torch.Tensor,

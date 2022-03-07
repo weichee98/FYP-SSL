@@ -237,31 +237,6 @@ class ModelBase(Module, SaliencyScoreForward):
         )
         return optim
 
-    @abstractstaticmethod
-    def state_dict_mapping() -> dict:
-        raise NotImplementedError
-
-    @classmethod
-    def update_old_parameters(
-        cls,
-        old_state_dict: OrderedDict[str, torch.Tensor],
-        model_params: Dict[str, Any],
-    ) -> OrderedDict[str, torch.Tensor]:
-        return old_state_dict
-
-    @classmethod
-    def _load_from_old_state_dict(
-        cls,
-        old_state_dict: OrderedDict[str, torch.Tensor],
-        model_params: Dict[str, Any],
-    ) -> ModelBase:
-        mapping = cls.state_dict_mapping()
-        state_dict = {mapping.get(k, k): v for k, v in old_state_dict.items()}
-        state_dict = cls.update_old_parameters(state_dict, model_params)
-        model = cls(**model_params)
-        model.load_state_dict(state_dict)
-        return model
-
     @classmethod
     def load_from_state_dict(
         cls,
@@ -272,14 +247,8 @@ class ModelBase(Module, SaliencyScoreForward):
         state_dict: OrderedDict[str, torch.Tensor] = torch.load(
             path, map_location=device
         )
-        try:
-            model = cls(**model_params)
-            model.load_state_dict(state_dict)
-            return model
-        except Exception as e1:
-            if "Missing key(s) in state_dict" in str(e1):
-                return cls._load_from_old_state_dict(state_dict, model_params)
-            raise e1
+        model = cls(**model_params)
+        model.load_state_dict(state_dict)
 
     @abstractmethod
     def train_step(

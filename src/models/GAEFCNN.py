@@ -75,10 +75,6 @@ class GAE(GraphModelBase):
         super().__init__()
         self.encoder = GCN(input_size, emb1, emb2, tau)
 
-    @staticmethod
-    def state_dict_mapping() -> dict:
-        return dict()
-
     def ss_forward(self, *args) -> torch.Tensor:
         raise NotImplementedError
 
@@ -274,10 +270,6 @@ class GFCNN(ModelBase):
             layers.append(Softmax(dim=1))
         self.clf = Sequential(*layers)
 
-    @staticmethod
-    def state_dict_mapping() -> dict:
-        return dict()
-
     def ss_forward(self, *args) -> torch.Tensor:
         raise NotImplementedError
 
@@ -400,10 +392,6 @@ class GCN_FCNN(GraphModelBase):
         self.fcnn = GFCNN(
             emb2 or emb1, num_nodes, clf_hidden_size, clf_output_size
         )
-
-    @staticmethod
-    def state_dict_mapping() -> dict:
-        return dict()
 
     def ss_forward(self, *args) -> torch.Tensor:
         raise NotImplementedError

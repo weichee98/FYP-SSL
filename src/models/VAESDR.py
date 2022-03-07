@@ -76,48 +76,6 @@ class VAESDR(ModelBase, LatentSpaceEncoding):
             emb_size, [], clf_output_size, Softmax(dim=1), dropout=dropout
         )
 
-    @staticmethod
-    def state_dict_mapping() -> dict:
-        return {
-            "log_std": "decoder.log_std",
-            "encoder1.weight": "encoder.hidden.0.0.weight",
-            "encoder1.bias": "encoder.hidden.0.0.bias",
-            "encoder_mu.weight": "encoder.mu.weight",
-            "encoder_mu.bias": "encoder.mu.bias",
-            "encoder_std.weight": "encoder.log_std.weight",
-            "encoder_std.bias": "encoder.log_std.bias",
-            "res_encoder.weight": "disease_encoder.weight",
-            "res_encoder.bias": "disease_encoder.bias",
-            "decoder1.weight": "decoder.decoder.0.0.weight",
-            "decoder1.bias": "decoder.decoder.0.0.bias",
-            "decoder2.weight": "decoder.decoder.1.weight",
-            "decoder2.bias": "decoder.decoder.1.bias",
-            "site_decoder1.weight": "site_decoder.0.0.weight",
-            "site_decoder1.bias": "site_decoder.0.0.bias",
-            "site_decoder2.weight": "site_decoder.1.weight",
-            "site_decoder2.bias": "site_decoder.1.bias",
-            "site_cls.weight": "site_cls.0.weight",
-            "site_cls.bias": "site_cls.0.bias",
-            "disease_cls.weight": "disease_cls.0.weight",
-            "disease_cls.bias": "disease_cls.0.bias",
-            "site_dis.weight": "site_dis.0.weight",
-            "site_dis.bias": "site_dis.0.bias",
-            "disease_dis.weight": "disease_dis.0.weight",
-            "disease_dis.bias": "disease_dis.0.bias",
-        }
-
-    @classmethod
-    def update_old_parameters(
-        cls,
-        old_state_dict: OrderedDict[str, torch.Tensor],
-        model_params: Dict[str, Any],
-    ) -> OrderedDict[str, torch.Tensor]:
-        log_std: torch.Tensor = old_state_dict["decoder.log_std"]
-        old_state_dict["decoder.log_std"] = log_std.expand(
-            1, int(model_params.get("input_size", 1))
-        )
-        return old_state_dict
-
     def encode(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         z_mu, z_std = self.encoder(x)
         return {"z_mu": z_mu, "z_std": z_std}
@@ -748,50 +706,3 @@ class VAESDR(ModelBase, LatentSpaceEncoding):
                 "precision": precision.item(),
             }
         return metrics
-
-
-if __name__ == "__main__":
-    # l1 = list(
-    #     torch.load(
-    #         "/data/yeww0006/FYP-SSL/.archive/exp20_ABIDE_WHOLE/ssl_ABIDE_1641297403/models/1641297649.pt"
-    #     ).keys()
-    # )
-
-    # l2 = list(VAESDR(34716, 300, 150, 20).state_dict().keys())
-    # print(l1)
-    # print(l2)
-    # print(dict(zip(l1, l2)))
-
-    model = VAESDR.load_from_state_dict(
-        "/data/yeww0006/FYP-SSL/.archive/exp20_ABIDE_WHOLE/ssl_ABIDE_1641297403/models/1641297649.pt",
-        dict(
-            num_sites=20,
-            input_size=34716,
-            hidden_size=300,
-            emb_size=150,
-            share_decoder=False,
-        ),
-    )
-    print(model)
-
-    x = torch.randn((10, 34716))
-    res = model(x)
-    for k, v in res.items():
-        print("{}: {}".format(k, v.size()))
-
-    model = VAESDR.load_from_state_dict(
-        "/data/yeww0006/FYP-SSL/.archive/exp20_ABIDE_WHOLE/ssl_ABIDE_1639715346/models/1639716052.pt",
-        dict(
-            num_sites=20,
-            input_size=34716,
-            hidden_size=300,
-            emb_size=150,
-            share_decoder=True,
-        ),
-    )
-    print(model)
-
-    x = torch.randn((10, 34716))
-    res = model(x)
-    for k, v in res.items():
-        print("{}: {}".format(k, v.size()))

@@ -48,25 +48,6 @@ class ASDDiagNet(ModelBase, LatentSpaceEncoding):
             dropout=dropout,
         )
 
-    @staticmethod
-    def state_dict_mapping() -> dict:
-        return {
-            "encoder1.weight": "encoder.0.0.weight",
-            "encoder1.bias": "encoder.0.0.bias",
-            "encoder2.weight": "encoder.1.weight",
-            "encoder2.bias": "encoder.1.bias",
-            "decoder1.weight": "decoder.0.0.weight",
-            "decoder1.bias": "decoder.0.0.bias",
-            "decoder2.weight": "decoder.1.weight",
-            "decoder2.bias": "decoder.1.bias",
-            "cls1.weight": "classifier.0.0.weight",
-            "cls1.bias": "classifier.0.0.bias",
-            "cls2.weight": "classifier.1.0.weight",
-            "cls2.bias": "classifier.1.0.bias",
-            "cls3.weight": "classifier.2.weight",
-            "cls3.bias": "classifier.2.bias",
-        }
-
     def get_optimizer(self, param: dict) -> Optimizer:
         optim = Adam(
             filter(lambda p: p.requires_grad, self.parameters()),
@@ -213,23 +194,3 @@ class ASDDiagNet(ModelBase, LatentSpaceEncoding):
                 "precision": precision.item(),
             }
         return metrics
-
-
-if __name__ == "__main__":
-    model = ASDDiagNet.load_from_state_dict(
-        "/data/yeww0006/FYP-SSL/.archive/exp20_ABIDE_WHOLE/ssl_ABIDE_1639615017/models/1639616389.pt",
-        dict(
-            input_size=34716,
-            hidden_size=300,
-            emb_size=150,
-            clf_hidden_1=50,
-            clf_hidden_2=30,
-        ),
-    )
-    print(model)
-
-    x = torch.randn((10, 34716))
-    res = model(x)
-    for k, v in res.items():
-        print("{}: {}".format(k, v.size()))
-
