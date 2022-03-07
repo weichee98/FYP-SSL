@@ -9,6 +9,7 @@ import copy
 import logging
 import numpy as np
 import torch
+from torch.autograd import detect_anomaly
 from torch_geometric.data import Data
 
 from data import DataloaderBase, Dataset
@@ -224,6 +225,7 @@ class SingleStageFrameworkTrainer(Trainer):
         pbar = get_pbar(max_epoch, verbose)
         for epoch in pbar:
             try:
+                # with detect_anomaly():
                 train_metrics = model.train_step(
                     device,
                     data_dict.get("labeled_train", None),
@@ -240,7 +242,7 @@ class SingleStageFrameworkTrainer(Trainer):
                         device, data_dict.get("test", None)
                     )
             except Exception as e:
-                logging.error(e)
+                logging.error(e, exc_info=True)
             with open(epochs_log_path, "a") as f:
                 f.write(
                     json.dumps(
@@ -439,6 +441,7 @@ class DoubleStageFrameworkTrainer(Trainer):
         pbar = get_pbar(max_epoch, verbose)
         for epoch in pbar:
             try:
+                # with detect_anomaly():
                 train_metrics = ae_model.train_step(
                     device,
                     data_dict.get("labeled_train", None),
@@ -455,7 +458,7 @@ class DoubleStageFrameworkTrainer(Trainer):
                         device, data_dict.get("test", None)
                     )
             except Exception as e:
-                logging.error(e)
+                logging.error(e, exc_info=True)
             with open(ae_epochs_log_path, "a") as f:
                 f.write(
                     json.dumps(
@@ -511,6 +514,7 @@ class DoubleStageFrameworkTrainer(Trainer):
         pbar = get_pbar(max_epoch, verbose)
         for epoch in pbar:
             try:
+                # with detect_anomaly():
                 train_metrics = fcnn_model.train_step(
                     device,
                     new_data_dict.get("labeled_train", None),
@@ -528,8 +532,8 @@ class DoubleStageFrameworkTrainer(Trainer):
                     valid_metrics = fcnn_model.test_step(
                         device, new_data_dict.get("test", None)
                     )
-            except:
-                continue
+            except Exception as e:
+                logging.error(e, exc_info=True)
             with open(fcnn_epochs_log_path, "a") as f:
                 f.write(
                     json.dumps(
