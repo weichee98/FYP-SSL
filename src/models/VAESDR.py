@@ -208,9 +208,15 @@ class VAESDR(ModelBase, LatentSpaceEncoding):
         split_encode_res = self.split_encoding(encode_res["z_mu"])
         return split_encode_res["z_disease"]
 
+    def is_forward(self, data: Data) -> torch.Tensor:
+        return data.x
+
     def get_surface(self, z: torch.Tensor) -> torch.Tensor:
         y = self.classify_disease(z)
         return y
+
+    def get_input_surface(self, x: torch.Tensor) -> torch.Tensor:
+        return self.ss_forward(x)
 
     def get_optimizer(self, param: Dict[str, Any]) -> Dict[str, Optimizer]:
         model_optim = Adam(
