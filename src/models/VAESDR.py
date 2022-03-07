@@ -3,8 +3,7 @@ import sys
 import torch
 from functools import reduce
 import torch.nn.functional as F
-from torch.nn.utils import clip_grad_norm_
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, OrderedDict
 from torch.nn import Linear, Tanh, Softmax
 from torch.distributions import Normal
 from torch.optim import Optimizer, Adam
@@ -559,7 +558,6 @@ class VAESDR(ModelBase, LatentSpaceEncoding):
             )
 
         total_loss.backward()
-        clip_grad_norm_(self.parameters(), 5.0)
         model_optim.step()
         return metrics
 
