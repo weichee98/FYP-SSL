@@ -62,6 +62,7 @@ class DataloaderBase(ABC):
         validation: bool = False,
         labeled_sites: Optional[Union[str, Sequence[str]]] = None,
         unlabeled_sites: Optional[Union[str, Sequence[str]]] = None,
+        num_unlabeled: Optional[int] = None,
     ) -> Dict[str, np.ndarray]:
         if self.dataset == Dataset.ABIDE:
             from ABIDE import get_splits
@@ -103,6 +104,13 @@ class DataloaderBase(ABC):
                 ]
             for idx in indices.values():
                 unlabeled_indices = np.setdiff1d(unlabeled_indices, idx)
+            if (
+                num_unlabeled is not None
+                and len(unlabeled_indices) > num_unlabeled
+            ):
+                unlabeled_indices = np.random.choice(
+                    unlabeled_indices, num_unlabeled
+                )
             indices["unlabeled_train"] = unlabeled_indices
 
         keys = list(indices.keys())
@@ -122,6 +130,7 @@ class DataloaderBase(ABC):
         validation: bool = False,
         labeled_sites: Optional[Union[str, Sequence[str]]] = None,
         unlabeled_sites: Optional[Union[str, Sequence[str]]] = None,
+        num_unlabeled: Optional[int] = None,
         num_process: int = 1,
     ) -> Union[
         Dict[str, Union[int, Data]], Dict[str, Union[int, Sequence[Data]]]
@@ -164,10 +173,17 @@ class ModelBaseDataloader(DataloaderBase):
         validation: bool = False,
         labeled_sites: Optional[Union[str, Sequence[str]]] = None,
         unlabeled_sites: Optional[Union[str, Sequence[str]]] = None,
+        num_unlabeled: Optional[int] = None,
         num_process: int = 1,
     ) -> Dict[str, Union[int, Data]]:
         indices = self._get_indices(
-            seed, fold, ssl, validation, labeled_sites, unlabeled_sites
+            seed,
+            fold,
+            ssl,
+            validation,
+            labeled_sites,
+            unlabeled_sites,
+            num_unlabeled,
         )
 
         if ssl:
@@ -268,10 +284,17 @@ class GraphModelBaseDataloader(DataloaderBase):
         validation: bool = False,
         labeled_sites: Optional[Union[str, Sequence[str]]] = None,
         unlabeled_sites: Optional[Union[str, Sequence[str]]] = None,
+        num_unlabeled: Optional[int] = None,
         num_process: int = 1,
     ) -> Dict[str, Union[int, Sequence[Data]]]:
         indices = self._get_indices(
-            seed, fold, ssl, validation, labeled_sites, unlabeled_sites
+            seed,
+            fold,
+            ssl,
+            validation,
+            labeled_sites,
+            unlabeled_sites,
+            num_unlabeled,
         )
 
         if ssl:

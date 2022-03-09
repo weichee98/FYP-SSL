@@ -60,17 +60,27 @@ class DataConfig:
     class single_data:
         dataset: str
         labeled_sites: Sequence[Optional[Union[str, Sequence[str]]]]
+        unlabeled_sites: Sequence[Optional[Union[str, Sequence[str]]]] = field(
+            default=(None,)
+        )
+        num_unlabeled: Sequence[Optional[Union[str, Sequence[str]]]] = field(
+            default=(None,)
+        )
         output_directory: Optional[str] = field(default=None)
 
     def generate(self):
         return [
             dict(
                 dataset=cfg.dataset,
-                labeled_sites=sites,
+                labeled_sites=labeled_sites,
+                unlabeled_sites=unlabeled_sites,
+                num_unlabeled=num_unlabeled,
                 output_directory=cfg.output_directory,
             )
             for cfg in self.all_data
-            for sites in cfg.labeled_sites
+            for labeled_sites in cfg.labeled_sites
+            for unlabeled_sites in cfg.unlabeled_sites
+            for num_unlabeled in cfg.num_unlabeled
         ]
 
     @staticmethod

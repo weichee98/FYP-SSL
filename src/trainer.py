@@ -182,6 +182,7 @@ class SingleStageFrameworkTrainer(Trainer):
             validation=self.trainer_params.validation,
             labeled_sites=self.trainer_params.labeled_sites,
             unlabeled_sites=self.trainer_params.unlabeled_sites,
+            num_unlabeled=self.trainer_params.num_unlabeled,
             num_process=self.trainer_params.dataloader_num_process,
         )
 
@@ -389,6 +390,7 @@ class DoubleStageFrameworkTrainer(Trainer):
             validation=self.trainer_params.validation,
             labeled_sites=self.trainer_params.labeled_sites,
             unlabeled_sites=self.trainer_params.unlabeled_sites,
+            num_unlabeled=self.trainer_params.num_unlabeled,
             num_process=self.trainer_params.dataloader_num_process,
         )
 
