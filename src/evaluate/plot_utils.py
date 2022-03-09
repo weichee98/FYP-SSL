@@ -28,6 +28,7 @@ class PlotCharts:
         x_axis_label: str = "Labeled Site",
         num_subjects_y_axis_label: str = "Number of Subjects",
         color_dict: Dict[str, str] = dict(),
+        rename_experiments: Dict[str, str] = dict(),
     ):
         metric_name = metric_table.metric_name
         group_name = " ".join(metric_table.group.values())
@@ -41,8 +42,16 @@ class PlotCharts:
             else:
                 metric_std = None
         else:
-            metric_mean = metric_table.mean
-            metric_std = metric_table.std
+            metric_mean = metric_table.mean.copy()
+            metric_std = metric_table.std.copy()
+
+        if rename_experiments:
+            metric_mean.columns = map(
+                lambda x: rename_experiments.get(x, x), metric_mean.columns
+            )
+            metric_std.columns = map(
+                lambda x: rename_experiments.get(x, x), metric_std.columns
+            )
 
         error_kw = dict(ecolor="gray")
         width = max(10, metric_mean.shape[0] * 1.25)

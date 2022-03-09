@@ -45,6 +45,11 @@ def color_dict():
         "VAECH (SL)": "tab:green",
         "VAECH-I (SL)": "springgreen",
         "VAECH-II (SL)": "yellowgreen",
+        "EDC-VAE (SSL)": "deepskyblue",
+        "SHRED (SSL)": "springgreen",
+        "SHRED-II (SSL)": "steelblue",
+        "SHRED-III (SSL)": "yellowgreen",
+        "VAESDR (SSL)": "mediumslateblue",
     }
 
 
@@ -106,6 +111,28 @@ def plot_target_cols():
     }
 
 
+def rename_models():
+    return {
+        "VAE-FFN (SSL)": "EDC-VAE (SSL)",
+        "VAE-FFN (SSL ComBat)": "SHRED-II (SSL)",
+        "VAECH-I (SSL)": "SHRED (SSL)",
+        "VAECH-II (SSL)": "SHRED-III (SSL)",
+    }
+
+
+def rename_plot_target_cols():
+    return {
+        "MICCAI": [
+            "ASDSAENet (SL)",
+            "GAE-FCNN (SL)",
+            "EDC-VAE (SSL)",
+            "SHRED (SSL)",
+            "SHRED-II (SSL)",
+        ],
+        "SHRED": ["SHRED (SSL)", "SHRED-II (SSL)", "SHRED-III (SSL)",],
+    }
+
+
 def plot_metrics_bar(grouped_df, output_dir, metric_name="accuracy"):
     metric_table_list = DataProcessing.prepare_metric_tables_per_group(
         grouped_df=grouped_df,
@@ -127,6 +154,17 @@ def plot_metrics_bar(grouped_df, output_dir, metric_name="accuracy"):
                 x_axis_label="Labeled Site",
                 num_subjects_y_axis_label="Number of Subjects",
                 color_dict=color_dict(),
+            )
+        for file_suffix, target_cols in rename_plot_target_cols().items():
+            PlotCharts.plot_metrics_bar(
+                output_dir=output_dir,
+                file_suffix=file_suffix,
+                metric_table=metric_table,
+                target_cols=target_cols,
+                x_axis_label="Labeled Site",
+                num_subjects_y_axis_label="Number of Subjects",
+                color_dict=color_dict(),
+                rename_experiments=rename_models(),
             )
 
 
