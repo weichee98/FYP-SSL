@@ -8,99 +8,21 @@ model:
   -
     model_name: VAESDR
     model_params:
-      hidden_size: 300
-      emb_size: 150
-      dropout: 0.5
+      hidden_size: 32
+      emb_size: 16
+      clf_hidden_1: 0
+      clf_hidden_2: 0
+      dropout: 0.1
       share_decoder: false
-    optim_params:
-      lr: 0.0001
-      l2_reg: 0.001
     hyperparameters:
       rc_x_loss: 0.00001
-      rc_z_loss: 0.001
-      kl_loss: 0.001
+      rc_z_loss: 0.00001
+      kl_loss: 0.0001
       discriminator_loss: 0
       second_pass_loss: 0
-  -
-    model_name: VAESDR-D
-    model_params:
-      hidden_size: 300
-      emb_size: 150
-      dropout: 0.5
-      share_decoder: false
     optim_params:
-      lr: 0.0001
+      lr: 0.001
       l2_reg: 0.001
-    hyperparameters:
-      rc_x_loss: 0.00001
-      rc_z_loss: 0.001
-      kl_loss: 0.001
-      discriminator_loss: 0.3
-      second_pass_loss: 0
-  -
-    model_name: VAESDR-DS
-    model_params:
-      hidden_size: 300
-      emb_size: 150
-      dropout: 0.5
-      share_decoder: false
-    optim_params:
-      lr: 0.0001
-      l2_reg: 0.001
-    hyperparameters:
-      rc_x_loss: 0.00001
-      rc_z_loss: 0.001
-      kl_loss: 0.001
-      discriminator_loss: 0.3
-      second_pass_loss: 1
-  -
-    model_name: VAESDR-W
-    model_params:
-      hidden_size: 300
-      emb_size: 150
-      dropout: 0.5
-      share_decoder: true
-    optim_params:
-      lr: 0.0001
-      l2_reg: 0.001
-    hyperparameters:
-      rc_x_loss: 0.00001
-      rc_z_loss: 0.001
-      kl_loss: 0.001
-      discriminator_loss: 0
-      second_pass_loss: 0
-  -
-    model_name: VAESDR-DW
-    model_params:
-      hidden_size: 300
-      emb_size: 150
-      dropout: 0.5
-      share_decoder: true
-    optim_params:
-      lr: 0.0001
-      l2_reg: 0.001
-    hyperparameters:
-      rc_x_loss: 0.00001
-      rc_z_loss: 0.001
-      kl_loss: 0.001
-      discriminator_loss: 0.3
-      second_pass_loss: 0
-  -
-    model_name: VAESDR-DSW
-    model_params:
-      hidden_size: 300
-      emb_size: 150
-      dropout: 0.5
-      share_decoder: true
-    optim_params:
-      lr: 0.0001
-      l2_reg: 0.001
-    hyperparameters:
-      rc_x_loss: 0.00001
-      rc_z_loss: 0.001
-      kl_loss: 0.001
-      discriminator_loss: 0.3
-      second_pass_loss: 1
 data:
   -
     output_directory: ../.archive/ABIDE_INDIVIDUAL
@@ -138,17 +60,12 @@ experiment_settings:
     harmonize: false
     validation: false
 process:
-  device: 2
+  device: 1
   verbose: false
   max_epoch: 1000
   patience: 1000
   save_model_condition:
     -
       dataset: ABIDE
-      labeled_sites: NYU
     -
       dataset: ADHD
-      labeled_sites: NYU
-    -
-      dataset: ADHD
-      labeled_sites: PKU
