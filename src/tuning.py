@@ -169,8 +169,10 @@ class BayesianGridSearch(GridSearch):
 
     def acquisition(self):
         self.__gp_model.fit(
-            self.__X[self.__idx_is_sampled],
-            self.__real_scores[self.__idx_is_sampled],
+            self.__X[self.__idx_is_sampled & np.isfinite(self.__real_scores)],
+            self.__real_scores[
+                self.__idx_is_sampled & np.isfinite(self.__real_scores)
+            ],
         )
         sampled_scores = self.__gp_model.predict(
             self.__X[self.__idx_is_sampled]
@@ -206,7 +208,7 @@ class BayesianGridSearch(GridSearch):
             idx = self.acquisition()
             self.__idx_is_sampled[idx] = True
             yield self.__all_param_combinations[idx]
-            self.__real_scores[idx] = np.mean(
+            self.__real_scores[idx] = np.nanmean(
                 list(self._get_last_result().values())
             )
 

@@ -249,6 +249,7 @@ class ModelBase(Module, SaliencyScoreForward):
         )
         model = cls(**model_params)
         model.load_state_dict(state_dict)
+        return model
 
     @abstractmethod
     def train_step(
