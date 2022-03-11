@@ -9,17 +9,17 @@ model:
     model_name: VAECH-II
     model_params:
       hidden_size: 32
-      emb_size: 16
+      emb_size: 32
       clf_hidden_1: 0
       clf_hidden_2: 0
       dropout: 0.2
     hyperparameters:
-      rc_loss: 0.0001
+      rc_loss: 0.00001
       kl_loss: 0.001
-      ch_loss: 0.001
+      ch_loss: 0.0001
       alpha_loss: true
     optim_params:
-      lr: 0.001
+      lr: 0.002
       l2_reg: 0.001
 data:
   -
@@ -58,7 +58,7 @@ experiment_settings:
     harmonize: false
     validation: false
 process:
-  device: 0
+  device: 3
   verbose: false
   max_epoch: 1000
   patience: 1000
