@@ -50,7 +50,9 @@ class PowerCrossleyVisualizer:
 
         sorted_modules_index = np.argsort(-module_frequencies, kind="mergesort")
         sorted_module_labels = module_labels[sorted_modules_index]
-        self._module_bounds = np.cumsum(module_frequencies[sorted_modules_index]) - 1
+        self._module_bounds = (
+            np.cumsum(module_frequencies[sorted_modules_index]) - 1
+        )
 
         node_to_module_index = np.zeros(len(node_labels), dtype=int)
         for i in range(len(sorted_module_labels)):
@@ -119,7 +121,9 @@ class PowerCrossleyVisualizer:
     @staticmethod
     def _get_threshold(data, threshold):
         sorted_graph_data = np.sort(data[data > 0], axis=None)
-        boundary_element_index = np.floor(sorted_graph_data.size * (1 - threshold))
+        boundary_element_index = np.floor(
+            sorted_graph_data.size * (1 - threshold)
+        )
         threshold = sorted_graph_data[int(boundary_element_index)]
         return threshold
 
@@ -173,7 +177,9 @@ class PowerCrossleyVisualizer:
         array_img = nib.Nifti1Image(sensitivity_matrix, affine)
         nib.save(array_img, filename)
 
-    def _prepare_sensitivity_matrix(self, score_matrix, sen_file_path, threshold=0.1):
+    def _prepare_sensitivity_matrix(
+        self, score_matrix, sen_file_path, threshold=0.1
+    ):
         nodal_sensitivity = self._get_nodal_sensitivity(score_matrix, axis=0)
         std = np.std(nodal_sensitivity)
         nodal_sensitivity = nodal_sensitivity / std
@@ -182,14 +188,21 @@ class PowerCrossleyVisualizer:
         self._power_sphere(final_sensitivity, sen_file_path)
 
     def plot_stat_map(
-        self, score_matrix, output_dir, output_prefix="", threshold=0.1, vmax=None
+        self,
+        score_matrix,
+        output_dir,
+        output_prefix="",
+        threshold=0.1,
+        vmax=None,
     ):
         if not os.path.exists("/tmp"):
             os.makedirs("/tmp")
         sen_file_path = "/tmp/temp_{}.nii".format(uuid.uuid4().hex)
 
         try:
-            self._prepare_sensitivity_matrix(score_matrix, sen_file_path, threshold)
+            self._prepare_sensitivity_matrix(
+                score_matrix, sen_file_path, threshold
+            )
 
             output_dir = os.path.abspath(output_dir)
             if not os.path.exists(output_dir):
@@ -262,6 +275,7 @@ class PowerCrossleyVisualizer:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         f.savefig(output_file, bbox_inches="tight", dpi=200)
+        plt.close()
 
     def plot_module_importance_boxplot(
         self, score_matrix, output_file, percentage_modules_to_plot=1.0
@@ -290,7 +304,10 @@ class PowerCrossleyVisualizer:
         )
         plt.ylabel("Importance Score", fontsize=12)
         plt.xticks(
-            np.arange(num_modules_to_plot) + 1, sorted_modules, fontsize=11, rotation=90
+            np.arange(num_modules_to_plot) + 1,
+            sorted_modules,
+            fontsize=11,
+            rotation=90,
         )
         self._mpl_savefig(f, output_file)
         return f
@@ -304,10 +321,16 @@ class PowerCrossleyVisualizer:
     def plot_complete_score_matrix(self, score_matrix, output_file):
         new_matrix = self._rearrange_score_matrix(score_matrix)
         f = plt.figure()
-        plt.imshow(new_matrix.astype(float), cmap="coolwarm", interpolation="nearest")
+        plt.imshow(
+            new_matrix.astype(float), cmap="coolwarm", interpolation="nearest"
+        )
         plt.colorbar()
-        plt.xticks(self._module_bounds, self._module_labels, rotation=90, fontsize=8)
-        plt.yticks(self._module_bounds, self._module_labels, rotation=0, fontsize=8)
+        plt.xticks(
+            self._module_bounds, self._module_labels, rotation=90, fontsize=8
+        )
+        plt.yticks(
+            self._module_bounds, self._module_labels, rotation=0, fontsize=8
+        )
         self._mpl_savefig(f, output_file)
         return f
 
@@ -317,7 +340,10 @@ class PowerCrossleyVisualizer:
         msm = np.zeros((num_clusters, num_clusters))
         for i in range(num_clusters):
             for j in range(i, num_clusters):
-                module_i, module_j = self._module_labels[i], self._module_labels[j]
+                module_i, module_j = (
+                    self._module_labels[i],
+                    self._module_labels[j],
+                )
                 nodes_i = np.argwhere(self._node_labels == module_i).flatten()
                 nodes_j = np.argwhere(self._node_labels == module_j).flatten()
                 connections = score_matrix[nodes_i, :][:, nodes_j]
@@ -329,11 +355,17 @@ class PowerCrossleyVisualizer:
         std = np.std(msm)
         msm = msm / std
         f = plt.figure()
-        plt.imshow(msm.astype(float), cmap="hot", interpolation="nearest", vmax=vmax)
+        plt.imshow(
+            msm.astype(float), cmap="hot", interpolation="nearest", vmax=vmax
+        )
         plt.colorbar()
         ticks = np.arange(len(self._module_labels))
-        plt.xticks(ticks, self._module_labels, rotation=90, fontsize=9, weight="bold")
-        plt.yticks(ticks, self._module_labels, rotation=0, fontsize=9, weight="bold")
+        plt.xticks(
+            ticks, self._module_labels, rotation=90, fontsize=9, weight="bold"
+        )
+        plt.yticks(
+            ticks, self._module_labels, rotation=0, fontsize=9, weight="bold"
+        )
         self._mpl_savefig(f, output_file)
         return f
 

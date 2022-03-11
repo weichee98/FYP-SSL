@@ -244,7 +244,7 @@ def main(args):
     n_jobs = args.worker
     force = args.force
     df, score_matrices = generate_score_matrices(
-        input_dir, output_dir, n_jobs, force
+        input_dir, output_dir, 1, force
     )
     visualize_biomarkers(df, score_matrices, output_dir, n_jobs)
 
