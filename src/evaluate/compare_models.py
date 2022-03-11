@@ -130,6 +130,7 @@ def rename_plot_target_cols():
             "SHRED-II (SSL)",
         ],
         "SHRED": ["SHRED (SSL)", "SHRED-II (SSL)", "SHRED-III (SSL)",],
+        "SHRED_VAESDR": ["SHRED (SSL)", "SHRED-II (SSL)", "SHRED-III (SSL)", "VAESDR (SSL)"],
     }
 
 
