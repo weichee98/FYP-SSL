@@ -10,10 +10,12 @@ class GroupSeedFold:
         df: pd.DataFrame,
         std_cols: Sequence[str] = ("accuracy",),
         accumulate_metrics: Sequence[str] = ("accuracy",),
+        groupby_unlabeled: bool = False,
     ):
         self.df = df
         self.std_cols = std_cols
         self.accumulate_metrics = accumulate_metrics
+        self.groupby_unlabeled = groupby_unlabeled
 
     @property
     def group_overall_cols(self):
@@ -33,12 +35,12 @@ class GroupSeedFold:
 
     @property
     def group_fold_cols(self):
-        return [
-            col
-            for col in (
+        if self.groupby_unlabeled:
+            cols = (
                 "dataset",
-                "labeled_sites", 
-                # "unlabeled_sites",
+                "labeled_sites",
+                "unlabeled_sites",
+                "num_unlabeled_train",
                 "model_name",
                 "model_params",
                 "optim_params",
@@ -46,8 +48,18 @@ class GroupSeedFold:
                 "ssl",
                 "harmonize",
             )
-            if col in self.df.columns
-        ]
+        else:
+            cols = (
+                "dataset",
+                "labeled_sites",
+                "model_name",
+                "model_params",
+                "optim_params",
+                "hyperparameters",
+                "ssl",
+                "harmonize",
+            )
+        return [col for col in cols if col in self.df.columns]
 
     @property
     def group_seed_cols(self):
@@ -89,7 +101,7 @@ class GroupSeedFold:
                     "num_valid",
                     "baseline_accuracy",
                 )
-                if col in self.df.columns
+                if col in self.df.columns and col not in self.group_fold_cols
             ],
             *self.metrics,
             *self.losses,

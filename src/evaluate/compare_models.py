@@ -49,6 +49,7 @@ def color_dict():
         "SHRED (SSL)": "springgreen",
         "SHRED-II (SSL)": "steelblue",
         "SHRED-III (SSL)": "yellowgreen",
+        "VAESDR (SL)": "mediumslateblue",
         "VAESDR (SSL)": "mediumslateblue",
     }
 

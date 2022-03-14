@@ -152,10 +152,16 @@ class PlotCharts:
         target_cols: Sequence[str],
         x_axis_label: str = "Number of Unlabeled Data",
         color_dict: Dict[str, str] = dict(),
+        rename_experiments: Dict[str, str] = dict(),
     ):
         metric_name = metric_table.metric_name
         group_name = " ".join(metric_table.group.values())
         metric_mean = metric_table.mean.sort_index()
+
+        if rename_experiments:
+            metric_mean.columns = map(
+                lambda x: rename_experiments.get(x, x), metric_mean.columns
+            )
 
         width = 10
         height = 5
@@ -179,11 +185,12 @@ class PlotCharts:
             ax1.set_ylabel(metric_name.title())
             plt.legend(loc="best")
             plt.title(
-                "{} {} AGAINST {}".format(
-                    group_name.upper(),
-                    metric_name.upper(),
-                    x_axis_label.upper(),
-                )
+                group_name.upper()
+                # "{} {} AGAINST {}".format(
+                #     group_name.upper(),
+                #     metric_name.upper(),
+                #     x_axis_label.upper(),
+                # )
             )
             plt.tight_layout()
             output_dir = os.path.abspath(output_dir)
