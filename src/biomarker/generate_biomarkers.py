@@ -195,9 +195,12 @@ def plot_biomarkers(
     viz.plot_complete_score_matrix(
         matrix, os.path.join(output_dir, "conn_mat.png")
     )
-    viz.plot_module_sensitivity_map(
+    _, msm, module_labels = viz.plot_module_sensitivity_map(
         matrix, os.path.join(output_dir, "msm.png"), vmax=10
     )
+    param["biomarkers"] = msm.tolist()
+    param["module_labels"] = module_labels.tolist()
+    return param
 
 
 def visualize_biomarkers(
@@ -227,12 +230,14 @@ def visualize_biomarkers(
             raise NotImplementedError
         viz_dict[dataset.value] = viz
 
-    Parallel(n_jobs=n_jobs)(
+    result = Parallel(n_jobs=n_jobs)(
         delayed(plot_biomarkers)(
             param, score_matrices, viz_dict, gcol, output_dir
         )
         for param in tqdm(df.to_dict("records"), ncols=60)
     )
+    result_df = pd.DataFrame(result)
+    result_df.to_parquet(os.path.join(output_dir, "biomarkers.parquet"))
 
 
 def main(args):
@@ -260,7 +265,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--worker",
         type=int,
-        default=1,
+        default=10,
         help="number of workers to run in parallel",
     )
     parser.add_argument("--force", action="store_true")

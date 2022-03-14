@@ -367,7 +367,7 @@ class PowerCrossleyVisualizer:
             ticks, self._module_labels, rotation=0, fontsize=9, weight="bold"
         )
         self._mpl_savefig(f, output_file)
-        return f
+        return f, msm, self._module_labels
 
 
 class ABIDEBiomarkersVisualizer(PowerCrossleyVisualizer):
