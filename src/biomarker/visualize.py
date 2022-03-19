@@ -12,6 +12,50 @@ from nilearn.plotting import plot_connectome, plot_stat_map, plot_roi
 __dir__ = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tempdata")
 
 
+POWER_PATH = os.path.join(__dir__, "power_264_xyz.csv")
+CROSSLEY_PATH = os.path.join(__dir__, "crossley_638_xyz.csv")
+
+
+class PowerCrossleyConverter:
+    def __init__(self, power_path=POWER_PATH, crossley_path=CROSSLEY_PATH):
+        self._node_coords = self._get_coords(power_path)
+        self._map_power_to_crossley_atlas(self._node_coords, crossley_path)
+        self._K = len(self._node_coords)
+
+    def _get_coords(self, node_coords_path):
+        node_coords_df = pd.read_csv(node_coords_path)
+        node_coords = np.array(node_coords_df[["X", "Y", "Z"]])
+        return node_coords
+
+    def _map_power_to_crossley_atlas(self, node_coords, crossley_path):
+        crossley_df = pd.read_csv(crossley_path)
+        crossley_xyz = np.array(crossley_df[["X", "Y", "Z"]])
+        crossley_labels = np.array(crossley_df["crossley_labels"])
+
+        similarity = cdist(node_coords, crossley_xyz, "euclidean")
+        closest_index = np.argmin(similarity, axis=1)
+        node_labels = crossley_labels[closest_index]
+
+        module_labels, node_to_module_index = np.unique(
+            node_labels, return_inverse=True
+        )
+
+        self._module_labels = module_labels
+        self._node_labels = node_labels
+        self._node_to_module_index = node_to_module_index
+
+    def get_functional_connectivities(self, X, y, module1, module2):
+        node1 = np.argwhere(self._node_labels == module1).flatten()
+        node2 = np.argwhere(self._node_labels == module2).flatten()
+        n1, n2 = np.meshgrid(node1, node2)
+        n1 = n1.flatten()
+        n2 = n2.flatten()
+        fc = X[:, n1, n2]
+        control_fc = fc[y == 0]
+        diseased_fc = fc[y == 1]
+        return control_fc, diseased_fc
+
+
 class PowerCrossleyVisualizer:
     def __init__(self, img_file, bg_file, roi_file, power_path, crossley_path):
         self._node_coords = self._get_coords(power_path)
