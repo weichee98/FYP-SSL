@@ -151,6 +151,7 @@ class VAESDR(ModelBase):
         final_result["d_hat"] = self.classify_site(z_site)
         final_result["y_dis"] = self.discriminate_disease(z_site)
         final_result["d_dis"] = self.discriminate_site(z_disease)
+        final_result["y"] = final_result["y_hat"]
         return final_result
 
     def get_optimizer(self, param: Dict[str, Any]) -> Dict[str, Optimizer]:
