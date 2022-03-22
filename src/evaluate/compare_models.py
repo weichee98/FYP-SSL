@@ -51,6 +51,12 @@ def color_dict():
         "SHRED-III (SSL)": "yellowgreen",
         "VAESDR (SL)": "mediumslateblue",
         "VAESDR (SSL)": "mediumslateblue",
+        "ASDSAENet": "goldenrod",
+        "GAE-FCNN": "orange",
+        "EDC-VAE": "deepskyblue",
+        "VAESDR": "mediumslateblue",
+        "SHRED": "springgreen",
+        "SHRED-II": "steelblue",
     }
 
 
@@ -114,24 +120,36 @@ def plot_target_cols():
 
 def rename_models():
     return {
-        "VAE-FFN (SSL)": "EDC-VAE (SSL)",
-        "VAE-FFN (SSL ComBat)": "SHRED-II (SSL)",
-        "VAECH-I (SSL)": "SHRED (SSL)",
-        "VAECH-II (SSL)": "SHRED-III (SSL)",
+        "ASDSAENet (SL)": "ASDSAENet",
+        "GAE-FCNN (SL)": "GAE-FCNN",
+        "VAE-FFN (SSL)": "EDC-VAE",
+        "VAE-FFN (SSL ComBat)": "SHRED-II",
+        # "VAECH-I (SSL)": "SHRED (SSL)",
+        # "VAECH-II (SSL)": "SHRED-III (SSL)",
+        "VAECH-II (SSL)": "SHRED",
+        "VAESDR (SSL)": "VAESDR",
     }
 
 
 def rename_plot_target_cols():
     return {
-        "MICCAI": [
-            "ASDSAENet (SL)",
-            "GAE-FCNN (SL)",
-            "EDC-VAE (SSL)",
-            "SHRED (SSL)",
-            "SHRED-II (SSL)",
+        # "MICCAI": [
+        #     "ASDSAENet (SL)",
+        #     "GAE-FCNN (SL)",
+        #     "EDC-VAE (SSL)",
+        #     "SHRED (SSL)",
+        #     "SHRED-II (SSL)",
+        # ],
+        # "SHRED": ["SHRED (SSL)", "SHRED-II (SSL)", "SHRED-III (SSL)",],
+        # "SHRED_VAESDR": ["SHRED (SSL)", "SHRED-II (SSL)", "SHRED-III (SSL)", "VAESDR (SSL)"],
+        "FYP": [
+            "ASDSAENet",
+            "GAE-FCNN",
+            "EDC-VAE",
+            "VAESDR",
+            "SHRED",
+            "SHRED-II",
         ],
-        "SHRED": ["SHRED (SSL)", "SHRED-II (SSL)", "SHRED-III (SSL)",],
-        "SHRED_VAESDR": ["SHRED (SSL)", "SHRED-II (SSL)", "SHRED-III (SSL)", "VAESDR (SSL)"],
     }
 
 
