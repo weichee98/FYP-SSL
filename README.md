@@ -34,7 +34,7 @@ Data is available for download at the following links: [ABIDE](http://preprocess
 
 ## Run the Code
 
-1. Modify the ``config.yml`` file ([example](src/config.yml)) or create a new ``config.yml`` file as the input to the ``main.py`` script. The ``config.yml`` file contains the necessary arguments required to run the main script.
+1. Modify the ``config.yml`` file ([example](config_template)) or create a new ``config.yml`` file as the input to the ``main.py`` script. The ``config.yml`` file contains the necessary arguments required to run the main script.
 
    - ``output_directory``: The directory in which the results should be stored at
    - ``model_name``: The name to be assigned to the model
