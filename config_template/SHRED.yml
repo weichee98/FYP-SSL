@@ -1,5 +1,5 @@
 output_directory: ../results
-model_name: EDC_VAE
+model_name: SHRED
 model_params:
   hidden_size: 32
   emb_size: 32
@@ -10,8 +10,9 @@ optim_params:
   lr: 0.002
   l2_reg: 0.001
 hyperparameters:
-  ll_loss: 0.0001
+  rc_loss: 0.00001
   kl_loss: 0.001
+  ch_loss: 0.0001
 dataset_path: ../dataset/ABIDE/meta.csv
 dataset_name: ABIDE
 seeds:
@@ -27,10 +28,10 @@ seeds:
   - 9
 num_fold: 5
 ssl: true
-harmonize: true
+harmonize: false
 labeled_sites: NYU
-device: 2
+device: 3
 verbose: true
-max_epoch: 1000
+max_epoch: 10
 patience: 1000
 save_model: true
