@@ -1,8 +1,15 @@
-# Semi-supervised learning with data harmonisation for biomarker discovery from resting state fMRI
+# Semi-supervised Learning of Functional Connectome for Disease Classification
+
+Models were developed in Python using Pytorch v1.8.0. The experiments were performed on an Nvidia P100 GPU.
+- Expected runtime: Depending on the size of the chosen site, a full run of 10 seeds x 5 folds for a single site can take between 1 to 3 hours.
+- Memory footprint: ～4GB of GPU memory
+
+Data is available for download at the following links: [ABIDE](http://preprocessed-connectomes-project.org/abide/), [ADHD](http://preprocessed-connectomes-project.org/adhd200/).
+
 
 ## Environment Setup
 
-1. Create and activate new conda environment
+1. Create and activate new Anaconda environment
 
         conda create -n <env_name> python=3.8
         conda activate <env_name>
@@ -60,3 +67,7 @@
 
         cd src
         python main.py --config <PATH_TO_YML_FILE>
+
+3. Load a saved model and perform inference
+
+        python evaluate.py
