@@ -14,6 +14,9 @@ from torch_geometric.data import Data
 
 from data import Dataset
 from models.EDC_VAE import EDC_VAE
+from models.SHRED import SHRED
+from models.VAESDR import VAESDR
+from models.base import ModelBase
 from utils.misc import (
     get_device,
     get_pbar,
@@ -145,11 +148,9 @@ class Trainer(ABC):
         return (counts.max() / y.size(0)).item()
 
     @abstractmethod
-    def run(self):
+    def get_model(self) -> ModelBase:
         raise NotImplementedError
 
-
-class EDC_VAE_Trainer(Trainer):
     @on_error(None, True)
     def _run_single_seed_fold(
         self, seed: int, fold: int, data_dict: Dict[str, Union[Data, int]]
@@ -166,7 +167,7 @@ class EDC_VAE_Trainer(Trainer):
 
         self.trainer_params.model_params["input_size"] = data_dict["input_size"]
         self.trainer_params.model_params["num_sites"] = data_dict["num_sites"]
-        model = EDC_VAE(**self.trainer_params.model_params)
+        model = self.get_model()
         model_size = count_parameters(model)
         optimizer = model.get_optimizer(self.trainer_params.optim_params)
 
@@ -200,7 +201,7 @@ class EDC_VAE_Trainer(Trainer):
                     device, data_dict.get("test", None)
                 )
             except Exception as e:
-                logging.error(e)
+                logging.error(e, exc_info=True)
             with open(epochs_log_path, "a") as f:
                 f.write(
                     json.dumps(
@@ -241,7 +242,7 @@ class EDC_VAE_Trainer(Trainer):
                 mkdir(os.path.dirname(model_path))
                 torch.save(best_model_state_dict, model_path)
             except Exception as e:
-                logging.error(str(e))
+                logging.error(e, exc_info=True)
                 model_path = None
         else:
             model_path = None
@@ -291,3 +292,18 @@ class EDC_VAE_Trainer(Trainer):
                     df.to_csv(results_csv_path, index=False)
 
         return all_seed_fold_results
+
+
+class EDC_VAE_Trainer(Trainer):
+    def get_model(self):
+        return EDC_VAE(**self.trainer_params.model_params)
+
+
+class SHRED_Trainer(Trainer):
+    def get_model(self):
+        return SHRED(**self.trainer_params.model_params)
+
+
+class VAESDR_Trainer(Trainer):
+    def get_model(self):
+        return VAESDR(**self.trainer_params.model_params)

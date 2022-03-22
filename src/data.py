@@ -123,8 +123,8 @@ class Dataset:
             self.X = X
 
         self.subjects = meta_df["SUBJECT"].values
-        self.ages = meta_df["AGE"].values
-        self.genders = meta_df["GENDER"].values
+        self.ages = meta_df[["AGE"]].values
+        self.genders = meta_df[["GENDER"]].values
         self.sites = meta_df["SITE"].values
         self.y = meta_df["DISEASE_LABEL"].values
 

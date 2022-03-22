@@ -4,11 +4,25 @@ import time
 import yaml
 import logging
 import argparse
-import pandas as pd
 from typing import Any, Dict
 
 from utils.misc import mkdir, seed_torch
-from trainer import EDC_VAE_Trainer, TrainerParams
+from trainer import (
+    EDC_VAE_Trainer,
+    SHRED_Trainer,
+    TrainerParams,
+    VAESDR_Trainer,
+)
+
+
+def get_trainer(model_name: str):
+    if model_name == "EDC_VAE":
+        return EDC_VAE_Trainer
+    elif model_name == "SHRED":
+        return SHRED_Trainer
+    elif model_name == "VAESDR":
+        return VAESDR_Trainer
+    raise NotImplementedError
 
 
 def process(config: Dict[str, Any]):
@@ -34,7 +48,9 @@ def process(config: Dict[str, Any]):
     with open(config_path, "w") as f:
         json.dump(config, f, indent=4, sort_keys=True)
 
-    trainer = EDC_VAE_Trainer(
+    model_name = config.get("model_name")
+    trainer_cls = get_trainer(model_name)
+    trainer = trainer_cls(
         trainer_params=TrainerParams(
             output_directory=output_dir,
             model_name=config.get("model_name"),
@@ -69,7 +85,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="./config.yml",
+        required=True,
         help="the path to the config file",
     )
     args = parser.parse_args()
