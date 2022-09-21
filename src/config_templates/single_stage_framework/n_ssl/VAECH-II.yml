@@ -1,0 +1,122 @@
+seed:
+  min: 0
+  max: 10
+fold:
+  min: 0
+  max: 5
+model:
+  -
+    model_name: VAECH-II
+    model_params:
+      hidden_size: 32
+      emb_size: 32
+      clf_hidden_1: 0
+      clf_hidden_2: 0
+      dropout: 0.2
+    hyperparameters:
+      rc_loss: 0.00001
+      kl_loss: 0.001
+      ch_loss: 0.0001
+      alpha_loss: true
+    optim_params:
+      lr: 0.002
+      l2_reg: 0.001
+data:
+  -
+    output_directory: ../.archive/ABLATION_N_SSL/ABIDE_NYU
+    dataset: ABIDE
+    labeled_sites:
+      - NYU
+    num_unlabeled:
+      - 0
+      - 50
+      - 100
+      - 150
+      - 200
+      - 250
+      - 300
+      - 350
+      - 400
+      - 450
+      - 500
+  -
+    output_directory: ../.archive/ABLATION_N_SSL/ABIDE_TRINITY
+    dataset: ABIDE
+    labeled_sites:
+      - TRINITY
+    num_unlabeled:
+      - 0
+      - 50
+      - 100
+      - 150
+      - 200
+      - 250
+      - 300
+      - 350
+      - 400
+      - 450
+      - 500
+  -
+    output_directory: ../.archive/ABLATION_N_SSL/ABIDE_CALTECH
+    dataset: ABIDE
+    labeled_sites:
+      - CALTECH
+    num_unlabeled:
+      - 0
+      - 50
+      - 100
+      - 150
+      - 200
+      - 250
+      - 300
+      - 350
+      - 400
+      - 450
+      - 500
+  -
+    output_directory: ../.archive/ABLATION_N_SSL/ADHD_NYU
+    dataset: ADHD
+    labeled_sites:
+      - NYU
+    num_unlabeled:
+      - 0
+      - 50
+      - 100
+      - 150
+      - 200
+      - 250
+      - 300
+      - 350
+      - 400
+      - 450
+      - 500
+  -
+    output_directory: ../.archive/ABLATION_N_SSL/ADHD_PKU
+    dataset: ADHD
+    labeled_sites:
+      - PKU
+    num_unlabeled:
+      - 0
+      - 50
+      - 100
+      - 150
+      - 200
+      - 250
+      - 300
+      - 350
+      - 400
+      - 450
+      - 500
+experiment_settings:
+  -
+    ssl: true
+    harmonize: false
+    validation: false
+process:
+  device: 1
+  verbose: false
+  max_epoch: 1000
+  patience: 1000
+  save_model_condition:
+    -
+      dataset: null

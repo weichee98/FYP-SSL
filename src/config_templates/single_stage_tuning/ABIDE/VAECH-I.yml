@@ -1,0 +1,85 @@
+seed:
+  min: 10
+  max: 11
+fold:
+  min: 0
+  max: 5
+data:
+  -
+    output_directory: ../.archive/ABIDE_TUNING
+    dataset: ABIDE
+    labeled_sites:
+      - 
+        - SBL
+        - SDSU
+        - KKI
+experiment_settings:
+  -
+    ssl: false
+    harmonize: false
+    validation: false
+parameters:
+  model_name: VAECH-I
+  model_params:
+    hidden_size: 
+      - 32
+      - 64
+      - 128
+    emb_size:
+      - 16
+      - 32
+      - 64
+    clf_hidden_1:
+      - 0
+    clf_hidden_2:
+      - 0
+    dropout:
+      - 0.0
+      - 0.1
+      - 0.2
+      - 0.3
+  optim_params:
+    lr:
+      - 0.00025
+      - 0.0005
+      - 0.001
+      - 0.002
+      - 0.004
+    l2_reg:
+      - 0.001
+  hyperparameters:
+    rc_loss:
+      - 0.00001
+      - 0.0001
+      - 0.001
+      - 0.01
+      - 0.1
+      - 1.0
+    kl_loss:
+      - 0.0001
+      - 0.001
+      - 0.01
+    ch_loss:
+      - 0.00001
+      - 0.0001
+      - 0.001
+      - 0.01
+      - 0.1
+      - 1.0
+    alpha_loss:
+      - true
+strategy:
+  metric: accuracy
+  direction: maximum
+  sampling_method: bayes_grid
+  sampling_kwargs:
+    num_samples_init: 30
+    num_samples_total: 300
+process:
+  device: 3
+  verbose: false
+  max_epoch: 1000
+  patience: 1000
+  save_model_condition:
+    -
+      dataset: null

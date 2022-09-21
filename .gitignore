@@ -127,3 +127,22 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# vscode
+.vscode
+
+# additional
+run.sh
+.archive
+ref
+data
+experiments
+models
+!src/models
+compare
+nohup*
+*.out
+*.png
+*.jpg
+deprecated
+log

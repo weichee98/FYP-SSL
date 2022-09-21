@@ -1,0 +1,71 @@
+seed:
+  min: 0
+  max: 10
+fold:
+  min: 0
+  max: 5
+model:
+  -
+    model_name: VAESDR
+    model_params:
+      hidden_size: 32
+      emb_size: 16
+      clf_hidden_1: 0
+      clf_hidden_2: 0
+      dropout: 0.1
+      share_decoder: false
+    hyperparameters:
+      rc_x_loss: 0.00001
+      rc_z_loss: 0.00001
+      kl_loss: 0.0001
+      discriminator_loss: 0
+      second_pass_loss: 0
+    optim_params:
+      lr: 0.001
+      l2_reg: 0.001
+data:
+  -
+    output_directory: ../.archive/ABIDE_INDIVIDUAL
+    dataset: ABIDE
+    labeled_sites:
+      - NYU
+      - USM
+      - UM_1
+      - UCLA_1
+      # less than 50 subjects
+      - YALE
+      - TRINITY
+      - MAX_MUN
+      - PITT
+      - CALTECH
+      - STANFORD
+      - LEUVEN_2
+      - UM_2
+      - LEUVEN_1
+      - OLIN
+      - OHSU
+      - UCLA_2
+  -
+    output_directory: ../.archive/ADHD_INDIVIDUAL
+    dataset: ADHD
+    labeled_sites:
+      - NYU
+      - PKU
+      - OHSU
+      # less than 50 subjects
+      - NI
+experiment_settings:
+  -
+    ssl: true
+    harmonize: false
+    validation: false
+process:
+  device: 1
+  verbose: false
+  max_epoch: 1000
+  patience: 1000
+  save_model_condition:
+    -
+      dataset: ABIDE
+    -
+      dataset: ADHD
